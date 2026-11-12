@@ -17,8 +17,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Enter an industry or business type to search for." }, { status: 400 });
   }
 
-  // This searches Google's public index only. It does not access LinkedIn's private member database.
-  const query = `site:linkedin.com/in (owner OR founder OR "managing director" OR director) "${niche}" "${location}"`;
+  // Avoid advanced Google operators: Serper free accounts may reject operator-based query patterns.
+  // Results are filtered to publicly indexed LinkedIn personal profiles below.
+  const query = `LinkedIn owner founder "managing director" director ${niche} ${location}`;
 
   try {
     const response = await fetch("https://google.serper.dev/search", {
@@ -27,12 +28,7 @@ export async function POST(request: NextRequest) {
         "X-API-KEY": key,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        q: query,
-        gl: "gb",
-        hl: "en",
-        num: 20
-      }),
+      body: JSON.stringify({ q: query, gl: "gb", hl: "en", num: 20 }),
       cache: "no-store"
     });
 
@@ -44,7 +40,9 @@ export async function POST(request: NextRequest) {
           ? "Serper rejected the API key. Check SERPER_API_KEY in Vercel."
           : response.status === 429
             ? "Serper search limit reached. Check your Serper account or try again later."
-            : `Serper search failed (HTTP ${response.status}). Please try again.` },
+            : response.status === 400
+              ? "Serper rejected this search query. Try a simpler industry or location."
+              : `Serper search failed (HTTP ${response.status}). Please try again.` },
         { status: 502 }
       );
     }
