@@ -54,7 +54,7 @@ export default function Home() {
       <div className="stat"><span>Clients won</span><strong>{leads.filter(x=>x.status==="Client").length}</strong></div>
     </section>
     <section className="panel">
-      <div className="section-heading"><div><h2>Prospect tracker</h2><p className="muted">Add businesses and decision-makers you find. Keep outreach personal.</p></div><button onClick={exportCsv} disabled={!leads.length}>Export CSV</button></div>
+      <div className="section-heading"><div><h2>Prospect tracker</h2><p className="muted">Add businesses and decision-makers you find. Keep outreach personal.</p></div><div className="row"><a className="button" href="/search">Find clients automatically</a><button onClick={exportCsv} disabled={!leads.length}>Export CSV</button></div></div>
       <form className="lead-form" onSubmit={addLead}>
         <label>Contact name *<input required value={name} onChange={e=>setName(e.target.value)} placeholder="Jane Smith"/></label>
         <label>Company *<input required value={company} onChange={e=>setCompany(e.target.value)} placeholder="ABC Appliance Repairs"/></label>
