@@ -17,9 +17,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Enter an industry or business type to search for." }, { status: 400 });
   }
 
-  // Avoid advanced Google operators: Serper free accounts may reject operator-based query patterns.
-  // Results are filtered to publicly indexed LinkedIn personal profiles below.
-  const query = `LinkedIn owner founder "managing director" director ${niche} ${location}`;
+  // Keep every Serper query plain and minimal. Do not use quotes, site:, or other search operators.
+  // LinkedIn personal profile URLs are filtered locally after results come back.
+  const query = `${niche} ${location}`;
 
   try {
     const response = await fetch("https://google.serper.dev/search", {
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
           : response.status === 429
             ? "Serper search limit reached. Check your Serper account or try again later."
             : response.status === 400
-              ? "Serper rejected this search query. Try a simpler industry or location."
+              ? "Serper rejected the search. Try a shorter industry or location, without special characters."
               : `Serper search failed (HTTP ${response.status}). Please try again.` },
         { status: 502 }
       );
