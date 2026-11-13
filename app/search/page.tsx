@@ -28,19 +28,38 @@ export default function SearchClients() {
     } finally { setBusy(false); }
   }
 
-  function save(item: Result) {
+  async function save(item: Result) {
     try {
       const key = "linkedin-assistant-leads";
-      const leads: Lead[] = JSON.parse(localStorage.getItem(key) || "[]");
-      if (leads.some(x => x.url === item.url)) { setSaved(old => [...old, item.url]); return; }
-      const name = item.title.split(/\s[-–|]\s/)[0].trim();
-      leads.unshift({
+      const name = item.title.split(/\\s[-–|]\\s/)[0].trim();
+      const newLead: Lead = {
         id: crypto.randomUUID(), name, company: item.title, url: item.url,
         status: "To research", followUp: "", notes: item.description
-      });
-      localStorage.setItem(key, JSON.stringify(leads));
+      };
+
+      const cloudResponse = await fetch("/api/prospects", {cache:"no-store"});
+      if (cloudResponse.ok) {
+        const cloud = await cloudResponse.json();
+        const leads: Lead[] = Array.isArray(cloud.leads) ? cloud.leads : [];
+        if (leads.some(x => x.url === item.url)) { setSaved(old => [...old, item.url]); return; }
+        leads.unshift(newLead);
+        const write = await fetch("/api/prospects", {
+          method:"PUT",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({leads})
+        });
+        if (!write.ok) throw new Error("Cloud save failed.");
+        localStorage.setItem(key, JSON.stringify(leads));
+      } else {
+        const leads: Lead[] = JSON.parse(localStorage.getItem(key) || "[]");
+        if (leads.some(x => x.url === item.url)) { setSaved(old => [...old, item.url]); return; }
+        leads.unshift(newLead);
+        localStorage.setItem(key, JSON.stringify(leads));
+      }
       setSaved(old => [...old, item.url]);
-    } catch { setError("Could not save this result in your browser."); }
+    } catch {
+      setError("Could not save this prospect. Check your connection and try again.");
+    }
   }
 
   return <main className="workspace">
