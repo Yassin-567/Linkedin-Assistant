@@ -21,7 +21,12 @@ export default function Home() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    try { setLeads(JSON.parse(localStorage.getItem("linkedin-assistant-leads") || "[]")); } catch {}
+    let localLeads: Lead[] = [];
+    try {
+      const parsed = JSON.parse(localStorage.getItem("linkedin-assistant-leads") || "[]");
+      if (Array.isArray(parsed)) localLeads = parsed;
+      setLeads(localLeads);
+    } catch {}
     setLoaded(true);
     fetch("/api/linkedin/me", {cache:"no-store"})
       .then(r => r.json())
@@ -31,7 +36,20 @@ export default function Home() {
           const response = await fetch("/api/prospects", {cache:"no-store"});
           if (response.ok) {
             const cloud = await response.json();
-            setLeads(Array.isArray(cloud.leads) ? cloud.leads : []);
+            const cloudLeads: Lead[] = Array.isArray(cloud.leads) ? cloud.leads : [];
+            if (cloudLeads.length) {
+              setLeads(cloudLeads);
+            } else if (localLeads.length) {
+              // First cloud login: migrate existing browser prospects instead of overwriting them with an empty list.
+              const migration = await fetch("/api/prospects", {
+                method:"PUT",
+                headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({leads:localLeads})
+              });
+              if (migration.ok) setLeads(localLeads);
+            } else {
+              setLeads([]);
+            }
             setCloudStorage(true);
           }
         }
