@@ -1,33 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(request: NextRequest) {
+export const runtime = "nodejs";
+
+async function runSearch(nicheInput: unknown, locationInput: unknown) {
   const key = process.env.SERPER_API_KEY;
   if (!key) {
     return NextResponse.json(
-      { error: "Search is not configured yet. Add SERPER_API_KEY to the Vercel project's Environment Variables, then redeploy." },
+      { error: "Search is not configured. Add SERPER_API_KEY to Vercel Environment Variables, then redeploy." },
       { status: 503 }
     );
   }
 
-  const body = await request.json().catch(() => ({}));
-  const niche = String(body.niche || "appliance repair").trim().slice(0, 100);
-  const location = String(body.location || "United Kingdom").trim().slice(0, 80);
-
-  if (!niche) {
-    return NextResponse.json({ error: "Enter an industry or business type to search for." }, { status: 400 });
+  const niche = String(nicheInput || "appliance repair").trim().slice(0, 80);
+  const location = String(locationInput || "United Kingdom").trim().slice(0, 60);
+  if (!niche || !location) {
+    return NextResponse.json({ error: "Enter an industry and a location." }, { status: 400 });
   }
 
-  // Keep every Serper query plain and minimal. Do not use quotes, site:, or other search operators.
-  // LinkedIn personal profile URLs are filtered locally after results come back.
+  // Plain industry + location only. Never add search operators or quoted phrases.
   const query = `${niche} ${location}`;
 
   try {
     const response = await fetch("https://google.serper.dev/search", {
       method: "POST",
-      headers: {
-        "X-API-KEY": key,
-        "Content-Type": "application/json"
-      },
+      headers: { "X-API-KEY": key, "Content-Type": "application/json" },
       body: JSON.stringify({ q: query, gl: "gb", hl: "en", num: 20 }),
       cache: "no-store"
     });
@@ -62,28 +58,33 @@ export async function POST(request: NextRequest) {
           const host = parsed.hostname.toLowerCase();
           if ((parsed.protocol !== "https:" && parsed.protocol !== "http:") ||
               !(host === "linkedin.com" || host.endsWith(".linkedin.com")) ||
-              !parsed.pathname.toLowerCase().startsWith("/in/")) {
-            return false;
-          }
+              !parsed.pathname.toLowerCase().startsWith("/in/")) return false;
           const canonical = `${host}${parsed.pathname}`.replace(/\/$/, "").toLowerCase();
           if (seen.has(canonical)) return false;
           seen.add(canonical);
           return true;
-        } catch {
-          return false;
-        }
+        } catch { return false; }
       });
 
     return NextResponse.json({
-      query,
-      results,
-      source: "Publicly indexed LinkedIn profile pages via Google search"
-    });
+      query, results,
+      source: "Publicly indexed LinkedIn personal profile pages via Google search",
+      count: results.length
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Could not reach Serper:", error);
-    return NextResponse.json(
-      { error: "Could not reach Serper. Please try again." },
-      { status: 502 }
-    );
+    return NextResponse.json({ error: "Could not reach Serper. Please try again." }, { status: 502 });
   }
+}
+
+// GET makes public search results available directly to API clients and assistants.
+export async function GET(request: NextRequest) {
+  const params = request.nextUrl.searchParams;
+  return runSearch(params.get("niche"), params.get("location"));
+}
+
+// POST remains available for the app's search interface.
+export async function POST(request: NextRequest) {
+  const body = await request.json().catch(() => ({}));
+  return runSearch(body.niche, body.location);
 }
