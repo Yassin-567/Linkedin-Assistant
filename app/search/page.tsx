@@ -31,7 +31,7 @@ export default function SearchClients() {
   async function save(item: Result) {
     try {
       const key = "linkedin-assistant-leads";
-      const name = item.title.split(/\\s[-–|]\\s/)[0].trim();
+      const name = item.title.split(/\s[-–|]\s/)[0].trim();
       const newLead: Lead = {
         id: crypto.randomUUID(), name, company: item.title, url: item.url,
         status: "To research", followUp: "", notes: item.description
