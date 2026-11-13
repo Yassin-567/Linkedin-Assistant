@@ -18,7 +18,7 @@ async function runSearch(nicheInput: unknown, locationInput: unknown) {
   }
 
   // Plain industry + location only. Never add search operators or quoted phrases.
-  const query = `${niche} ${location}`;
+  const query = `${niche} ${location} LinkedIn owner director`;
 
   try {
     const response = await fetch("https://google.serper.dev/search", {
