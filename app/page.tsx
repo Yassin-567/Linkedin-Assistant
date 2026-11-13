@@ -8,6 +8,7 @@ export default function Home() {
   const [account, setAccount] = useState<{connected:boolean; profile?:{name?:string;email?:string}}>({connected:false});
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [cloudStorage, setCloudStorage] = useState(false);
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
   const [url, setUrl] = useState("");
@@ -20,11 +21,34 @@ export default function Home() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    fetch("/api/linkedin/me", {cache:"no-store"}).then(r => r.json()).then(setAccount).catch(() => {});
     try { setLeads(JSON.parse(localStorage.getItem("linkedin-assistant-leads") || "[]")); } catch {}
     setLoaded(true);
+    fetch("/api/linkedin/me", {cache:"no-store"})
+      .then(r => r.json())
+      .then(async data => {
+        setAccount(data);
+        if (data.connected) {
+          const response = await fetch("/api/prospects", {cache:"no-store"});
+          if (response.ok) {
+            const cloud = await response.json();
+            setLeads(Array.isArray(cloud.leads) ? cloud.leads : []);
+            setCloudStorage(true);
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
-  useEffect(() => { if (loaded) localStorage.setItem("linkedin-assistant-leads", JSON.stringify(leads)); }, [leads, loaded]);
+  useEffect(() => {
+    if (loaded) localStorage.setItem("linkedin-assistant-leads", JSON.stringify(leads));
+  }, [leads, loaded]);
+  useEffect(() => {
+    if (!loaded || !cloudStorage) return;
+    fetch("/api/prospects", {
+      method:"PUT",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({leads})
+    }).catch(() => {});
+  }, [leads, loaded, cloudStorage]);
 
   function addLead(e: React.FormEvent) {
     e.preventDefault();
@@ -66,7 +90,7 @@ export default function Home() {
       </form>
       <div className="toolbar"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search prospects..."/><select value={filter} onChange={e=>setFilter(e.target.value)}><option>All</option>{statuses.map(s=><option key={s}>{s}</option>)}</select></div>
       {shown.length ? <div className="lead-list">{shown.map(x=><article className="lead" key={x.id}><div><strong>{x.name}</strong><div>{x.company}</div>{x.followUp && <small>Follow up: {x.followUp}</small>}{x.notes && <p>{x.notes}</p>}{x.url && <a href={x.url} target="_blank" rel="noreferrer">Open LinkedIn ↗</a>}</div><div className="lead-controls"><select value={x.status} onChange={e=>setLeads(old=>old.map(y=>y.id===x.id?{...y,status:e.target.value}:y))}>{statuses.map(s=><option key={s}>{s}</option>)}</select><button className="delete" onClick={()=>setLeads(old=>old.filter(y=>y.id!==x.id))}>×</button></div></article>)}</div> : <div className="empty"><strong>{leads.length ? "No matching prospects" : "Your pipeline starts here"}</strong><p>Add a UK appliance repair, HVAC or maintenance business to track your next step.</p></div>}
-      <p className="storage-note">Saved in this browser only. Export CSV regularly for backup.</p>
+      <p className="storage-note">{cloudStorage ? "Synced to your private cloud storage and mirrored in this browser." : "Saved in this browser only. Connect LinkedIn to enable private cloud sync."} Export CSV regularly for backup.</p>
     </section>
     <section className="panel"><h2>LinkedIn account</h2>{!account.connected ? <a className="button" href="/api/linkedin/login">Connect LinkedIn</a> : <><p className="muted">Connected as <strong>{account.profile?.name || "LinkedIn member"}</strong> {account.profile?.email || ""}</p><h3>Publish a text post</h3><textarea value={post} onChange={e=>setPost(e.target.value)} maxLength={3000} placeholder="Write your LinkedIn post..."/><div className="row"><span className="muted">{post.length}/3000 characters</span><button disabled={!post.trim()} onClick={publish}>Publish post</button></div><button className="text-button" onClick={async()=>{await fetch("/api/linkedin/logout",{method:"POST"});setAccount({connected:false});}}>Disconnect LinkedIn</button></>}{message && <p className="status">{message}</p>}<p className="muted footnote">No private inbox access, profile scraping or automated connection requests. Prospect details are entered by you.</p></section>
     <footer>LinkedIn Assistant · Early build</footer>
