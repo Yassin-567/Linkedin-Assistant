@@ -7,8 +7,8 @@ type Lead = { id: string; name: string; company: string; url: string; status: st
 function canonical(value: string) {
   try {
     const u = new URL(value);
-    if (!/(^|\\.)linkedin\\.com$/i.test(u.hostname) || !u.pathname.toLowerCase().startsWith("/in/")) return "";
-    return "https://www.linkedin.com" + u.pathname.replace(/\\/$/, "").toLowerCase();
+    if (!/(^|\.)linkedin\.com$/i.test(u.hostname) || !u.pathname.toLowerCase().startsWith("/in/")) return "";
+    return "https://www.linkedin.com" + u.pathname.replace(/\/$/, "").toLowerCase();
   } catch { return ""; }
 }
 
@@ -60,7 +60,7 @@ export default function SearchClients() {
       const leads: Lead[] = Array.isArray(cloud.leads) ? cloud.leads : [];
       const url = canonical(item.url);
       if (leads.some(x => canonical(x.url) === url)) { setSaved(old => [...old, item.url]); return; }
-      const name = item.title.split(/\\s[-–|]\\s/)[0].trim();
+      const name = item.title.split(/\s[-–|]\s/)[0].trim();
       leads.unshift({id:crypto.randomUUID(),name,company:item.title,url,status:"To research",followUp:"",notes:item.description});
       const write = await fetch("/api/prospects", {method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({leads})});
       if (!write.ok) throw new Error("Cloud save failed.");
