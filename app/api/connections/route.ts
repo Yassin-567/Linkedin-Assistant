@@ -61,17 +61,17 @@ function normalizeConnections(value: unknown): Connection[] | null {
   return [...byUrl.values()];
 }
 
-async function readConnections(pathname: string): Promise<Connection[]> {
+async function readConnections(pathname: string): Promise<{ connections: Connection[]; importedAt: string }> {
   try {
     const file = await get(pathname, { access: "private", useCache: false });
-    if (!file || file.statusCode !== 200 || !file.stream) return [];
+    if (!file || file.statusCode !== 200 || !file.stream) return { connections: [], importedAt: "" };
     const raw = await new Response(file.stream).text();
-    const parsed = JSON.parse(raw) as { connections?: unknown };
+    const parsed = JSON.parse(raw) as { connections?: unknown; importedAt?: string };
     const connections = normalizeConnections(parsed.connections);
     if (!connections) throw new Error("Stored connection data has an invalid format.");
-    return connections;
+    return { connections, importedAt: parsed.importedAt || "" };
   } catch (error) {
-    if (error instanceof Error && /not found|does not exist/i.test(error.message)) return [];
+    if (error instanceof Error && /not found|does not exist/i.test(error.message)) return { connections: [], importedAt: "" };
     throw error;
   }
 }
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
         .filter((blob) => blob.pathname.endsWith(".json"))
         .map(async (blob) => ({
           personId: blob.pathname.slice("connections/".length, -".json".length),
-          connections: await readConnections(blob.pathname)
+          ...await readConnections(blob.pathname)
         })));
       return NextResponse.json({
         accounts,
@@ -96,8 +96,9 @@ export async function GET(request: NextRequest) {
     if (!access.personId) {
       return NextResponse.json({ error: "Connect your LinkedIn account first." }, { status: 401 });
     }
-    const connections = await readConnections(`connections/${encodeURIComponent(access.personId)}.json`);
-    return NextResponse.json({ connections, count: connections.length }, {
+    const stored = await readConnections(`connections/${encodeURIComponent(access.personId)}.json`);
+    const connections = stored.connections;
+    return NextResponse.json({ connections, count: connections.length, importedAt: stored.importedAt }, {
       headers: { "Cache-Control": "private, no-store" }
     });
   } catch (error) {
