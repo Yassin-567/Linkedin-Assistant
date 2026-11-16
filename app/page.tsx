@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-type Lead = { id: string; name: string; company: string; url: string; status: string; followUp: string; notes: string };
+type Lead = { id: string; name: string; company: string; url: string; status: string; followUp: string; notes: string; connected?: boolean; connectedOn?: string };
 const statuses = ["To research", "Ready to contact", "Contacted", "Replied", "Call booked", "Client", "Not a fit"];
 
 export default function Home() {
@@ -76,7 +76,7 @@ export default function Home() {
   }
   function exportCsv() {
     const q = (s:string) => '"' + s.replace(/"/g,'""') + '"';
-    const rows = [["Name","Company","LinkedIn URL","Status","Follow-up","Notes"], ...leads.map(x => [x.name,x.company,x.url,x.status,x.followUp,x.notes])];
+    const rows = [["Name","Company","LinkedIn URL","Status","Follow-up","Notes","Connected","Connected on"], ...leads.map(x => [x.name,x.company,x.url,x.status,x.followUp,x.notes,x.connected ? "Yes" : "No",x.connectedOn || ""])];
     const blob = new Blob([rows.map(row => row.map(q).join(",")).join("\n")], {type:"text/csv"});
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "uk-bookkeeping-prospects.csv"; a.click(); URL.revokeObjectURL(a.href);
   }
@@ -107,7 +107,7 @@ export default function Home() {
         <div className="wide form-footer"><span className="muted">* Required</span><button type="submit">+ Save prospect</button></div>
       </form>
       <div className="toolbar"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search prospects..."/><select value={filter} onChange={e=>setFilter(e.target.value)}><option>All</option>{statuses.map(s=><option key={s}>{s}</option>)}</select></div>
-      {shown.length ? <div className="lead-list">{shown.map(x=><article className="lead" key={x.id}><div><strong>{x.name}</strong><div>{x.company}</div>{x.followUp && <small>Follow up: {x.followUp}</small>}{x.notes && <p>{x.notes}</p>}{x.url && <a href={x.url} target="_blank" rel="noreferrer">Open LinkedIn ↗</a>}</div><div className="lead-controls"><select value={x.status} onChange={e=>setLeads(old=>old.map(y=>y.id===x.id?{...y,status:e.target.value}:y))}>{statuses.map(s=><option key={s}>{s}</option>)}</select><button className="delete" onClick={()=>setLeads(old=>old.filter(y=>y.id!==x.id))}>×</button></div></article>)}</div> : <div className="empty"><strong>{leads.length ? "No matching prospects" : "Your pipeline starts here"}</strong><p>Add a UK appliance repair, HVAC or maintenance business to track your next step.</p></div>}
+      {shown.length ? <div className="lead-list">{shown.map(x=><article className="lead" key={x.id}><div><strong>{x.name}</strong><div>{x.company}</div>{x.connected && <span className="connected-tag">✓ Connected{x.connectedOn ? ` · ${x.connectedOn}` : ""}</span>}{x.followUp && <small>Follow up: {x.followUp}</small>}{x.notes && <p>{x.notes}</p>}{x.url && <a href={x.url} target="_blank" rel="noreferrer">Open LinkedIn ↗</a>}</div><div className="lead-controls"><select value={x.status} onChange={e=>setLeads(old=>old.map(y=>y.id===x.id?{...y,status:e.target.value}:y))}>{statuses.map(s=><option key={s}>{s}</option>)}</select><button className="delete" onClick={()=>setLeads(old=>old.filter(y=>y.id!==x.id))}>×</button></div></article>)}</div> : <div className="empty"><strong>{leads.length ? "No matching prospects" : "Your pipeline starts here"}</strong><p>Add a UK appliance repair, HVAC or maintenance business to track your next step.</p></div>}
       <p className="storage-note">{cloudStorage ? "Synced to your private cloud storage and mirrored in this browser." : "Saved in this browser only. Connect LinkedIn to enable private cloud sync."} Export CSV regularly for backup.</p>
     </section>
     <section className="panel"><h2>LinkedIn account</h2>{!account.connected ? <a className="button" href="/api/linkedin/login">Connect LinkedIn</a> : <><p className="muted">Connected as <strong>{account.profile?.name || "LinkedIn member"}</strong> {account.profile?.email || ""}</p><h3>Publish a text post</h3><textarea value={post} onChange={e=>setPost(e.target.value)} maxLength={3000} placeholder="Write your LinkedIn post..."/><div className="row"><span className="muted">{post.length}/3000 characters</span><button disabled={!post.trim()} onClick={publish}>Publish post</button></div><button className="text-button" onClick={async()=>{await fetch("/api/linkedin/logout",{method:"POST"});setAccount({connected:false});}}>Disconnect LinkedIn</button></>}{message && <p className="status">{message}</p>}<p className="muted footnote">No private inbox access, profile scraping or automated connection requests. Prospect details are entered by you.</p></section>
