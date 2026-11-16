@@ -55,3 +55,16 @@ CREATE TABLE IF NOT EXISTS assistant_tokens (
 CREATE INDEX IF NOT EXISTS assistant_tokens_user_idx ON assistant_tokens(user_id);
 
 ALTER TABLE assistant_tokens ADD COLUMN IF NOT EXISTS read_used_at timestamptz;
+
+CREATE TABLE IF NOT EXISTS linkedin_connections (
+  user_id text NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+  normalized_linkedin_url text NOT NULL,
+  name text NOT NULL DEFAULT '',
+  email text NOT NULL DEFAULT '',
+  company text NOT NULL DEFAULT '',
+  position text NOT NULL DEFAULT '',
+  connected_on text NOT NULL DEFAULT '',
+  imported_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY(user_id, normalized_linkedin_url)
+);
+CREATE INDEX IF NOT EXISTS linkedin_connections_user_idx ON linkedin_connections(user_id);
