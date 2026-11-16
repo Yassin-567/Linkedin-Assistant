@@ -30,3 +30,11 @@ button:disabled { opacity:.45; }
 .status { padding:10px; background:#f0f6f4; border-radius:8px; }
 footer { text-align:center; color:#98a3a8; font-size:11px; padding:12px; }
 @media(max-width:700px) { .workspace { width:calc(100% - 24px); margin:22px auto; } .stats { grid-template-columns:repeat(2,1fr); } .lead-form { grid-template-columns:1fr; } .wide { grid-column:auto; } .lead { flex-direction:column; } .toolbar { flex-direction:column; } .toolbar select { width:100%; } .lead-controls select { flex:1; } }
+
+.button.secondary { background:#eef5f2; color:#17664f; }
+.connected-tag { display:inline-block; color:#087b5b; background:#f1faf6; font-size:11px; font-weight:700; border-radius:5px; padding:4px 7px; margin:6px 0; }
+.suggestions { display:flex; flex-wrap:wrap; gap:7px; margin-top:8px; }
+.suggestion { background:#eef5f2; color:#17664f; border:1px solid #dcebe4; border-radius:20px; padding:7px 11px; font-size:12px; }
+.status.success { color:#087b5b; }
+.upload-box { display:block; border:1px dashed #b8ccc5; border-radius:10px; padding:20px; cursor:pointer; text-align:center; color:#087b5b; font-weight:700; }
+.upload-box input { display:block; max-width:280px; margin:12px auto 0; }
