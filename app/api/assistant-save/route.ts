@@ -14,15 +14,14 @@ export async function GET(request:NextRequest){
   const stored=await get(tokenPath,{access:"private",useCache:false});if(!stored||stored.statusCode!==200||!stored.stream)return NextResponse.json({error:"Token not found or already used."},{status:401,headers:{"Cache-Control":"no-store"}});
   const grant=JSON.parse(await new Response(stored.stream).text()) as {personId?:string;expiresAt?:number;usedAt?:number|null};
   if(!grant.personId||!grant.expiresAt||grant.expiresAt<Date.now()||grant.usedAt)return NextResponse.json({error:"Token expired or already used. Generate a new one in the app."},{status:401,headers:{"Cache-Control":"no-store"}});
+  await put(tokenPath,JSON.stringify({...grant,usedAt:Date.now()}),{access:"private",addRandomSuffix:false,allowOverwrite:true,contentType:"application/json"});
   const path="prospects/"+encodeURIComponent(grant.personId)+".json";const leads=await read(path);
   if(leads.some(x=>canonical(x.url)===url)){
-   await put(tokenPath,JSON.stringify({...grant,usedAt:Date.now()}),{access:"private",addRandomSuffix:false,allowOverwrite:true,contentType:"application/json"});
    return NextResponse.json({ok:true,duplicate:true,message:"This LinkedIn profile is already saved."},{headers:{"Cache-Control":"no-store"}});
   }
   if(leads.length>=1000)return NextResponse.json({error:"Your prospect list has reached its 1,000-record limit."},{status:409,headers:{"Cache-Control":"no-store"}});
   const lead:Lead={id:crypto.randomUUID(),name,company,url,status:"To research",followUp:"",notes:"Added through the temporary ChatGPT save link.",connected:false};
   await put(path,JSON.stringify({leads:[lead,...leads],updatedAt:new Date().toISOString()}),{access:"private",addRandomSuffix:false,allowOverwrite:true,contentType:"application/json"});
-  await put(tokenPath,JSON.stringify({...grant,usedAt:Date.now()}),{access:"private",addRandomSuffix:false,allowOverwrite:true,contentType:"application/json"});
   return NextResponse.json({ok:true,saved:true,name,company,url},{headers:{"Cache-Control":"no-store"}});
  }catch(error){console.error("Assistant prospect save failed:",error);return NextResponse.json({error:"Could not save this prospect."},{status:500,headers:{"Cache-Control":"no-store"}});}
 }
