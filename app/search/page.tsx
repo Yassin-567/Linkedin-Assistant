@@ -3,8 +3,8 @@ import { useState } from "react";
 type Result={title:string;url:string;description:string};
 type Lead={id:string;name:string;company:string;url:string;status:string;followUp:string;notes:string;connected?:boolean};
 const suggestions=["appliance repair","HVAC","boiler repair","property maintenance","facilities management","electrical contractors","plumbing and heating","commercial refrigeration","field service"];
-function canonical(value:string){try{const u=new URL(value);if(!/(^|\\.)linkedin\\.com$/i.test(u.hostname)||!u.pathname.toLowerCase().startsWith("/in/"))return "";return "https://www.linkedin.com"+u.pathname.replace(/\\/$/,"").toLowerCase();}catch{return "";}}
-function profileName(title:string){return title.split(/\\s[-–|]\\s/)[0].replace(/\\s*\\|\\s*LinkedIn.*$/i,"").trim().slice(0,200)||"LinkedIn prospect";}
+function canonical(value:string){try{const u=new URL(value);if(!/(^|\.)linkedin\.com$/i.test(u.hostname)||!u.pathname.toLowerCase().startsWith("/in/"))return "";return "https://www.linkedin.com"+u.pathname.replace(/\/$/,"").toLowerCase();}catch{return "";}}
+function profileName(title:string){return title.split(/\s[-–|]\s/)[0].replace(/\s*\|\s*LinkedIn.*$/i,"").trim().slice(0,200)||"LinkedIn prospect";}
 export default function SearchClients(){
  const[niche,setNiche]=useState("appliance repair"),[location,setLocation]=useState("United Kingdom"),[results,setResults]=useState<Result[]>([]),[busy,setBusy]=useState(false),[savingAll,setSavingAll]=useState(false),[error,setError]=useState(""),[saved,setSaved]=useState<string[]>([]),[excluded,setExcluded]=useState(0),[saveSummary,setSaveSummary]=useState("");
  async function search(){setBusy(true);setError("");setResults([]);setSaved([]);setExcluded(0);setSaveSummary("");try{
