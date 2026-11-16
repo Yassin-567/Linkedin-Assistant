@@ -6,7 +6,7 @@ const countryCodes:Record<string,string>={"united kingdom":"gb","uk":"gb","unite
 async function runSearch(userId:string,nicheInput:unknown,locationInput:unknown){
  const key=process.env.SERPER_API_KEY;if(!key)return NextResponse.json({error:"Search is not configured. Add SERPER_API_KEY to Vercel Environment Variables."},{status:503});
  try{
-  const sql=db();const rows=await sql`SELECT industries,keywords,job_titles,countries,excluded_keywords,language FROM user_preferences WHERE user_id=${userId}`;
+  const sql=db();const rows:any=await sql`SELECT industries,keywords,job_titles,countries,excluded_keywords,language FROM user_preferences WHERE user_id=${userId}`;
   const pref=rows[0] as any;if(!pref)return NextResponse.json({error:"Set up your search preferences first."},{status:400});
   const niche=String(nicheInput||pref.industries?.[0]||"").trim().slice(0,100);
   const location=String(locationInput||pref.countries?.[0]||"").trim().slice(0,80);
