@@ -1,31 +1,48 @@
 # LinkedIn Assistant
 
-A small Next.js application that connects one LinkedIn member account using LinkedIn OAuth and supports publishing reviewed text posts to that member's personal profile.
+A global, individual-account prospecting workspace. Every Google-authenticated user has private preferences, prospects, and imported connection data. There are no teams, shared prospect lists, or in-app subscription tiers.
 
-## Current scope
+## Current architecture
 
-- LinkedIn OAuth 2.0 authorization-code flow.
-- OpenID Connect profile lookup.
-- Encrypted, HTTP-only session cookie.
-- Publish a text-only member post through LinkedIn's Posts API.
-- Disconnect the local session.
+- Google OAuth 2.0 sign-in with verified email.
+- Neon PostgreSQL as the source of truth.
+- Per-user countries, industries, keywords, decision-maker titles, exclusions, language and profile summary.
+- Per-user prospects and imported LinkedIn connections.
+- Database uniqueness on `(user_id, normalized_linkedin_url)` prevents duplicate profile saves, including concurrent writes.
+- ChatGPT handoff using short-lived user-scoped read and bulk-save links. ChatGPT can read a user's prospect list once and save one batch of up to 50 prospects. Read and write links expire after 10 minutes; the save token can be used for one batch only.
+- Public search via the existing Serper provider. Results are filtered against each user's own saved prospects and imported connections in the app.
 
-## Not included
+## Setup
 
-The currently enabled self-serve LinkedIn permissions do not provide private inbox access, prospect search, automated connection requests, or general profile scraping. Do not treat this app as an inbox automation tool. These capabilities require separate approved access or another compliant data source.
+1. Create a Neon PostgreSQL database (the Neon free tier may be sufficient for an early test).
+2. Run the SQL in `db/schema.sql` against that database.
+3. Create Google OAuth credentials in Google Cloud Console. Add this exact redirect URI: `https://YOUR_DOMAIN/api/auth/google/callback`.
+4. Configure the environment variables below in Vercel and redeploy.
+5. Set `APP_URL` to the public application origin.
 
-## Required environment variables
+## Environment variables
 
-Copy `.env.example` into your deployment environment and set:
+- `DATABASE_URL`: Neon PostgreSQL connection string. Keep server-side only.
+- `GOOGLE_CLIENT_ID`: Google OAuth client ID.
+- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret. Keep server-side only.
+- `GOOGLE_REDIRECT_URI`: Exact HTTPS callback URL registered in Google Cloud.
+- `APP_URL`: Public application origin.
+- `SESSION_SECRET`: Random secret of at least 32 characters.
+- `SERPER_API_KEY`: Search provider API key. This is separate from any LinkedIn Assistant app subscription.
 
-- `LINKEDIN_CLIENT_ID`: LinkedIn app client ID.
-- `LINKEDIN_CLIENT_SECRET`: LinkedIn app client secret. Keep it server-side only.
-- `LINKEDIN_REDIRECT_URI`: Exact HTTPS callback URL registered in the LinkedIn developer app.
-- `APP_URL`: Public base URL of this deployment.
-- `SESSION_SECRET`: A random secret of at least 32 characters used to encrypt the session cookie.
-- `LINKEDIN_VERSION`: LinkedIn REST API version in YYYYMM format.
+## ChatGPT bulk-save workflow
 
-Enable **Sign In with LinkedIn using OpenID Connect** and **Share on LinkedIn** in the LinkedIn developer portal. The OAuth scopes requested by this app are `openid profile email w_member_social`.
+1. Sign in to the app with Google.
+2. Generate the temporary ChatGPT links on the home page.
+3. Give ChatGPT both links. First it calls the read link to check existing prospects and the user's profile context; then it researches new prospects and POSTs a batch to the save link.
+4. The save endpoint validates LinkedIn personal profile URLs and inserts records only for the user who generated the token. Existing profile URLs are returned as duplicates.
+5. The temporary links are credentials. Do not share them publicly. Generate a fresh pair for each ChatGPT task.
+
+The app's bulk-save flow does not require a paid LinkedIn Assistant plan or a LinkedIn OAuth connection. ChatGPT plan/feature availability is controlled by ChatGPT itself. Search-provider usage may have its own limits or charges.
+
+## Existing data
+
+The previous prototype stored prospects and imported connections in private Vercel Blob JSON files, keyed by LinkedIn member ID. The new schema is ready for migration, but legacy Blob records are not automatically assigned to a Google account: they must be claimed by the original account owner before migration to avoid exposing one user's data to another. Browser-local prospects are migrated by the app on the first Google sign-in when no database prospects exist.
 
 ## Local development
 
@@ -34,11 +51,4 @@ npm install
 npm run dev
 ```
 
-Register `http://localhost:3000/api/linkedin/callback` as a redirect URI for local testing, and set matching local environment variables.
-
-## Security notes
-
-- OAuth state is checked on callback.
-- Access tokens are encrypted before being stored in an HTTP-only, SameSite=Lax cookie.
-- Never commit `.env` or expose the LinkedIn client secret.
-- The first release is a supervised prototype. Test with a non-sensitive post before relying on it.
+Run `db/schema.sql` before signing in. Never commit real environment variables or tokens.
