@@ -10,7 +10,7 @@ export default function SearchClients(){
  useEffect(()=>{fetch("/api/preferences",{cache:"no-store"}).then(r=>r.json()).then(d=>{const p=d.preferences;if(p){setNiche(p.industries?.[0]||"");setLocation(p.countries?.[0]||"");}}).catch(()=>{});},[]);
  async function search(){setBusy(true);setError("");setResults([]);setSaved([]);setExcluded(0);setSaveSummary("");try{
   const [r,c,p]=await Promise.all([fetch("/api/prospect-search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({niche,location})}),fetch("/api/connections",{cache:"no-store"}),fetch("/api/prospects",{cache:"no-store"})]);
-  const data=await r.json();if(!r.ok)throw new Error(data.error||"Search failed.");if(!c.ok||!p.ok)throw new Error("Connect LinkedIn and import your Connections.csv first to check duplicates.");
+  const data=await r.json();if(!r.ok)throw new Error(data.error||"Search failed.");if(!c.ok||!p.ok)throw new Error("Sign in and import your LinkedIn Connections.csv first to check duplicates.");
   const[cd,pd]=await Promise.all([c.json(),p.json()]);const known=new Set<string>();for(const x of cd.connections||[]){const u=canonical(x.url||"");if(u)known.add(u);}for(const x of pd.leads||[]){const u=canonical(x.url||"");if(u)known.add(u);}
   const fresh=(data.results||[]).filter((x:Result)=>{const u=canonical(x.url);if(!u||known.has(u))return false;known.add(u);return true;});setExcluded((data.results||[]).length-fresh.length);setResults(fresh);if(!fresh.length)setError("No new profiles found. All results were already connected, saved, or lacked a valid LinkedIn profile URL.");
  }catch(e){setError(e instanceof Error?e.message:"Search failed.");}finally{setBusy(false);}}
