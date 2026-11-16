@@ -12,9 +12,10 @@ export async function GET(request:NextRequest){
  const hash=createHash("sha256").update(token).digest("hex");const tokenPath="assistant-tokens/"+hash+".json";
  try{
   const stored=await get(tokenPath,{access:"private",useCache:false});if(!stored||stored.statusCode!==200||!stored.stream)return NextResponse.json({error:"Token not found or already used."},{status:401,headers:{"Cache-Control":"no-store"}});
-  const grant=JSON.parse(await new Response(stored.stream).text()) as {personId?:string;expiresAt?:number;usedAt?:number|null};
-  if(!grant.personId||!grant.expiresAt||grant.expiresAt<Date.now()||grant.usedAt)return NextResponse.json({error:"Token expired or already used. Generate a new one in the app."},{status:401,headers:{"Cache-Control":"no-store"}});
-  await put(tokenPath,JSON.stringify({...grant,usedAt:Date.now()}),{access:"private",addRandomSuffix:false,allowOverwrite:true,contentType:"application/json"});
+  const grant=JSON.parse(await new Response(stored.stream).text()) as {personId?:string;expiresAt?:number;usedAt?:number|null;usesRemaining?:number};
+  if(!grant.personId||!grant.expiresAt||grant.expiresAt<Date.now()||(typeof grant.usesRemaining==="number"?grant.usesRemaining<=0:!!grant.usedAt))return NextResponse.json({error:"Token expired or its save allowance has been used. Generate a new one in the app."},{status:401,headers:{"Cache-Control":"no-store"}});
+  const updatedGrant=typeof grant.usesRemaining==="number"?{...grant,usesRemaining:grant.usesRemaining-1,usedAt:grant.usesRemaining<=1?Date.now():null}:{...grant,usedAt:Date.now()};
+  await put(tokenPath,JSON.stringify(updatedGrant),{access:"private",addRandomSuffix:false,allowOverwrite:true,contentType:"application/json"});
   const path="prospects/"+encodeURIComponent(grant.personId)+".json";const leads=await read(path);
   if(leads.some(x=>canonical(x.url)===url)){
    return NextResponse.json({ok:true,duplicate:true,message:"This LinkedIn profile is already saved."},{headers:{"Cache-Control":"no-store"}});
