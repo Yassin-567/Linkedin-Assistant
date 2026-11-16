@@ -1,13 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 type Result={title:string;url:string;description:string};
 type Lead={id:string;name:string;company:string;url:string;status:string;followUp:string;notes:string;connected?:boolean};
 const suggestions=["appliance repair","HVAC","boiler repair","property maintenance","facilities management","electrical contractors","plumbing and heating","commercial refrigeration","field service"];
 function canonical(value:string){try{const u=new URL(value);if(!/(^|\.)linkedin\.com$/i.test(u.hostname)||!u.pathname.toLowerCase().startsWith("/in/"))return "";return "https://www.linkedin.com"+u.pathname.replace(/\/$/,"").toLowerCase();}catch{return "";}}
 function profileName(title:string){return title.split(/\s[-–|]\s/)[0].replace(/\s*\|\s*LinkedIn.*$/i,"").trim().slice(0,200)||"LinkedIn prospect";}
 export default function SearchClients(){
- const[niche,setNiche]=useState("appliance repair"),[location,setLocation]=useState("United Kingdom"),[results,setResults]=useState<Result[]>([]),[busy,setBusy]=useState(false),[savingAll,setSavingAll]=useState(false),[error,setError]=useState(""),[saved,setSaved]=useState<string[]>([]),[excluded,setExcluded]=useState(0),[saveSummary,setSaveSummary]=useState("");
- async function search(){setBusy(true);setError("");setResults([]);setSaved([]);setExcluded(0);setSaveSummary("");try{
+ const[niche,setNiche]=useState(""),[location,setLocation]=useState(""),[results,setResults]=useState<Result[]>([]),[busy,setBusy]=useState(false),[savingAll,setSavingAll]=useState(false),[error,setError]=useState(""),[saved,setSaved]=useState<string[]>([]),[excluded,setExcluded]=useState(0),[saveSummary,setSaveSummary]=useState("");
+ useEffect(()=>{fetch("/api/preferences",{cache:"no-store"}).then(r=>r.json()).then(d=>{const p=d.preferences;if(p){setNiche(p.industries?.[0]||"");setLocation(p.countries?.[0]||"");}}).catch(()=>{});},[]);\n async function search(){setBusy(true);setError("");setResults([]);setSaved([]);setExcluded(0);setSaveSummary("");try{
   const [r,c,p]=await Promise.all([fetch("/api/prospect-search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({niche,location})}),fetch("/api/connections",{cache:"no-store"}),fetch("/api/prospects",{cache:"no-store"})]);
   const data=await r.json();if(!r.ok)throw new Error(data.error||"Search failed.");if(!c.ok||!p.ok)throw new Error("Connect LinkedIn and import your Connections.csv first to check duplicates.");
   const[cd,pd]=await Promise.all([c.json(),p.json()]);const known=new Set<string>();for(const x of cd.connections||[]){const u=canonical(x.url||"");if(u)known.add(u);}for(const x of pd.leads||[]){const u=canonical(x.url||"");if(u)known.add(u);}
