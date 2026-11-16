@@ -14,6 +14,8 @@ type Lead = {
   status: string;
   followUp: string;
   notes: string;
+  connected?: boolean;
+  connectedOn?: string;
 };
 
 const allowedStatuses = new Set([
@@ -47,6 +49,8 @@ function normalizeLeads(value: unknown): Lead[] | null {
     const x = item as Record<string, unknown>;
     const fields = ["id", "name", "company", "url", "status", "followUp", "notes"];
     if (fields.some((key) => typeof x[key] !== "string")) return null;
+    if (x.connected !== undefined && typeof x.connected !== "boolean") return null;
+    if (x.connectedOn !== undefined && typeof x.connectedOn !== "string") return null;
     if (String(x.id).length > 100 || String(x.name).length > 200 ||
         String(x.company).length > 300 || String(x.url).length > 2000 ||
         String(x.followUp).length > 30 || String(x.notes).length > 5000 ||
@@ -54,7 +58,9 @@ function normalizeLeads(value: unknown): Lead[] | null {
     leads.push({
       id: String(x.id), name: String(x.name), company: String(x.company),
       url: String(x.url), status: String(x.status),
-      followUp: String(x.followUp), notes: String(x.notes)
+      followUp: String(x.followUp), notes: String(x.notes),
+      ...(typeof x.connected === "boolean" ? { connected: x.connected } : {}),
+      ...(typeof x.connectedOn === "string" ? { connectedOn: x.connectedOn.slice(0, 100) } : {})
     });
   }
   return leads;
