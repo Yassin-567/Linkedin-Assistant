@@ -12,7 +12,7 @@ export async function POST(request:NextRequest){
  const token=randomBytes(32).toString("base64url");const tokenHash=createHash("sha256").update(token).digest("hex");
  const expiresAt=Date.now()+10*60*1000;
  try{
-  await put("assistant-tokens/"+tokenHash+".json",JSON.stringify({personId:session.personId,expiresAt,usedAt:null}),{access:"private",addRandomSuffix:false,allowOverwrite:false,contentType:"application/json"});
+  await put("assistant-tokens/"+tokenHash+".json",JSON.stringify({personId:session.personId,expiresAt,usedAt:null,usesRemaining:50}),{access:"private",addRandomSuffix:false,allowOverwrite:false,contentType:"application/json"});
   const saveUrl=new URL("/api/assistant-save",request.url);
   saveUrl.searchParams.set("token",token);
   saveUrl.searchParams.set("x-vercel-protection-bypass",bypass);
