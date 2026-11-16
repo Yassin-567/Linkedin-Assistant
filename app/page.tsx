@@ -81,7 +81,7 @@ export default function Home() {
     const q = (s:string) => '"' + s.replace(/"/g,'""') + '"';
     const rows = [["Name","Company","LinkedIn URL","Status","Follow-up","Notes","Connected","Connected on"], ...leads.map(x => [x.name,x.company,x.url,x.status,x.followUp,x.notes,x.connected ? "Yes" : "No",x.connectedOn || ""])];
     const blob = new Blob([rows.map(row => row.map(q).join(",")).join("\n")], {type:"text/csv"});
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "uk-bookkeeping-prospects.csv"; a.click(); URL.revokeObjectURL(a.href);
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "prospects.csv"; a.click(); URL.revokeObjectURL(a.href);
   }
   async function publish() {
     const r = await fetch("/api/linkedin/post",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:post})});
