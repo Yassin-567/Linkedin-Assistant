@@ -7,6 +7,8 @@ export const runtime="nodejs";
 export async function POST(request:NextRequest){
  const jar=await cookies();const value=jar.get(COOKIE_NAME)?.value;const session=value?openSession(value):null;
  if(!session)return NextResponse.json({error:"Connect LinkedIn before creating an assistant save token."},{status:401});
+ // Register the signed-in LinkedIn account as the owner for future server-side automation.
+ try{await put("assistant-config/automation-owner.json",JSON.stringify({personId:session.personId,updatedAt:Date.now()}),{access:"private",addRandomSuffix:false,allowOverwrite:true,contentType:"application/json"});}catch(error){console.error("Assistant automation owner registration failed:",error);return NextResponse.json({error:"Could not register this account for assistant automation."},{status:500,headers:{"Cache-Control":"no-store"}});}
  const bypass=process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
  if(!bypass)return NextResponse.json({error:"The temporary bridge is not configured yet. Contact the app administrator."},{status:503});
  const token=randomBytes(32).toString("base64url");const tokenHash=createHash("sha256").update(token).digest("hex");
