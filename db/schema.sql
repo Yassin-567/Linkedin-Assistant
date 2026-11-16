@@ -53,3 +53,5 @@ CREATE TABLE IF NOT EXISTS assistant_tokens (
 );
 
 CREATE INDEX IF NOT EXISTS assistant_tokens_user_idx ON assistant_tokens(user_id);
+
+ALTER TABLE assistant_tokens ADD COLUMN IF NOT EXISTS read_used_at timestamptz;
