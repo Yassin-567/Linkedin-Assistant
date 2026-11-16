@@ -5,7 +5,7 @@ export const runtime="nodejs";
 const clean=(v:unknown,max=30):string[]|null=>Array.isArray(v)&&v.length<=max&&v.every(x=>typeof x==="string"&&x.trim().length>0&&x.length<=120)?[...new Set(v.map(x=>(x as string).trim()))]:null;
 export async function GET(){
  const user=await currentUser();if(!user)return NextResponse.json({error:"Sign in required."},{status:401});
- try{const sql=db();const rows=await sql`SELECT countries,industries,keywords,job_titles,excluded_keywords,language, (SELECT profile_summary FROM app_users WHERE id=${user.userId}) AS profile_summary FROM user_preferences WHERE user_id=${user.userId}`;
+ try{const sql=db();const rows:any=await sql`SELECT countries,industries,keywords,job_titles,excluded_keywords,language, (SELECT profile_summary FROM app_users WHERE id=${user.userId}) AS profile_summary FROM user_preferences WHERE user_id=${user.userId}`;
  const x=rows[0] as any;if(!x)return NextResponse.json({error:"Preferences not found."},{status:404});
  return NextResponse.json({preferences:{countries:x.countries,industries:x.industries,keywords:x.keywords,jobTitles:x.job_titles,excludedKeywords:x.excluded_keywords,language:x.language,profileSummary:x.profile_summary||""}},{headers:{"Cache-Control":"private,no-store"}});
  }catch(e){console.error("Preferences read failed",e);return NextResponse.json({error:"Could not load preferences. Check database setup."},{status:503});}
