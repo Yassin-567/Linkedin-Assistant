@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const profile=await profileResponse.json();
     if(!profileResponse.ok||!profile.sub||!profile.email||profile.email_verified!==true) return fail("Google did not return a verified email address.");
     const sql=db();
-    const rows=await sql`INSERT INTO app_users (google_sub,email,name,picture) VALUES (${profile.sub},${profile.email.toLowerCase()},${profile.name||""},${profile.picture||null}) ON CONFLICT (google_sub) DO UPDATE SET email=EXCLUDED.email,name=EXCLUDED.name,picture=EXCLUDED.picture,updated_at=now() RETURNING id,email,name,picture`;
+    const rows:any=await sql`INSERT INTO app_users (google_sub,email,name,picture) VALUES (${profile.sub},${profile.email.toLowerCase()},${profile.name||""},${profile.picture||null}) ON CONFLICT (google_sub) DO UPDATE SET email=EXCLUDED.email,name=EXCLUDED.name,picture=EXCLUDED.picture,updated_at=now() RETURNING id,email,name,picture`;
     const user=rows[0] as {id:string;email:string;name:string;picture?:string};
     await sql`INSERT INTO user_preferences (user_id) VALUES (${user.id}) ON CONFLICT (user_id) DO NOTHING`;
     const response=NextResponse.redirect(new URL("/",request.url));
