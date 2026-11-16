@@ -47,9 +47,9 @@ export async function POST(request:NextRequest){
  try{
   const stored=await get(tokenPath,{access:"private",useCache:false});
   if(!stored||stored.statusCode!==200||!stored.stream)return NextResponse.json({error:"Token not found or already used."},{status:401,headers:{"Cache-Control":"no-store"}});
-  const grant=JSON.parse(await new Response(stored.stream).text()) as {personId?:string;expiresAt?:number;usedAt?:number|null};
-  if(!grant.personId||!grant.expiresAt||grant.expiresAt<Date.now()||grant.usedAt)return NextResponse.json({error:"Token expired or already used. Generate a new one in the app."},{status:401,headers:{"Cache-Control":"no-store"}});
-  await put(tokenPath,JSON.stringify({...grant,usedAt:Date.now()}),{access:"private",addRandomSuffix:false,allowOverwrite:true,contentType:"application/json"});
+  const grant=JSON.parse(await new Response(stored.stream).text()) as {personId?:string;expiresAt?:number;usedAt?:number|null;usesRemaining?:number};
+  if(!grant.personId||!grant.expiresAt||grant.expiresAt<Date.now()||(typeof grant.usesRemaining==="number"?grant.usesRemaining<=0:!!grant.usedAt))return NextResponse.json({error:"Token expired or its save allowance has been used. Generate a new one in the app."},{status:401,headers:{"Cache-Control":"no-store"}});
+  await put(tokenPath,JSON.stringify({...grant,usesRemaining:0,usedAt:Date.now()}),{access:"private",addRandomSuffix:false,allowOverwrite:true,contentType:"application/json"});
   const path="prospects/"+encodeURIComponent(grant.personId)+".json";const existing=await read(path);const seen=new Set(existing.map(x=>canonical(x.url)).filter(Boolean));
   const additions:Lead[]=[];const results=prepared.map(item=>{
    if(item.error)return {index:item.index,status:"invalid",name:item.name,error:item.error};
