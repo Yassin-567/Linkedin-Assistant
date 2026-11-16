@@ -1,65 +1,9 @@
-import { get, put } from "@vercel/blob";
 import { createHash } from "node:crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest,NextResponse } from "next/server";
+import { db } from "@/lib/db";
 export const runtime="nodejs";
-type Lead={id:string;name:string;company:string;url:string;status:string;followUp:string;notes:string;connected?:boolean;connectedOn?:string};
-function canonical(value:string){try{const u=new URL(value);if(!/(^|\.)linkedin\.com$/i.test(u.hostname)||!u.pathname.toLowerCase().startsWith("/in/"))return "";return "https://www.linkedin.com"+u.pathname.replace(/\/$/,"").toLowerCase();}catch{return "";}}
-async function read(path:string):Promise<Lead[]>{try{const file=await get(path,{access:"private",useCache:false});if(!file||file.statusCode!==200||!file.stream)return [];const data=JSON.parse(await new Response(file.stream).text());return Array.isArray(data.leads)?data.leads:[];}catch(e){if(e instanceof Error&&/not found|does not exist/i.test(e.message))return [];throw e;}}
-export async function GET(request:NextRequest){
- const p=request.nextUrl.searchParams;const token=p.get("token")||"";const name=(p.get("name")||"").trim();const company=(p.get("company")||"").trim();const url=canonical(p.get("linkedin")||p.get("url")||"");
- if(!/^[A-Za-z0-9_-]{40,60}$/.test(token))return NextResponse.json({error:"A valid temporary token is required."},{status:401,headers:{"Cache-Control":"no-store"}});
- if(!name||!company||!url||name.length>200||company.length>300)return NextResponse.json({error:"Provide a name, company and valid LinkedIn personal profile URL."},{status:400,headers:{"Cache-Control":"no-store"}});
- const hash=createHash("sha256").update(token).digest("hex");const tokenPath="assistant-tokens/"+hash+".json";
- try{
-  const stored=await get(tokenPath,{access:"private",useCache:false});if(!stored||stored.statusCode!==200||!stored.stream)return NextResponse.json({error:"Token not found or already used."},{status:401,headers:{"Cache-Control":"no-store"}});
-  const grant=JSON.parse(await new Response(stored.stream).text()) as {personId?:string;expiresAt?:number;usedAt?:number|null;usesRemaining?:number};
-  if(!grant.personId||!grant.expiresAt||grant.expiresAt<Date.now()||(typeof grant.usesRemaining==="number"?grant.usesRemaining<=0:!!grant.usedAt))return NextResponse.json({error:"Token expired or its save allowance has been used. Generate a new one in the app."},{status:401,headers:{"Cache-Control":"no-store"}});
-  const updatedGrant=typeof grant.usesRemaining==="number"?{...grant,usesRemaining:grant.usesRemaining-1,usedAt:grant.usesRemaining<=1?Date.now():null}:{...grant,usedAt:Date.now()};
-  await put(tokenPath,JSON.stringify(updatedGrant),{access:"private",addRandomSuffix:false,allowOverwrite:true,contentType:"application/json"});
-  const path="prospects/"+encodeURIComponent(grant.personId)+".json";const leads=await read(path);
-  if(leads.some(x=>canonical(x.url)===url)){
-   return NextResponse.json({ok:true,duplicate:true,message:"This LinkedIn profile is already saved."},{headers:{"Cache-Control":"no-store"}});
-  }
-  if(leads.length>=1000)return NextResponse.json({error:"Your prospect list has reached its 1,000-record limit."},{status:409,headers:{"Cache-Control":"no-store"}});
-  const lead:Lead={id:crypto.randomUUID(),name,company,url,status:"To research",followUp:"",notes:"Added through the temporary ChatGPT save link.",connected:false};
-  await put(path,JSON.stringify({leads:[lead,...leads],updatedAt:new Date().toISOString()}),{access:"private",addRandomSuffix:false,allowOverwrite:true,contentType:"application/json"});
-  return NextResponse.json({ok:true,saved:true,name,company,url},{headers:{"Cache-Control":"no-store"}});
- }catch(error){console.error("Assistant prospect save failed:",error);return NextResponse.json({error:"Could not save this prospect."},{status:500,headers:{"Cache-Control":"no-store"}});}
-}
-
-type BatchInput={name?:unknown;company?:unknown;linkedin?:unknown;url?:unknown};
-export async function POST(request:NextRequest){
- const p=request.nextUrl.searchParams;const token=p.get("token")||"";
- if(!/^[A-Za-z0-9_-]{40,60}$/.test(token))return NextResponse.json({error:"A valid temporary token is required."},{status:401,headers:{"Cache-Control":"no-store"}});
- let body:{leads?:BatchInput[]};
- try{body=await request.json() as {leads?:BatchInput[]};}catch{return NextResponse.json({error:"Request body must be valid JSON."},{status:400,headers:{"Cache-Control":"no-store"}});}
- if(!Array.isArray(body.leads)||body.leads.length===0)return NextResponse.json({error:"Provide a non-empty leads array."},{status:400,headers:{"Cache-Control":"no-store"}});
- if(body.leads.length>50)return NextResponse.json({error:"A batch can contain up to 50 leads."},{status:400,headers:{"Cache-Control":"no-store"}});
- const prepared=body.leads.map((item,index)=>{
-  const name=typeof item?.name==="string"?item.name.trim():"";
-  const company=typeof item?.company==="string"?item.company.trim():"";
-  const url=canonical(typeof item?.linkedin==="string"?item.linkedin:typeof item?.url==="string"?item.url:"");
-  const error=!name||!company||!url||name.length>200||company.length>300?"Provide a name, company and valid LinkedIn personal profile URL.":null;
-  return {index,name,company,url,error};
- });
- if(!prepared.some(x=>!x.error))return NextResponse.json({error:"No valid leads were provided.",results:prepared.map(x=>({index:x.index,status:"invalid",error:x.error}))},{status:400,headers:{"Cache-Control":"no-store"}});
- const hash=createHash("sha256").update(token).digest("hex");const tokenPath="assistant-tokens/"+hash+".json";
- try{
-  const stored=await get(tokenPath,{access:"private",useCache:false});
-  if(!stored||stored.statusCode!==200||!stored.stream)return NextResponse.json({error:"Token not found or already used."},{status:401,headers:{"Cache-Control":"no-store"}});
-  const grant=JSON.parse(await new Response(stored.stream).text()) as {personId?:string;expiresAt?:number;usedAt?:number|null;usesRemaining?:number};
-  if(!grant.personId||!grant.expiresAt||grant.expiresAt<Date.now()||(typeof grant.usesRemaining==="number"?grant.usesRemaining<=0:!!grant.usedAt))return NextResponse.json({error:"Token expired or its save allowance has been used. Generate a new one in the app."},{status:401,headers:{"Cache-Control":"no-store"}});
-  await put(tokenPath,JSON.stringify({...grant,usesRemaining:0,usedAt:Date.now()}),{access:"private",addRandomSuffix:false,allowOverwrite:true,contentType:"application/json"});
-  const path="prospects/"+encodeURIComponent(grant.personId)+".json";const existing=await read(path);const seen=new Set(existing.map(x=>canonical(x.url)).filter(Boolean));
-  const additions:Lead[]=[];const results=prepared.map(item=>{
-   if(item.error)return {index:item.index,status:"invalid",name:item.name,error:item.error};
-   if(seen.has(item.url))return {index:item.index,status:"duplicate",name:item.name,company:item.company,url:item.url};
-   if(existing.length+additions.length>=1000)return {index:item.index,status:"limit_reached",name:item.name,company:item.company,url:item.url};
-   seen.add(item.url);
-   additions.push({id:crypto.randomUUID(),name:item.name,company:item.company,url:item.url,status:"To research",followUp:"",notes:"Added through the temporary ChatGPT bulk save link.",connected:false});
-   return {index:item.index,status:"saved",name:item.name,company:item.company,url:item.url};
-  });
-  if(additions.length)await put(path,JSON.stringify({leads:[...additions,...existing],updatedAt:new Date().toISOString()}),{access:"private",addRandomSuffix:false,allowOverwrite:true,contentType:"application/json"});
-  return NextResponse.json({ok:true,total:prepared.length,saved:additions.length,duplicates:results.filter(x=>x.status==="duplicate").length,invalid:results.filter(x=>x.status==="invalid").length,limitReached:results.filter(x=>x.status==="limit_reached").length,results},{headers:{"Cache-Control":"no-store"}});
- }catch(error){console.error("Assistant bulk prospect save failed:",error);return NextResponse.json({error:"Could not save this batch."},{status:500,headers:{"Cache-Control":"no-store"}});}
-}
+type Candidate={name?:unknown;company?:unknown;linkedin?:unknown;url?:unknown};
+function canonical(value:string){try{const u=new URL(value);if(!/(^|\\.)linkedin\\.com$/i.test(u.hostname)||!u.pathname.toLowerCase().startsWith("/in/"))return "";return "https://www.linkedin.com"+u.pathname.replace(/\\/$/,"").toLowerCase();}catch{return "";}}
+async function consume(token:string,batchSize:number){if(!/^[A-Za-z0-9_-]{40,60}$/.test(token))return {error:"A valid temporary save link is required."};const sql=db();const hash=createHash("sha256").update(token).digest("hex");const grant=await sql`UPDATE assistant_tokens SET batches_remaining=batches_remaining-1,used_at=now() WHERE token_hash=${hash} AND expires_at>now() AND batches_remaining>0 AND ${batchSize}<=max_leads RETURNING user_id`;if(!grant.length)return {error:"This save link expired, was already used, or the batch is too large. Generate a new link in the app."};return {userId:String(grant[0].user_id)};}
+export async function GET(request:NextRequest){const token=request.nextUrl.searchParams.get("token")||"";const name=(request.nextUrl.searchParams.get("name")||"").trim(),company=(request.nextUrl.searchParams.get("company")||"").trim(),url=canonical(request.nextUrl.searchParams.get("linkedin")||request.nextUrl.searchParams.get("url")||"");if(!name||!company||!url)return NextResponse.json({error:"Provide name, company and a LinkedIn personal profile URL."},{status:400});try{const grant=await consume(token,1);if("error"in grant)return NextResponse.json({error:grant.error},{status:401});const sql=db();const rows=await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,status,follow_up,notes) VALUES(${grant.userId},${name.slice(0,200)},${company.slice(0,300)},${url},${url},"To research","","Added through ChatGPT temporary save link.") ON CONFLICT(user_id,normalized_linkedin_url) DO NOTHING RETURNING id`;return NextResponse.json({ok:true,saved:rows.length===1,duplicate:rows.length===0,name,company,url},{headers:{"Cache-Control":"no-store"}});}catch(e){console.error("Single assistant save failed",e);return NextResponse.json({error:"Could not save this prospect."},{status:503});}}
+export async function POST(request:NextRequest){const token=request.nextUrl.searchParams.get("token")||"";let body:{leads?:Candidate[]};try{body=await request.json();}catch{return NextResponse.json({error:"Request body must be valid JSON."},{status:400});}if(!Array.isArray(body.leads)||body.leads.length===0||body.leads.length>50)return NextResponse.json({error:"Provide between 1 and 50 leads."},{status:400});const prepared=body.leads.map((x,i)=>{const name=typeof x?.name==="string"?x.name.trim():"",company=typeof x?.company==="string"?x.company.trim():"",url=canonical(typeof x?.linkedin==="string"?x.linkedin:typeof x?.url==="string"?x.url:"");return {index:i,name,company,url,error:!name||!company||!url||name.length>200||company.length>300?"Provide a name, company and valid LinkedIn personal profile URL.":null};});if(!prepared.some(x=>!x.error))return NextResponse.json({error:"No valid prospects were provided.",results:prepared},{status:400});try{const grant=await consume(token,body.leads.length);if("error"in grant)return NextResponse.json({error:grant.error},{status:401});const sql=db();const results=[];let saved=0,duplicates=0,invalid=0;for(const x of prepared){if(x.error){invalid++;results.push({index:x.index,status:"invalid",error:x.error});continue;}const rows=await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,status,follow_up,notes) VALUES(${grant.userId},${x.name.slice(0,200)},${x.company.slice(0,300)},${x.url},${x.url},"To research","","Added through ChatGPT bulk save.") ON CONFLICT(user_id,normalized_linkedin_url) DO NOTHING RETURNING id`;if(rows.length){saved++;results.push({index:x.index,status:"saved",name:x.name,company:x.company,url:x.url});}else{duplicates++;results.push({index:x.index,status:"duplicate",name:x.name,company:x.company,url:x.url});}}return NextResponse.json({ok:true,total:prepared.length,saved,duplicates,invalid,results},{headers:{"Cache-Control":"no-store"}});}catch(e){console.error("Assistant bulk save failed",e);return NextResponse.json({error:"Could not save this batch."},{status:503});}}
