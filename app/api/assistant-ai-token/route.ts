@@ -34,6 +34,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       token,
       endpoint: endpoint.toString(),
+      contextEndpoint: contextEndpoint.toString(),
       message: "Copy this token now. It is shown only once. Regenerating it revokes the previous token."
     }, { headers: noStore });
   } catch (error) {
