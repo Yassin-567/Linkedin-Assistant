@@ -1,0 +1,93 @@
+import { createHash } from "node:crypto";
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+
+export const runtime = "nodejs";
+const noStore = {
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+  "Pragma": "no-cache",
+  "Referrer-Policy": "no-referrer"
+};
+
+async function resolveAiUser(token: string) {
+  if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) return null;
+  const sql = db();
+  const hash = createHash("sha256").update(token).digest("hex");
+  const rows: any = await sql`SELECT user_id FROM ai_access_tokens WHERE token_hash=${hash} AND revoked_at IS NULL LIMIT 1`;
+  return rows.length ? String(rows[0].user_id) : null;
+}
+
+export async function GET(request: NextRequest) {
+  const token = request.nextUrl.searchParams.get("ai") || "";
+  if (!token) return NextResponse.json({ error: "AI Access Token is required." }, { status: 401, headers: noStore });
+
+  try {
+    const userId = await resolveAiUser(token);
+    if (!userId) return NextResponse.json({ error: "AI Access Token is invalid or revoked." }, { status: 401, headers: noStore });
+
+    const sql = db();
+    const rows: any = await sql`
+      SELECT
+        p.linkedin_profile_url,
+        p.countries,
+        p.industries,
+        p.keywords,
+        p.job_titles,
+        p.excluded_keywords,
+        p.language,
+        u.profile_summary,
+        u.linkedin_profile_data,
+        u.linkedin_profile_source,
+        u.linkedin_profile_verified_at
+      FROM user_preferences p
+      LEFT JOIN app_users u ON u.id = p.user_id
+      WHERE p.user_id = ${userId}
+      LIMIT 1
+    `;
+    const row = rows[0] as any;
+    if (!row) {
+      return NextResponse.json({ error: "Search preferences have not been created for this account yet." }, { status: 404, headers: noStore });
+    }
+
+    const profileData = row.linkedin_profile_data && typeof row.linkedin_profile_data === "object"
+      ? row.linkedin_profile_data : {};
+    const fields = profileData.fields && typeof profileData.fields === "object"
+      ? profileData.fields : {};
+    const fieldSources = profileData.fieldSources && typeof profileData.fieldSources === "object"
+      ? profileData.fieldSources : {};
+
+    return NextResponse.json({
+      ok: true,
+      contextVersion: 1,
+      retrievedAt: new Date().toISOString(),
+      instructions: {
+        useAsDefaultSearchContext: true,
+        preserveUserPreferencesUnlessTheUserOverridesThem: true,
+        treatProfileFieldsAsContextNotAsClaimsAboutTheProspect: true,
+        distinguishUserProvidedDetailsFromPubliclyIndexedDetails: true,
+        doNotInventMissingProfileInformation: true
+      },
+      owner: {
+        linkedinProfileUrl: row.linkedin_profile_url || "",
+        profileSummary: row.profile_summary || "",
+        profile: {
+          fields,
+          fieldSources,
+          source: row.linkedin_profile_source || "not_verified",
+          verifiedAt: row.linkedin_profile_verified_at || null
+        }
+      },
+      searchPreferences: {
+        countries: row.countries || [],
+        industries: row.industries || [],
+        keywords: row.keywords || [],
+        jobTitles: row.job_titles || [],
+        excludedKeywords: row.excluded_keywords || [],
+        language: row.language || "English"
+      }
+    }, { headers: noStore });
+  } catch (error) {
+    console.error("Assistant context retrieval failed", error);
+    return NextResponse.json({ error: "Could not retrieve this account's AI search context." }, { status: 503, headers: noStore });
+  }
+}
