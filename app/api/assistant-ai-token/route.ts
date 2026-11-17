@@ -31,6 +31,8 @@ export async function POST(request: Request) {
     const base = process.env.APP_URL || new URL(request.url).origin;
     const endpoint = new URL("/api/assistant-save", base);
     endpoint.searchParams.set("ai", token);
+    const contextEndpoint = new URL("/api/assistant-context", base);
+    contextEndpoint.searchParams.set("ai", token);
     return NextResponse.json({
       token,
       endpoint: endpoint.toString(),
