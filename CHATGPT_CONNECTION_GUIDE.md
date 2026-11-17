@@ -18,7 +18,12 @@ Each user must generate their own endpoint. Do not share Vercel access, Vercel b
 4. Apply the saved countries, industries, keywords, job titles, exclusions and preferred language as default search preferences. The user's latest explicit instruction in the current chat overrides a saved preference when they conflict.
 5. Combine this context with your own research and reasoning. Verify prospect details independently; never assume the owner's profile describes the prospect.
 
-The context endpoint is read-only and always returns the latest saved preferences. It is private to the account that generated the token and returns no-cache headers.
+The context endpoint is read-only and always returns the latest saved preferences. It also returns:
+- `exclusions.uploadedConnectionProfileUrls`: profile URLs from the latest uploaded LinkedIn Connections.csv snapshot.
+- `exclusions.savedProspectProfileUrls`: profile URLs already saved in the user's prospect pipeline.
+- The imported connection count and last import timestamp.
+
+ChatGPT must exclude these URLs before presenting or saving prospects. The endpoint is private to the account that generated the token and returns no-cache headers.
 
 ## Saving prospects
 
@@ -47,3 +52,8 @@ The response reports saved, duplicate, and invalid counts for each lead. Duplica
 - Use **Revoke connection** in Settings to disable access immediately.
 - A 401 response means the endpoint token is invalid or revoked, or the request was blocked before reaching the application. Use the public production domain endpoint copied from Settings; do not add Vercel deployment-protection bypass credentials.
 - Each endpoint is linked to the account that generated it. One user's prospects cannot be saved into another user's account through that endpoint.
+
+
+## Copy-ready prompt
+
+The Search settings page includes **Copy complete ChatGPT prompt**. It inserts both generated endpoints into a complete instruction set for a new ChatGPT chat, sets a default target of 50 qualified prospects, and instructs ChatGPT to exclude uploaded connections and prospects already saved in the pipeline. The target is an upper goal, not permission to invent or pad weak leads.
