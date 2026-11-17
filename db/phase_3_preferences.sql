@@ -1,4 +1,7 @@
--- Phase 3: store each user's LinkedIn profile URL and use neutral defaults for new accounts.
+-- Phase 3: add per-user profile context and LinkedIn URL preferences safely.
+ALTER TABLE app_users
+  ADD COLUMN IF NOT EXISTS profile_summary text NOT NULL DEFAULT '';
+
 ALTER TABLE user_preferences
   ADD COLUMN IF NOT EXISTS linkedin_profile_url text NOT NULL DEFAULT '';
 
