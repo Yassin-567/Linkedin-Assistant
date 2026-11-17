@@ -49,6 +49,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Search preferences have not been created for this account yet." }, { status: 404, headers: noStore });
     }
 
+    const [connectionRows, savedProspectRows, connectionMeta]: any = await Promise.all([
+      sql`SELECT normalized_linkedin_url AS url FROM linkedin_connections WHERE user_id = ${userId} ORDER BY imported_at DESC LIMIT 20000`,
+      sql`SELECT normalized_linkedin_url AS url FROM prospects WHERE user_id = ${userId} AND normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url <> '' ORDER BY created_at DESC LIMIT 1000`,
+      sql`SELECT max(imported_at) AS imported_at, count(*)::int AS count FROM linkedin_connections WHERE user_id = ${userId}`
+    ]);
+
     const profileData = row.linkedin_profile_data && typeof row.linkedin_profile_data === "object"
       ? row.linkedin_profile_data : {};
     const fields = profileData.fields && typeof profileData.fields === "object"
@@ -84,6 +90,12 @@ export async function GET(request: NextRequest) {
         jobTitles: row.job_titles || [],
         excludedKeywords: row.excluded_keywords || [],
         language: row.language || "English"
+      },
+      exclusions: {
+        uploadedConnectionsCount: Number(connectionMeta[0]?.count || 0),
+        uploadedConnectionsImportedAt: connectionMeta[0]?.imported_at || null,
+        uploadedConnectionProfileUrls: connectionRows.map((x: any) => x.url),
+        savedProspectProfileUrls: savedProspectRows.map((x: any) => x.url)
       }
     }, { headers: noStore });
   } catch (error) {
