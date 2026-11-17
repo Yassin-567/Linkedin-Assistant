@@ -100,6 +100,41 @@ export default function SettingsPage() {
     catch { setAiMessage("Copy was blocked by your browser. Select and copy the endpoint manually."); }
   }
 
+  async function copyChatGPTPrompt() {
+    const prompt = `You are my LinkedIn prospect research assistant. Follow these instructions for this chat.
+
+LINKEDIN ASSISTANT CONNECTION
+Search context endpoint (GET before every search and whenever preferences may have changed):
+${aiContextEndpoint}
+
+Prospect save endpoint (POST qualified prospects here):
+${aiEndpoint}
+
+DEFAULT TARGET
+Find up to 50 qualified prospects per research batch. Aim for 50, but never pad the list with weak, irrelevant, unverifiable, or invented prospects. If fewer than 50 genuinely qualify, return fewer and explain why.
+
+MANDATORY WORKFLOW
+1. Before searching, call the Search context endpoint using HTTP GET. Read the latest owner profile, LinkedIn URL, search preferences, exclusions, uploaded connection URLs, and already-saved prospect URLs.
+2. Use the owner profile only as context about me. Never confuse my details with a prospect's facts.
+3. Apply my saved countries, industries, keywords, job titles, excluded keywords and language by default. My latest instructions in this chat override saved preferences when they conflict.
+4. EXCLUDE every person whose LinkedIn profile URL appears in exclusions.uploadedConnectionProfileUrls. These are people I am already connected to. Also exclude every URL in exclusions.savedProspectProfileUrls so you do not return people already in my pipeline.
+5. Compare URLs after normalizing case and removing trailing slashes. Deduplicate within each search batch too.
+6. Research prospects independently using current public sources. Verify each person's name, current role, company and relevance. Do not treat search snippets as verified facts. Never invent missing information.
+7. Prioritize decision-makers and people/companies who can genuinely benefit from my background and services. Explain briefly why each prospect is relevant.
+8. Only save prospects that pass all checks and have a valid personal LinkedIn URL under linkedin.com/in/. Do not save company pages, search pages, uploaded connections, existing saved prospects, or uncertain matches.
+9. Save in one HTTP POST request to the exact Prospect save endpoint above, with Content-Type: application/json and body:
+{"leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug/"}]}
+10. The endpoint accepts up to 50 prospects per request. Read the actual response and report saved, duplicate, invalid and other counts accurately. Never claim a prospect was saved unless the API confirms it.
+11. Keep both endpoints private. Never print, publish, or send them to search engines or unrelated services.
+
+OUTPUT
+Return a concise research report with prospect name, role, company, location, LinkedIn URL, evidence/source links, and a short reason for fit. Clearly separate verified facts from uncertain details. Finish with the exact save results returned by the API.
+
+If either endpoint fails, stop the save workflow, explain the error, and do not guess the missing preferences or exclusions.`;
+    try { await navigator.clipboard.writeText(prompt); setAiMessage("Complete ChatGPT prospecting prompt copied. Paste it into a new ChatGPT chat."); }
+    catch { setAiMessage("Copy was blocked by your browser. Select and copy the prompt manually."); }
+  }
+
   function field(key: "countries" | "industries" | "keywords" | "jobTitles" | "excludedKeywords", label: string, hint: string) {
     return <label className="wide">{label}<textarea rows={3} value={p[key].join("\n")} onChange={e => setP(old => ({ ...old, [key]: lines(e.target.value) }))} /><small className="muted">{hint}</small></label>;
   }
@@ -149,7 +184,8 @@ export default function SettingsPage() {
       </div>
       {aiCreatedAt && <p className="muted">Active since: {new Date(aiCreatedAt).toLocaleString()}</p>}
       {aiEndpoint && <label className="wide">Prospect save endpoint<textarea rows={2} readOnly value={aiEndpoint} /><button type="button" className="secondary" onClick={() => void copyAiEndpoint()}>Copy save endpoint</button></label>}
-      {aiContextEndpoint && <label className="wide">Search context endpoint<textarea rows={2} readOnly value={aiContextEndpoint} /><button type="button" className="secondary" onClick={() => void copyAiContextEndpoint()}>Copy context endpoint</button><small className="muted">ChatGPT calls this before searching to retrieve your LinkedIn profile, confirmed profile details and saved search preferences.</small></label>}
+      {aiContextEndpoint && <label className="wide">Search context endpoint<textarea rows={2} readOnly value={aiContextEndpoint} /><button type="button" className="secondary" onClick={() => void copyAiContextEndpoint()}>Copy context endpoint</button><small className="muted">ChatGPT calls this before searching to retrieve your profile, saved preferences, uploaded connections and existing saved prospects for exclusion.</small></label>}
+      {aiEndpoint && aiContextEndpoint && <div className="wide"><button type="button" onClick={() => void copyChatGPTPrompt()}>Copy complete ChatGPT prompt · 50 prospects</button><small className="muted">Includes both private endpoints, search instructions, duplicate and connection exclusions, and the default 50-prospect target. Paste it into a new ChatGPT chat.</small></div>}
       <p className="footnote">Keep this endpoint private. Anyone who has it can add prospects to this account. You can revoke it at any time. Generating a new connection automatically revokes the previous one.</p>
       <p className="muted">{aiMessage}</p>
     </section>
