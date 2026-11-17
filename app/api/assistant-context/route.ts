@@ -17,13 +17,24 @@ async function resolveAiUser(token: string) {
   return rows.length ? String(rows[0].user_id) : null;
 }
 
+async function resolveScopedUser(token: string, scope: "context" | "save") {
+  if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) return null;
+  const sql = db();
+  const hash = createHash("sha256").update(token).digest("hex");
+  const rows: any = await sql`SELECT user_id FROM assistant_scoped_tokens WHERE token_hash=${hash} AND scope=${scope} AND expires_at>now() AND revoked_at IS NULL LIMIT 1`;
+  return rows.length ? String(rows[0].user_id) : null;
+}
+
 export async function GET(request: NextRequest) {
-  const token = request.nextUrl.searchParams.get("ai") || "";
-  if (!token) return NextResponse.json({ error: "AI Access Token is required." }, { status: 401, headers: noStore });
+  const scopedToken = request.nextUrl.searchParams.get("ct") || "";
+  const legacyToken = request.nextUrl.searchParams.get("ai") || "";
+  if (!scopedToken && !legacyToken) return NextResponse.json({ error: "Context Token is required. Authenticate with the AI Auth Token to issue one." }, { status: 401, headers: noStore });
 
   try {
-    const userId = await resolveAiUser(token);
-    if (!userId) return NextResponse.json({ error: "AI Access Token is invalid or revoked." }, { status: 401, headers: noStore });
+    const userId = scopedToken
+      ? await resolveScopedUser(scopedToken, "context")
+      : await resolveAiUser(legacyToken);
+    if (!userId) return NextResponse.json({ error: "Context Token is invalid or expired." }, { status: 401, headers: noStore });
 
     const sql = db();
     const rows: any = await sql`
