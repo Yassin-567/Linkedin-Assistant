@@ -9,7 +9,7 @@ A global, individual-account prospecting workspace. Every Google-authenticated u
 - Per-user countries, industries, keywords, decision-maker titles, exclusions, language and profile summary.
 - Per-user prospects and imported LinkedIn connections.
 - Database uniqueness on `(user_id, normalized_linkedin_url)` prevents duplicate profile saves, including concurrent writes.
-- ChatGPT handoff using short-lived user-scoped read and bulk-save links. ChatGPT can read a user's prospect list once and save one batch of up to 50 prospects. Read and write links expire after 10 minutes; the save token can be used for one batch only.
+- ChatGPT handoff using per-user, revocable AI Access Tokens. Each token can create prospects only for its owner; users can regenerate or revoke it at any time. Bulk saves support up to 50 prospects per request and database uniqueness prevents duplicate LinkedIn profiles.
 - Public search via the existing Serper provider. Results are filtered against each user's own saved prospects and imported connections in the app.
 
 ## Setup
@@ -33,10 +33,11 @@ A global, individual-account prospecting workspace. Every Google-authenticated u
 ## ChatGPT bulk-save workflow
 
 1. Sign in to the app with Google.
-2. Generate the temporary ChatGPT links on the home page.
-3. Give ChatGPT both links. First it calls the read link to check existing prospects and the user's profile context; then it researches new prospects and POSTs a batch to the save link.
-4. The save endpoint validates LinkedIn personal profile URLs and inserts records only for the user who generated the token. Existing profile URLs are returned as duplicates.
-5. The temporary links are credentials. Do not share them publicly. Generate a fresh pair for each ChatGPT task.
+2. Run `db/ai_access_tokens.sql` once against the Neon database (existing databases only). New databases also receive the table from `db/schema.sql`.
+3. On the home page, generate an AI Access Token. Copy it immediately; the raw token is displayed only once.
+4. Give ChatGPT the token and the generated save endpoint. ChatGPT can POST a JSON `{ "leads": [...] }` body (up to 50 prospects) to that endpoint, or build a GET URL by adding `data=` with base64url-encoded JSON. GET payloads are limited to 6,500 encoded characters to avoid oversized URLs.
+5. Each request is scoped to the token owner. LinkedIn profile URLs are normalized and database uniqueness skips duplicates.
+6. Regenerating a token revokes the previous one. Users can also revoke it from the home page. Treat the token like a password; do not publish it or commit it to source control.
 
 The app's bulk-save flow does not require a paid LinkedIn Assistant plan or a LinkedIn OAuth connection. ChatGPT plan/feature availability is controlled by ChatGPT itself. Search-provider usage may have its own limits or charges.
 
