@@ -24,44 +24,43 @@ export default function Home() {
   const [tokenBusy, setTokenBusy] = useState(false);
 
   useEffect(() => {
-    let localLeads: Lead[] = [];
-    try {
-      const parsed = JSON.parse(localStorage.getItem("linkedin-assistant-leads") || "[]");
-      if (Array.isArray(parsed)) localLeads = parsed;
-      setLeads(localLeads);
-    } catch {}
-    setLoaded(true);
-    fetch("/api/auth/me", {cache:"no-store"})
-      .then(r => r.json())
-      .then(async data => {
+    let cancelled = false;
+    async function loadAccountData() {
+      try {
+        const accountResponse = await fetch("/api/auth/me", {cache:"no-store"});
+        const data = await accountResponse.json();
+        if (cancelled) return;
         setAccount(data);
         if (data.connected) {
+          // Authenticated data must come only from this account's database records.
+          // Never import the shared legacy browser key into a newly signed-in account.
           const response = await fetch("/api/prospects", {cache:"no-store"});
-          if (response.ok) {
-            const cloud = await response.json();
-            const cloudLeads: Lead[] = Array.isArray(cloud.leads) ? cloud.leads : [];
-            if (cloudLeads.length) {
-              setLeads(cloudLeads);
-            } else if (localLeads.length) {
-              // First cloud login: migrate existing browser prospects instead of overwriting them with an empty list.
-              const migration = await fetch("/api/prospects", {
-                method:"PUT",
-                headers:{"Content-Type":"application/json"},
-                body:JSON.stringify({leads:localLeads})
-              });
-              if (migration.ok) setLeads(localLeads);
-            } else {
-              setLeads([]);
-            }
-            setCloudStorage(true);
-          }
+          if (!response.ok) throw new Error("Could not load private prospects.");
+          const cloud = await response.json();
+          if (cancelled) return;
+          setLeads(Array.isArray(cloud.leads) ? cloud.leads : []);
+          setCloudStorage(true);
+        } else {
+          // Browser-only prospects are available only while signed out.
+          const parsed = JSON.parse(localStorage.getItem("linkedin-assistant-leads") || "[]");
+          if (!cancelled) setLeads(Array.isArray(parsed) ? parsed : []);
         }
-      })
-      .catch(() => {});
+      } catch (error) {
+        console.error("Could not load account prospects", error);
+        if (!cancelled) setLeads([]);
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    }
+    void loadAccountData();
+    return () => { cancelled = true; };
   }, []);
   useEffect(() => {
-    if (loaded) localStorage.setItem("linkedin-assistant-leads", JSON.stringify(leads));
-  }, [leads, loaded]);
+    // Keep the legacy browser list separate from authenticated cloud accounts.
+    if (loaded && !account.connected) {
+      localStorage.setItem("linkedin-assistant-leads", JSON.stringify(leads));
+    }
+  }, [leads, loaded, account.connected]);
   useEffect(() => {
     if (!loaded || !cloudStorage) return;
     fetch("/api/prospects", {
