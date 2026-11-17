@@ -34,6 +34,7 @@ export default function SettingsPage() {
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiCreatedAt, setAiCreatedAt] = useState("");
   const [aiEndpoint, setAiEndpoint] = useState("");
+  const [aiContextEndpoint, setAiContextEndpoint] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMessage, setAiMessage] = useState("");
 
@@ -65,12 +66,12 @@ export default function SettingsPage() {
   }, []);
 
   async function generateAiConnection() {
-    setAiBusy(true); setAiMessage(""); setAiEndpoint("");
+    setAiBusy(true); setAiMessage(""); setAiEndpoint(""); setAiContextEndpoint("");
     try {
       const r = await fetch("/api/assistant-ai-token", { method: "POST" });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Could not generate the connection.");
-      setAiEnabled(true); setAiCreatedAt(new Date().toISOString()); setAiEndpoint(d.endpoint);
+      setAiEnabled(true); setAiCreatedAt(new Date().toISOString()); setAiEndpoint(d.endpoint); setAiContextEndpoint(d.contextEndpoint);
       setAiMessage("Connection created. Copy the endpoint now; the token is shown only once.");
     } catch (error) { setAiMessage(error instanceof Error ? error.message : "Could not generate the connection."); }
     finally { setAiBusy(false); }
@@ -83,7 +84,7 @@ export default function SettingsPage() {
       const r = await fetch("/api/assistant-ai-token", { method: "DELETE" });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Could not revoke the connection.");
-      setAiEnabled(false); setAiCreatedAt(""); setAiEndpoint("");
+      setAiEnabled(false); setAiCreatedAt(""); setAiEndpoint(""); setAiContextEndpoint("");
       setAiMessage("AI connection revoked.");
     } catch (error) { setAiMessage(error instanceof Error ? error.message : "Could not revoke the connection."); }
     finally { setAiBusy(false); }
@@ -136,13 +137,14 @@ export default function SettingsPage() {
     <section className="panel">
       <div className="eyebrow">CHATGPT CONNECTION</div>
       <h2>Connect ChatGPT to your prospect list</h2>
-      <p className="muted">Create a private connection for this account. ChatGPT can save prospects to your account without access to your Vercel project or login password.</p>
+      <p className="muted">Create a private connection for this account. ChatGPT can read your search context and save prospects without access to your Vercel project or login password.</p>
       <div className="row">
         <span className="muted">{aiEnabled ? "Connection active" : "No active AI connection"}</span>
         {aiEnabled ? <button type="button" className="secondary" onClick={() => void revokeAiConnection()} disabled={aiBusy}>{aiBusy ? "Please wait..." : "Revoke connection"}</button> : <button type="button" onClick={() => void generateAiConnection()} disabled={aiBusy}>{aiBusy ? "Creating..." : "Generate ChatGPT connection"}</button>}
       </div>
       {aiCreatedAt && <p className="muted">Active since: {new Date(aiCreatedAt).toLocaleString()}</p>}
-      {aiEndpoint && <label className="wide">Private ChatGPT endpoint<textarea rows={3} readOnly value={aiEndpoint} /><button type="button" className="secondary" onClick={() => void copyAiEndpoint()}>Copy endpoint</button></label>}
+      {aiEndpoint && <label className="wide">Prospect save endpoint<textarea rows={2} readOnly value={aiEndpoint} /><button type="button" className="secondary" onClick={() => void copyAiEndpoint()}>Copy save endpoint</button></label>}
+      {aiContextEndpoint && <label className="wide">Search context endpoint<textarea rows={2} readOnly value={aiContextEndpoint} /><button type="button" className="secondary" onClick={() => void copyAiContextEndpoint()}>Copy context endpoint</button><small className="muted">ChatGPT calls this before searching to retrieve your LinkedIn profile, confirmed profile details and saved search preferences.</small></label>}
       <p className="footnote">Keep this endpoint private. Anyone who has it can add prospects to this account. You can revoke it at any time. Generating a new connection automatically revokes the previous one.</p>
       <p className="muted">{aiMessage}</p>
     </section>
