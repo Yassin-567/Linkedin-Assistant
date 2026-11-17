@@ -9,8 +9,8 @@ const noStore = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" 
 function canonical(value: string) {
   try {
     const u = new URL(value);
-    if (!/(^|\\.)linkedin\\.com$/i.test(u.hostname) || !u.pathname.toLowerCase().startsWith("/in/")) return "";
-    return "https://www.linkedin.com" + u.pathname.replace(/\\/$/, "").toLowerCase();
+    if (!/(^|\.)linkedin\.com$/i.test(u.hostname) || !u.pathname.toLowerCase().startsWith("/in/")) return "";
+    return "https://www.linkedin.com" + u.pathname.replace(/\/$/, "").toLowerCase();
   } catch { return ""; }
 }
 
