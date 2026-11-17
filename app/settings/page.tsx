@@ -95,6 +95,11 @@ export default function SettingsPage() {
     catch { setAiMessage("Copy was blocked by your browser. Select and copy the endpoint manually."); }
   }
 
+  async function copyAiContextEndpoint() {
+    try { await navigator.clipboard.writeText(aiContextEndpoint); setAiMessage("Search context endpoint copied."); }
+    catch { setAiMessage("Copy was blocked by your browser. Select and copy the endpoint manually."); }
+  }
+
   function field(key: "countries" | "industries" | "keywords" | "jobTitles" | "excludedKeywords", label: string, hint: string) {
     return <label className="wide">{label}<textarea rows={3} value={p[key].join("\n")} onChange={e => setP(old => ({ ...old, [key]: lines(e.target.value) }))} /><small className="muted">{hint}</small></label>;
   }
