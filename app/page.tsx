@@ -19,9 +19,6 @@ export default function Home() {
   const [filter, setFilter] = useState("All");
   const [post, setPost] = useState("");
   const [message, setMessage] = useState("");
-  const [assistantToken, setAssistantToken] = useState("");
-  const [assistantReadUrl, setAssistantReadUrl] = useState("");
-  const [tokenBusy, setTokenBusy] = useState(false);
   const [aiToken, setAiToken] = useState("");
   const [aiEndpoint, setAiEndpoint] = useState("");
   const [aiTokenEnabled, setAiTokenEnabled] = useState(false);
