@@ -31,6 +31,11 @@ export default function SettingsPage() {
   const [message, setMessage] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
   const [verifiedAt, setVerifiedAt] = useState("");
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiCreatedAt, setAiCreatedAt] = useState("");
+  const [aiEndpoint, setAiEndpoint] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMessage, setAiMessage] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -48,6 +53,46 @@ export default function SettingsPage() {
       } else setProfileMessage(profileData.error || "Could not load profile verification.");
     }).catch(() => setMessage("Could not load settings.")).finally(() => setBusy(false));
   }, []);
+
+  useEffect(() => {
+    fetch("/api/assistant-ai-token", { cache: "no-store" })
+      .then(async r => {
+        if (r.status === 401) return;
+        const d = await r.json();
+        if (r.ok) { setAiEnabled(Boolean(d.enabled)); setAiCreatedAt(d.createdAt || ""); }
+      })
+      .catch(() => setAiMessage("Could not check AI connection status."));
+  }, []);
+
+  async function generateAiConnection() {
+    setAiBusy(true); setAiMessage(""); setAiEndpoint("");
+    try {
+      const r = await fetch("/api/assistant-ai-token", { method: "POST" });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Could not generate the connection.");
+      setAiEnabled(true); setAiCreatedAt(new Date().toISOString()); setAiEndpoint(d.endpoint);
+      setAiMessage("Connection created. Copy the endpoint now; the token is shown only once.");
+    } catch (error) { setAiMessage(error instanceof Error ? error.message : "Could not generate the connection."); }
+    finally { setAiBusy(false); }
+  }
+
+  async function revokeAiConnection() {
+    if (!window.confirm("Revoke this AI connection? ChatGPT will no longer be able to save prospects using it.")) return;
+    setAiBusy(true); setAiMessage("");
+    try {
+      const r = await fetch("/api/assistant-ai-token", { method: "DELETE" });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Could not revoke the connection.");
+      setAiEnabled(false); setAiCreatedAt(""); setAiEndpoint("");
+      setAiMessage("AI connection revoked.");
+    } catch (error) { setAiMessage(error instanceof Error ? error.message : "Could not revoke the connection."); }
+    finally { setAiBusy(false); }
+  }
+
+  async function copyAiEndpoint() {
+    try { await navigator.clipboard.writeText(aiEndpoint); setAiMessage("Endpoint copied. Paste it into your ChatGPT instructions."); }
+    catch { setAiMessage("Copy was blocked by your browser. Select and copy the endpoint manually."); }
+  }
 
   function field(key: "countries" | "industries" | "keywords" | "jobTitles" | "excludedKeywords", label: string, hint: string) {
     return <label className="wide">{label}<textarea rows={3} value={p[key].join("\n")} onChange={e => setP(old => ({ ...old, [key]: lines(e.target.value) }))} /><small className="muted">{hint}</small></label>;
@@ -88,6 +133,20 @@ export default function SettingsPage() {
 
   return <main className="workspace">
     <header className="topbar"><div><div className="eyebrow">PERSONALIZE DISCOVERY</div><h1>Search settings</h1><p className="muted">Your settings guide searches by default. You can still narrow or change each search.</p></div><div className="row"><a className="button secondary" href="/intelligence">AI Lead Intelligence</a><a className="button secondary" href="/">Back to workspace</a></div></header>
+    <section className="panel">
+      <div className="eyebrow">CHATGPT CONNECTION</div>
+      <h2>Connect ChatGPT to your prospect list</h2>
+      <p className="muted">Create a private connection for this account. ChatGPT can save prospects to your account without access to your Vercel project or login password.</p>
+      <div className="row">
+        <span className="muted">{aiEnabled ? "Connection active" : "No active AI connection"}</span>
+        {aiEnabled ? <button type="button" className="secondary" onClick={() => void revokeAiConnection()} disabled={aiBusy}>{aiBusy ? "Please wait..." : "Revoke connection"}</button> : <button type="button" onClick={() => void generateAiConnection()} disabled={aiBusy}>{aiBusy ? "Creating..." : "Generate ChatGPT connection"}</button>}
+      </div>
+      {aiCreatedAt && <p className="muted">Active since: {new Date(aiCreatedAt).toLocaleString()}</p>}
+      {aiEndpoint && <label className="wide">Private ChatGPT endpoint<textarea rows={3} readOnly value={aiEndpoint} /><button type="button" className="secondary" onClick={() => void copyAiEndpoint()}>Copy endpoint</button></label>}
+      <p className="footnote">Keep this endpoint private. Anyone who has it can add prospects to this account. You can revoke it at any time. Generating a new connection automatically revokes the previous one.</p>
+      <p className="muted">{aiMessage}</p>
+    </section>
+
     <section className="panel"><form className="lead-form" onSubmit={save}>
       <label className="wide">Your LinkedIn profile URL<input type="url" value={p.linkedinProfileUrl} onChange={e => setP(old => ({ ...old, linkedinProfileUrl: e.target.value }))} placeholder="https://www.linkedin.com/in/your-profile/" /><small className="muted">The app checks public search results for this exact profile. A URL does not grant access to private LinkedIn content.</small></label>
       {field("countries", "Target countries and locations", "One country or area per line. Leave blank if you want to enter a location for each search.")}

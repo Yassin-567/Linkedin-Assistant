@@ -31,11 +31,6 @@ export async function POST(request: Request) {
     const base = process.env.APP_URL || new URL(request.url).origin;
     const endpoint = new URL("/api/assistant-save", base);
     endpoint.searchParams.set("ai", token);
-    const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
-    if (bypass) {
-      endpoint.searchParams.set("x-vercel-protection-bypass", bypass);
-      endpoint.searchParams.set("x-vercel-set-bypass-cookie", "true");
-    }
     return NextResponse.json({
       token,
       endpoint: endpoint.toString(),
