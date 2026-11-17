@@ -1,33 +1,49 @@
-# ChatGPT Prospect Saving
+# ChatGPT AI Auth Token Connection
 
-## One-time setup for each account
+## One-time setup for each Inlinked account
 
-1. Sign in to your own LinkedIn Assistant account.
+1. Sign in to your own Inlinked account.
 2. Open **Search settings**.
-3. Under **ChatGPT Connection**, select **Generate ChatGPT connection**.
-4. Copy both endpoints shown: **Search context endpoint** and **Prospect save endpoint**. Add them to your ChatGPT instructions or the chat where you do prospect research.
-5. Keep the endpoint private. It grants permission to add prospects to that account. You can revoke it at any time from Settings.
+3. Under **ChatGPT AI Authentication**, choose **Generate AI Auth Token**.
+4. Copy the AI Auth Token and save it in your ChatGPT Memory/instructions yourself. The token is shown only once.
+5. Keep the token private. Anyone with it can request scoped access to this Inlinked account. Revoke it immediately if exposed.
 
-Each user must generate their own endpoint. Do not share Vercel access, Vercel bypass secrets, or another user's endpoint.
+Each Inlinked user must generate their own token. Never share another user's token, Vercel access, login password, or deployment-protection bypass credentials.
+
+## Authentication architecture
+
+The permanent **AI Auth Token** is different from the operational tokens:
+
+- **AI Auth Token:** permanent account-specific credential. It authorizes the assistant to request scoped credentials for that account.
+- **Context Token:** short-lived (24 hours), read-only access to the owner's profile, preferences, uploaded LinkedIn connections and already-saved prospects.
+- **Save Token:** short-lived (24 hours), save-only access to the owner's prospect pipeline.
+
+The AI requests fresh Context and Save tokens by sending an HTTP POST request to the **Credential issuance endpoint** copied from Settings. That URL contains the AI Auth Token. The response contains separate context and save endpoint URLs. Never use the AI Auth Token directly for routine context reads or prospect saves.
+
+## Mandatory Firecrawl requirement
+
+Firecrawl is mandatory for every HTTP request in the ChatGPT prospecting workflow. If Firecrawl is not installed and connected, stop and tell the user:
+
+**"Connect Firecrawl, it is mandatory."**
+
+Do not substitute another HTTP client or unrelated connector.
 
 ## Before every prospect search
 
-1. Make a GET request to the **Search context endpoint**.
-2. Read the returned `owner` and `searchPreferences` fields.
-3. Use the owner's LinkedIn URL and profile summary as context about the account owner, not as facts about the prospect being researched.
-4. Apply the saved countries, industries, keywords, job titles, exclusions and preferred language as default search preferences. The user's latest explicit instruction in the current chat overrides a saved preference when they conflict.
-5. Combine this context with your own research and reasoning. Verify prospect details independently; never assume the owner's profile describes the prospect.
+1. Use Firecrawl to POST to the credential issuance endpoint and read the returned contextEndpoint and saveEndpoint.
+2. Use the Context endpoint with HTTP GET before every search and whenever preferences may have changed.
+3. Read owner, searchPreferences, and exclusions.
+4. Use the owner's profile only as context about the account owner, not as facts about prospects.
+5. Apply saved countries, industries, keywords, job titles, excluded keywords and preferred language by default. The user's latest explicit instruction overrides a saved preference when they conflict.
+6. Exclude every URL in exclusions.uploadedConnectionProfileUrls and exclusions.savedProspectProfileUrls.
+7. Normalize LinkedIn profile URLs by ignoring case and trailing slashes. Deduplicate within each batch.
+8. Research and verify prospects independently using current public sources.
 
-The context endpoint is read-only and always returns the latest saved preferences. It also returns:
-- `exclusions.uploadedConnectionProfileUrls`: profile URLs from the latest uploaded LinkedIn Connections.csv snapshot.
-- `exclusions.savedProspectProfileUrls`: profile URLs already saved in the user's prospect pipeline.
-- The imported connection count and last import timestamp.
-
-ChatGPT must exclude these URLs before presenting or saving prospects. The endpoint is private to the account that generated the token and returns no-cache headers.
+The Context endpoint is read-only. It returns the latest preferences and uploaded connection counts/timestamps, uploaded connection profile URLs, and already-saved prospect profile URLs.
 
 ## Saving prospects
 
-Send an HTTP POST request to the exact endpoint copied from Settings, with a JSON body:
+Use the separate Save endpoint with HTTP POST, Content-Type application/json, and this body:
 
 ```json
 {
@@ -41,19 +57,15 @@ Send an HTTP POST request to the exact endpoint copied from Settings, with a JSO
 }
 ```
 
-Send between 1 and 50 leads per request. Each lead needs a name, company, and personal LinkedIn profile URL. Company pages and search URLs are not accepted.
+Send between 1 and 50 verified leads per request. Each lead needs a name, company, and personal LinkedIn profile URL. Company pages and search URLs are not accepted.
 
-The response reports saved, duplicate, and invalid counts for each lead. Duplicate LinkedIn profiles are not inserted twice into the same user's account.
+Read the actual response and report saved, duplicate, invalid and failed counts. Never claim a prospect was saved unless the API confirms it.
 
-## Security and troubleshooting
+## Security and revocation
 
-- Both endpoints contain the same private, random token. Treat them like passwords.
-- A newly generated endpoint automatically revokes the previous endpoint.
-- Use **Revoke connection** in Settings to disable access immediately.
-- A 401 response means the endpoint token is invalid or revoked, or the request was blocked before reaching the application. Use the public production domain endpoint copied from Settings; do not add Vercel deployment-protection bypass credentials.
-- Each endpoint is linked to the account that generated it. One user's prospects cannot be saved into another user's account through that endpoint.
-
-
-## Copy-ready prompt
-
-The Search settings page includes **Copy complete ChatGPT prompt**. It inserts both generated endpoints into a complete instruction set for a new ChatGPT chat, sets a default target of 50 qualified prospects, and instructs ChatGPT to exclude uploaded connections and prospects already saved in the pipeline. The target is an upper goal, not permission to invent or pad weak leads.
+- The app stores only SHA-256 hashes of tokens, not their plaintext values.
+- The AI Auth Token is shown only once. If lost, regenerate it in Settings.
+- Regenerating the AI Auth Token revokes the previous one.
+- **Revoke token** disables the AI Auth Token and all active scoped tokens.
+- Context and Save tokens expire after 24 hours; authenticate again to obtain fresh ones.
+- Never print tokens or endpoints in research reports, send them to search engines, or publish them.
