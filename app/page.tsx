@@ -66,20 +66,25 @@ export default function Home() {
       localStorage.setItem("linkedin-assistant-leads", JSON.stringify(leads));
     }
   }, [leads, loaded, account.connected]);
-  useEffect(() => {
-    if (!loaded || !cloudStorage) return;
-    fetch("/api/prospects", {
-      method:"PUT",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({leads})
-    }).catch(() => {});
-  }, [leads, loaded, cloudStorage]);
 
-  function addLead(e: React.FormEvent) {
+  async function addLead(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !company.trim()) return;
-    setLeads([{id:crypto.randomUUID(),name:name.trim(),company:company.trim(),url,status,followUp,notes},...leads]);
-    setName(""); setCompany(""); setUrl(""); setStatus(statuses[0]); setFollowUp(""); setNotes("");
+    const payload={name:name.trim(),company:company.trim(),url,status,followUp,notes,discoverySource:"Manual",savedVia:"Manual entry"};
+    if(cloudStorage){
+      const r=await fetch("/api/prospects",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      const d=await r.json();if(!r.ok){setMessage(d.error||"Could not save prospect.");return;}setLeads(old=>[d.lead,...old]);
+    } else setLeads(old=>[{id:crypto.randomUUID(),...payload},...old]);
+    setName("");setCompany("");setUrl("");setStatus(statuses[0]);setFollowUp("");setNotes("");
+  }
+  async function updateLead(id:string, changes:Partial<Lead>) {
+    const current=leads.find(x=>x.id===id);if(!current)return;const next={...current,...changes};
+    if(cloudStorage){const r=await fetch("/api/prospects",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(next)});const d=await r.json();if(!r.ok){setMessage(d.error||"Could not update prospect.");return;}setLeads(old=>old.map(x=>x.id===id?d.lead:x));}
+    else setLeads(old=>old.map(x=>x.id===id?next:x));
+  }
+  async function removeLead(id:string) {
+    if(cloudStorage){const r=await fetch("/api/prospects?id="+encodeURIComponent(id),{method:"DELETE"});const d=await r.json();if(!r.ok){setMessage(d.error||"Could not delete prospect.");return;}}
+    setLeads(old=>old.filter(x=>x.id!==id));
   }
   function exportCsv() {
     const q = (s:string) => '"' + s.replace(/"/g,'""') + '"';
@@ -114,7 +119,7 @@ export default function Home() {
         <div className="wide form-footer"><span className="muted">* Required</span><button type="submit">+ Save prospect</button></div>
       </form>
       <div className="toolbar"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search prospects..."/><select value={filter} onChange={e=>setFilter(e.target.value)}><option>All</option>{statuses.map(s=><option key={s}>{s}</option>)}</select></div>
-      {shown.length ? <div className="lead-list">{shown.map(x=><article className="lead" key={x.id}><div><strong>{x.name}</strong><div>{x.company}</div>{x.connected && <span className="connected-tag">✓ Connected{x.connectedOn ? ` · ${x.connectedOn}` : ""}</span>}{x.followUp && <small>Follow up: {x.followUp}</small>}{x.notes && <p>{x.notes}</p>}{x.url && <a href={x.url} target="_blank" rel="noreferrer">Open LinkedIn ↗</a>}</div><div className="lead-controls"><select value={x.status} onChange={e=>setLeads(old=>old.map(y=>y.id===x.id?{...y,status:e.target.value}:y))}>{statuses.map(s=><option key={s}>{s}</option>)}</select><button className="delete" onClick={()=>setLeads(old=>old.filter(y=>y.id!==x.id))}>×</button></div></article>)}</div> : <div className="empty"><strong>{leads.length ? "No matching prospects" : "Your pipeline starts here"}</strong><p>Add a business and decision-maker from any country or industry to track your next step.</p></div>}
+      {shown.length ? <div className="lead-list">{shown.map(x=><article className="lead" key={x.id}><div><strong>{x.name}</strong><div>{x.company}</div>{x.connected && <span className="connected-tag">✓ Connected{x.connectedOn ? ` · ${x.connectedOn}` : ""}</span>}{x.followUp && <small>Follow up: {x.followUp}</small>}{x.notes && <p>{x.notes}</p>}{x.url && <a href={x.url} target="_blank" rel="noreferrer">Open LinkedIn ↗</a>}</div><div className="lead-controls"><select value={x.status} onChange={e=>void updateLead(x.id,{status:e.target.value})}>{statuses.map(s=><option key={s}>{s}</option>)}</select><button className="delete" onClick={()=>void removeLead(x.id)}>×</button></div></article>)}</div> : <div className="empty"><strong>{leads.length ? "No matching prospects" : "Your pipeline starts here"}</strong><p>Add a business and decision-maker from any country or industry to track your next step.</p></div>}
       <p className="storage-note">{cloudStorage ? "Synced to your private cloud storage and mirrored in this browser." : "Saved in this browser until you sign in to enable private database sync."} Export CSV regularly for backup.</p>
     </section>
     <section className="panel"><div className="section-heading"><div><h2>ChatGPT AI Access</h2><p className="muted">Generate a reusable token for this account. ChatGPT can save prospects to this account until you revoke the token.</p></div><span className={aiTokenEnabled ? "connection connected" : "connection"}>{aiTokenEnabled ? "● AI access active" : "○ Not connected"}</span></div><div className="row"><button disabled={!account.connected || aiTokenBusy} onClick={async()=>{setAiTokenBusy(true);setAiToken("");setAiEndpoint("");try{const r=await fetch("/api/assistant-ai-token",{method:"POST"});const d=await r.json();if(!r.ok)throw new Error(d.error||"Could not generate AI token.");setAiToken(d.token);setAiEndpoint(d.endpoint);setAiTokenEnabled(true);await navigator.clipboard?.writeText(d.token);}catch(e){setMessage(e instanceof Error?e.message:"Could not generate AI token.");}finally{setAiTokenBusy(false);}}}>{aiTokenBusy?"Generating...":aiTokenEnabled?"Regenerate AI token":"Generate AI token"}</button><button className="button secondary" disabled={!account.connected || !aiTokenEnabled || aiTokenBusy} onClick={async()=>{setAiTokenBusy(true);try{const r=await fetch("/api/assistant-ai-token",{method:"DELETE"});const d=await r.json();if(!r.ok)throw new Error(d.error||"Could not revoke token.");setAiTokenEnabled(false);setAiToken("");setAiEndpoint("");setMessage("AI Access Token revoked.");}catch(e){setMessage(e instanceof Error?e.message:"Could not revoke token.");}finally{setAiTokenBusy(false);}}}>Revoke token</button></div>{aiToken&&<div className="status" role="status"><p><strong>Your new AI Access Token (shown once):</strong></p><code>{aiToken}</code><p><button className="button secondary" onClick={()=>void navigator.clipboard?.writeText(aiToken)}>Copy token</button></p><p><strong>ChatGPT save endpoint:</strong></p><code>{aiEndpoint}</code><p><button className="button secondary" onClick={()=>void navigator.clipboard?.writeText(aiEndpoint)}>Copy endpoint</button></p></div>}<p className="footnote">The token remains active until revoked or regenerated and is scoped to this signed-in account. It only allows prospect creation, not reading or editing account data. Use POST with a JSON leads array for up to 50 records, or build a URL with a base64url-encoded data parameter for GET requests (maximum 6,500 encoded characters). Existing LinkedIn profile URLs are skipped automatically. Keep the token private.</p></section>

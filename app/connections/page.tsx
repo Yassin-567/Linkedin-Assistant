@@ -17,10 +17,8 @@ export default function ConnectionsPage(){
   const response=await fetch("/api/connections",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({connections})});const result=await response.json();if(!response.ok)throw new Error(result.error||"Import failed.");
   setCount(result.count);setImportedAt(result.importedAt);
   const pr=await fetch("/api/prospects",{cache:"no-store"});let marked=0;
-  if(pr.ok){const cloud=await pr.json();const leads=Array.isArray(cloud.leads)?cloud.leads:[];const byUrl=new Map(connections.map(c=>[c.url,c]));let changed=false;
-   const updated=leads.map((lead:any)=>{const match=byUrl.get(canonicalUrl(lead.url||""));if(!match)return lead;marked++;if(lead.connected&&lead.connectedOn===(match.connectedOn||""))return lead;changed=true;return {...lead,connected:true,connectedOn:match.connectedOn||lead.connectedOn||""};});
-   if(changed){const write=await fetch("/api/prospects",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({leads:updated})});if(!write.ok)throw new Error("Connections imported, but saved prospects could not be updated. Reload and import again.");localStorage.setItem("linkedin-assistant-leads",JSON.stringify(updated));}
-  }
+  if(pr.ok){const cloud=await pr.json();const leads=Array.isArray(cloud.leads)?cloud.leads:[];const byUrl=new Map(connections.map(c=>[c.url,c]));for(const lead of leads){const match=byUrl.get(canonicalUrl(lead.url||""));if(!match)continue;marked++;if(lead.connected&&lead.connectedOn===(match.connectedOn||""))continue;const w=await fetch("/api/prospects",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({...lead,connected:true,connectedOn:match.connectedOn||lead.connectedOn||""})});if(!w.ok)throw new Error("Connections imported, but a matching prospect could not be updated. Reload and retry.");}}
+
   setMessage("Imported "+result.count.toLocaleString()+" connections. "+marked+" saved prospects marked Connected; pipeline statuses and notes were preserved.");
  }catch(e){setMessage(e instanceof Error?e.message:"Import failed.");}finally{setBusy(false);}}
  return <main className="workspace"><div className="topbar"><div><div className="eyebrow">DUPLICATE PROTECTION</div><h1>Existing connections</h1><p className="muted">Import your LinkedIn connections so prospects can be checked before saving.</p></div><a className="button secondary" href="/">Back to pipeline</a></div>

@@ -31,7 +31,7 @@ async function resolveAiUser(token: string) {
   return rows.length ? String(rows[0].user_id) : null;
 }
 
-async function saveBatch(userId: string, candidates: Candidate[], source: string) {
+async function saveBatch(userId: string, candidates: Candidate[], note: string, savedVia: string) {
   if (!Array.isArray(candidates) || candidates.length === 0 || candidates.length > 50) {
     return NextResponse.json({ error: "Provide between 1 and 50 leads." }, { status: 400, headers: noStore });
   }
@@ -60,7 +60,7 @@ async function saveBatch(userId: string, candidates: Candidate[], source: string
         continue;
       }
       const rows: any = await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,status,follow_up,notes)
-        VALUES(${userId},${x.name.slice(0,200)},${x.company.slice(0,300)},${x.url},${x.url},'To research','',${source})
+        VALUES(${userId},${x.name.slice(0,200)},${x.company.slice(0,300)},${x.url},${x.url},'To research','',${note},'ChatGPT research',${savedVia})
         ON CONFLICT(user_id,normalized_linkedin_url) DO NOTHING RETURNING id`;
       if (rows.length) {
         saved++;
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
     try {
       const userId = await resolveAiUser(aiToken);
       if (!userId) return NextResponse.json({ error: "AI Access Token is invalid or revoked." }, { status: 401, headers: noStore });
-      return saveBatch(userId, body.leads || [], "Added through permanent ChatGPT AI Access Token.");
+      return saveBatch(userId, body.leads || [], "Added through permanent ChatGPT AI Access Token.", "ChatGPT AI Token");
     } catch (error) {
       console.error("AI URL bulk save failed", error);
       return NextResponse.json({ error: "Could not process this AI save URL." }, { status: 503, headers: noStore });
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
     if ("error" in grant) return NextResponse.json({ error: grant.error }, { status: 401, headers: noStore });
     const sql = db();
     const rows: any = await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,status,follow_up,notes)
-      VALUES(${grant.userId},${name.slice(0,200)},${company.slice(0,300)},${url},${url},'To research','','Added through ChatGPT temporary save link.')
+      VALUES(${grant.userId},${name.slice(0,200)},${company.slice(0,300)},${url},${url},'To research','','Added through ChatGPT temporary save link.','ChatGPT research','ChatGPT temporary link')
       ON CONFLICT(user_id,normalized_linkedin_url) DO NOTHING RETURNING id`;
     return NextResponse.json({ ok: true, saved: rows.length === 1, duplicate: rows.length === 0, name, company, url }, { headers: noStore });
   } catch (error) {
@@ -132,12 +132,12 @@ export async function POST(request: NextRequest) {
     if (aiToken) {
       const userId = await resolveAiUser(aiToken);
       if (!userId) return NextResponse.json({ error: "AI Access Token is invalid or revoked." }, { status: 401, headers: noStore });
-      return saveBatch(userId, body.leads, "Added through permanent ChatGPT AI Access Token.");
+      return saveBatch(userId, body.leads, "Added through permanent ChatGPT AI Access Token.", "ChatGPT AI Token");
     }
     const token = p.get("token") || "";
     const grant = await consumeTemporary(token, body.leads.length);
     if ("error" in grant) return NextResponse.json({ error: grant.error }, { status: 401, headers: noStore });
-    return saveBatch(grant.userId, body.leads, "Added through ChatGPT temporary bulk save link.");
+    return saveBatch(grant.userId, body.leads, "Added through ChatGPT temporary bulk save link.", "ChatGPT temporary link");
   } catch (error) {
     console.error("Assistant bulk save failed", error);
     return NextResponse.json({ error: "Could not save this batch." }, { status: 503, headers: noStore });
