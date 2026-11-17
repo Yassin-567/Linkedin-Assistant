@@ -32,11 +32,11 @@ export async function GET() {
         FROM outreach_activities WHERE user_id = ${user.userId} AND created_at >= now() - interval '7 days'
         GROUP BY activity_type ORDER BY count DESC`,
       sql`SELECT id::text, name, company, status,
-        CASE WHEN follow_up ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN follow_up ELSE '' END AS "followUp",
-        CASE WHEN follow_up ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN (follow_up::date - CURRENT_DATE) ELSE NULL END AS "daysUntil"
+        CASE WHEN follow_up ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN follow_up ELSE '' END AS "followUp",
+        CASE WHEN follow_up ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN (CASE WHEN pg_input_is_valid(follow_up, 'date') THEN follow_up::date ELSE NULL END - CURRENT_DATE) ELSE NULL END AS "daysUntil"
         FROM prospects WHERE user_id = ${user.userId}
-          AND follow_up ~ '^\\d{4}-\\d{2}-\\d{2}$' AND follow_up::date <= CURRENT_DATE + 14
-        ORDER BY follow_up::date ASC LIMIT 8`
+          AND follow_up ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' AND CASE WHEN pg_input_is_valid(follow_up, 'date') THEN follow_up::date ELSE NULL END <= CURRENT_DATE + 14
+        ORDER BY CASE WHEN pg_input_is_valid(follow_up, 'date') THEN follow_up::date ELSE NULL END ASC LIMIT 8`
     ]);
     const overview = overviewRows[0] || { discovered: 0, qualified: 0, contacted: 0, replies: 0, meetings: 0, clients: 0 };
     const rate = (n: number, d: number) => d ? Math.round((n / d) * 100) : 0;
