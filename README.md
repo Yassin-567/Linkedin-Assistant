@@ -6,16 +6,24 @@ A global, individual-account prospecting workspace. Every Google-authenticated u
 
 - Google OAuth 2.0 sign-in with verified email.
 - Neon PostgreSQL as the source of truth.
-- Per-user countries, industries, keywords, decision-maker titles, exclusions, language and profile summary.
+- Per-user LinkedIn profile URL, countries, industries, keywords, decision-maker titles, exclusions, language and optional profile context.
 - Per-user prospects and imported LinkedIn connections.
 - Database uniqueness on `(user_id, normalized_linkedin_url)` prevents duplicate profile saves, including concurrent writes.
 - ChatGPT handoff using per-user, revocable AI Access Tokens. Each token can create prospects only for its owner; users can regenerate or revoke it at any time. Bulk saves support up to 50 prospects per request and database uniqueness prevents duplicate LinkedIn profiles.
-- Public search via the existing Serper provider. Results are filtered against each user's own saved prospects and imported connections in the app.
+- Public search via the existing Serper provider. Search defaults come from each user's preferences; one-off industry or location inputs can narrow a search. Publicly indexed profile snippets may be used as optional context when a user supplies their own LinkedIn URL.
+
+## Phase 3: personalized discovery
+
+- Users can add their own LinkedIn personal-profile URL in Search settings.
+- The app attempts to find that profile's publicly indexed Google search result. A LinkedIn URL does not grant access to private or login-protected profile data.
+- Profile context, saved interests, industries, countries, keywords and target titles guide the prospect search.
+- Search results receive a transparent keyword-based match estimate and match reasons.
+- Existing prospects and imported connections are filtered out in the search page before saving.
 
 ## Setup
 
 1. Create a Neon PostgreSQL database (the Neon free tier may be sufficient for an early test).
-2. Run the SQL in `db/schema.sql` against that database.
+2. For a new database, run the SQL in `db/schema.sql`. For an existing database, run `db/phase_3_preferences.sql` against that database before deploying this version.
 3. Create Google OAuth credentials in Google Cloud Console. Add this exact redirect URI: `https://YOUR_DOMAIN/api/auth/google/callback`.
 4. Configure the environment variables below in Vercel and redeploy.
 5. Set `APP_URL` to the public application origin.
