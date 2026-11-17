@@ -5,7 +5,7 @@ export const runtime="nodejs";
 const clean=(v:unknown,max=30):string[]|null=>Array.isArray(v)&&v.length<=max&&v.every(x=>typeof x==="string"&&x.trim().length>0&&x.length<=120)?[...new Set(v.map(x=>(x as string).trim()))]:null;
 function linkedinProfileUrl(v:unknown):string|null{
  if(typeof v!=="string"||!v.trim())return "";
- try{const u=new URL(v.trim());if(!/(^|\\.)linkedin\\.com$/i.test(u.hostname)||!/^\\/in\\/[^/]+\\/?$/i.test(u.pathname))return null;return "https://www.linkedin.com"+u.pathname.replace(/\\/$/,"");}catch{return null;}
+ try{const u=new URL(v.trim());const host=u.hostname.toLowerCase();const parts=u.pathname.split("/").filter(Boolean);if(!(host==="linkedin.com"||host.endsWith(".linkedin.com"))||parts.length!==2||parts[0].toLowerCase()!=="in")return null;return "https://www.linkedin.com/in/"+parts[1];}catch{return null;}
 }
 export async function GET(){
  const user=await currentUser();if(!user)return NextResponse.json({error:"Sign in required."},{status:401});

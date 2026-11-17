@@ -2,8 +2,8 @@
 import { useEffect, useState } from "react";
 type Result={title:string;url:string;description:string;matchScore?:number;matchReasons?:string[]};
 type Preferences={industries:string[];countries:string[]};
-function canonical(value:string){try{const u=new URL(value);if(!/(^|\\.)linkedin\\.com$/i.test(u.hostname)||!u.pathname.toLowerCase().startsWith("/in/"))return "";return "https://www.linkedin.com"+u.pathname.replace(/\\/$/,"").toLowerCase();}catch{return "";}}
-function profileName(title:string){return title.split(/\\s[-–|]\\s/)[0].replace(/\\s*\\|\\s*LinkedIn.*$/i,"").trim().slice(0,200)||"LinkedIn prospect";}
+function canonical(value:string){try{const u=new URL(value),host=u.hostname.toLowerCase();if(!(host==="linkedin.com"||host.endsWith(".linkedin.com"))||!u.pathname.toLowerCase().startsWith("/in/"))return "";return "https://www.linkedin.com"+(u.pathname.endsWith("/")?u.pathname.slice(0,-1):u.pathname).toLowerCase();}catch{return "";}}
+function profileName(title:string){return title.split(" | LinkedIn")[0].split(" - ")[0].trim().slice(0,200)||"LinkedIn prospect";}
 export default function SearchClients(){
  const[niche,setNiche]=useState(""),[location,setLocation]=useState(""),[preferences,setPreferences]=useState<Preferences>({industries:[],countries:[]}),[results,setResults]=useState<Result[]>([]),[busy,setBusy]=useState(false),[savingAll,setSavingAll]=useState(false),[error,setError]=useState(""),[saved,setSaved]=useState<string[]>([]),[excluded,setExcluded]=useState(0),[saveSummary,setSaveSummary]=useState("");
  useEffect(()=>{fetch("/api/preferences",{cache:"no-store"}).then(r=>r.json()).then(d=>{const p=d.preferences;if(p)setPreferences({industries:p.industries||[],countries:p.countries||[]});}).catch(()=>{});},[]);
