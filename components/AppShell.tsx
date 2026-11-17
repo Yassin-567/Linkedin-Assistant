@@ -9,6 +9,8 @@ const items = [
   { label: "Dashboard", href: "/", icon: "⌂" },
   { label: "Prospects", href: "/#prospects", icon: "◎" },
   { label: "Find Leads", href: "/search", icon: "⌕" },
+  { label: "Outreach", href: "/outreach", icon: "✉" },
+  { label: "Analytics", href: "/analytics", icon: "▥" },
   { label: "AI Intelligence", href: "/intelligence", icon: "✦" },
   { label: "Connections", href: "/connections", icon: "↗" },
   { label: "Settings", href: "/settings", icon: "⚙" },
