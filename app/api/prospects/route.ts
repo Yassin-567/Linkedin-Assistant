@@ -1,147 +1,57 @@
-import { get, list, put } from "@vercel/blob";
-import { timingSafeEqual } from "node:crypto";
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { COOKIE_NAME, openSession } from "@/lib/session";
-
+import { currentUser } from "@/lib/app-auth";
+import { db } from "@/lib/db";
 export const runtime = "nodejs";
-
-type Lead = {
-  id: string;
-  name: string;
-  company: string;
-  url: string;
-  status: string;
-  followUp: string;
-  notes: string;
-  connected?: boolean;
-  connectedOn?: string;
-};
-
-const allowedStatuses = new Set([
-  "To research", "Ready to contact", "Contacted", "Replied",
-  "Call booked", "Client", "Not a fit"
-]);
-
-function isAssistantRequest(request: NextRequest) {
-  const expected = process.env.ASSISTANT_API_KEY;
-  const supplied = request.headers.get("authorization") || "";
-  if (!expected || !supplied.startsWith("Bearer ")) return false;
-  const actual = supplied.slice(7);
-  const a = Buffer.from(actual);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
+const statuses = ["To research","Ready to contact","Contacted","Replied","Call booked","Client","Not a fit"];
+const sources = ["Unknown","Google/Serper","LinkedIn","Manual","ChatGPT research","Referral","Other"];
+const methods = ["Unknown","Find Leads","Manual entry","ChatGPT AI Token","ChatGPT temporary link","CSV import"];
+const fail = (error:string,status:number) => NextResponse.json({error},{status,headers:{"Cache-Control":"no-store"}});
+const clean = (v:unknown,n:number) => typeof v==="string" ? v.trim().slice(0,n) : "";
+function profileUrl(v:unknown):string|null {
+  if(typeof v!=="string"||!v.trim()) return null;
+  try { const u=new URL(v.trim()); if(!/(^|\.)linkedin\.com$/i.test(u.hostname)||!u.pathname.toLowerCase().startsWith("/in/")) return null; return "https://www.linkedin.com"+u.pathname.replace(/\/$/,"").toLowerCase(); } catch { return null; }
 }
-
-async function getAccess(request: NextRequest) {
-  if (isAssistantRequest(request)) return { assistant: true, personId: null as string | null };
-  const jar = await cookies();
-  const value = jar.get(COOKIE_NAME)?.value;
-  const session = value ? openSession(value) : null;
-  return { assistant: false, personId: session?.personId || null };
+const pick=(v:unknown,allowed:string[],fallback:string)=>typeof v==="string"&&allowed.includes(v)?v:fallback;
+export async function GET() {
+ const user=await currentUser(); if(!user)return fail("Sign in required.",401);
+ try { const sql=db(); const leads=await sql`SELECT id::text,name,company,linkedin_url AS url,industry,status,follow_up AS "followUp",notes,connected,connected_on AS "connectedOn",discovery_source AS "discoverySource",saved_via AS "savedVia",created_at AS "createdAt",updated_at AS "updatedAt" FROM prospects WHERE user_id=${user.userId} ORDER BY created_at DESC LIMIT 1000`; return NextResponse.json({leads},{headers:{"Cache-Control":"private,no-store"}}); }
+ catch(e){console.error("Prospect read failed",e);return fail("Could not load prospects.",503);}
 }
-
-function normalizeLeads(value: unknown): Lead[] | null {
-  if (!Array.isArray(value) || value.length > 1000) return null;
-  const leads: Lead[] = [];
-  for (const item of value) {
-    if (!item || typeof item !== "object") return null;
-    const x = item as Record<string, unknown>;
-    const fields = ["id", "name", "company", "url", "status", "followUp", "notes"];
-    if (fields.some((key) => typeof x[key] !== "string")) return null;
-    if (x.connected !== undefined && typeof x.connected !== "boolean") return null;
-    if (x.connectedOn !== undefined && typeof x.connectedOn !== "string") return null;
-    if (String(x.id).length > 100 || String(x.name).length > 200 ||
-        String(x.company).length > 300 || String(x.url).length > 2000 ||
-        String(x.followUp).length > 30 || String(x.notes).length > 5000 ||
-        !allowedStatuses.has(String(x.status))) return null;
-    leads.push({
-      id: String(x.id), name: String(x.name), company: String(x.company),
-      url: String(x.url), status: String(x.status),
-      followUp: String(x.followUp), notes: String(x.notes),
-      ...(typeof x.connected === "boolean" ? { connected: x.connected } : {}),
-      ...(typeof x.connectedOn === "string" ? { connectedOn: x.connectedOn.slice(0, 100) } : {})
-    });
-  }
-  return leads;
+export async function POST(request:NextRequest) {
+ const user=await currentUser(); if(!user)return fail("Sign in required.",401);
+ const b=await request.json().catch(()=>null); if(!b||typeof b!=="object")return fail("A prospect object is required.",400);
+ const name=clean(b.name,200),company=clean(b.company,300),url=profileUrl(b.url);
+ if(!name||!company)return fail("Contact name and company are required.",400);
+ if(b.url&&!url)return fail("Use a valid LinkedIn personal profile URL, or leave it blank.",400);
+ try {
+  const sql=db(); const rows: any=await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,industry,status,follow_up,notes,connected,connected_on,discovery_source,saved_via)
+   VALUES(${user.userId},${name},${company},${url},${url},${clean(b.industry,160)},${pick(b.status,statuses,"To research")},${clean(b.followUp,30)},${clean(b.notes,5000)},${!!b.connected},${clean(b.connectedOn,100)},${pick(b.discoverySource,sources,"Manual")},${pick(b.savedVia,methods,"Manual entry")})
+   ON CONFLICT(user_id,normalized_linkedin_url) WHERE normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url<>'' DO NOTHING
+   RETURNING id::text,name,company,linkedin_url AS url,industry,status,follow_up AS "followUp",notes,connected,connected_on AS "connectedOn",discovery_source AS "discoverySource",saved_via AS "savedVia",created_at AS "createdAt",updated_at AS "updatedAt"`;
+  if(!rows.length)return fail("This LinkedIn profile is already saved in your account.",409);
+  return NextResponse.json({ok:true,lead:rows[0]},{status:201,headers:{"Cache-Control":"no-store"}});
+ } catch(e){console.error("Prospect create failed",e);return fail("Could not save this prospect.",503);}
 }
-
-function validPersonId(value: unknown): value is string {
-  return typeof value === "string" && /^[A-Za-z0-9._-]{1,200}$/.test(value);
+export async function PATCH(request:NextRequest) {
+ const user=await currentUser(); if(!user)return fail("Sign in required.",401);
+ const b=await request.json().catch(()=>null),id=typeof b?.id==="string"?b.id:"";
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return fail("A valid prospect ID is required.",400);
+ const name=clean(b.name,200),company=clean(b.company,300); if(!name||!company)return fail("Contact name and company are required.",400);
+ const hasUrl=Object.prototype.hasOwnProperty.call(b,"url"),url=hasUrl?profileUrl(b.url):null;
+ if(hasUrl&&b.url&&!url)return fail("Use a valid LinkedIn personal profile URL, or leave it blank.",400);
+ try {
+  const sql=db();
+  const rows: any=hasUrl
+   ? await sql`UPDATE prospects SET name=${name},company=${company},linkedin_url=${url},normalized_linkedin_url=${url},industry=${clean(b.industry,160)},status=${pick(b.status,statuses,"To research")},follow_up=${clean(b.followUp,30)},notes=${clean(b.notes,5000)},connected=${!!b.connected},connected_on=${clean(b.connectedOn,100)},discovery_source=${pick(b.discoverySource,sources,"Unknown")},saved_via=${pick(b.savedVia,methods,"Unknown")},updated_at=now() WHERE id=${id}::uuid AND user_id=${user.userId} RETURNING id::text,name,company,linkedin_url AS url,industry,status,follow_up AS "followUp",notes,connected,connected_on AS "connectedOn",discovery_source AS "discoverySource",saved_via AS "savedVia"`
+   : await sql`UPDATE prospects SET name=${name},company=${company},industry=${clean(b.industry,160)},status=${pick(b.status,statuses,"To research")},follow_up=${clean(b.followUp,30)},notes=${clean(b.notes,5000)},connected=${!!b.connected},connected_on=${clean(b.connectedOn,100)},discovery_source=${pick(b.discoverySource,sources,"Unknown")},saved_via=${pick(b.savedVia,methods,"Unknown")},updated_at=now() WHERE id=${id}::uuid AND user_id=${user.userId} RETURNING id::text,name,company,linkedin_url AS url,industry,status,follow_up AS "followUp",notes,connected,connected_on AS "connectedOn",discovery_source AS "discoverySource",saved_via AS "savedVia"`;
+  if(!rows.length)return fail("Prospect not found in your account, or its LinkedIn URL is already used.",404);
+  return NextResponse.json({ok:true,lead:rows[0]},{headers:{"Cache-Control":"no-store"}});
+ } catch(e){console.error("Prospect update failed",e);return fail("Could not update this prospect.",503);}
 }
-
-async function readLeads(pathname: string): Promise<Lead[]> {
-  const file = await get(pathname, { access: "private", useCache: false });
-  if (!file || file.statusCode !== 200 || !file.stream) return [];
-  const raw = await new Response(file.stream).text();
-  const parsed = JSON.parse(raw) as { leads?: unknown };
-  const leads = normalizeLeads(parsed.leads);
-  if (!leads) throw new Error("Stored prospect data has an invalid format.");
-  return leads;
-}
-
-export async function GET(request: NextRequest) {
-  const access = await getAccess(request);
-  if (access.assistant) {
-    try {
-      const { blobs } = await list({ prefix: "prospects/", limit: 1000 });
-      const accounts = await Promise.all(blobs
-        .filter((blob) => blob.pathname.endsWith(".json"))
-        .map(async (blob) => ({
-          personId: blob.pathname.slice("prospects/".length, -".json".length),
-          leads: await readLeads(blob.pathname)
-        })));
-      return NextResponse.json({
-        accounts,
-        leads: accounts.flatMap((account) => account.leads),
-        count: accounts.reduce((sum, account) => sum + account.leads.length, 0)
-      }, { headers: { "Cache-Control": "no-store" } });
-    } catch (error) {
-      console.error("Assistant prospect read failed:", error);
-      return NextResponse.json({ error: "Could not read saved prospects." }, { status: 500 });
-    }
-  }
-
-  if (!access.personId) {
-    return NextResponse.json({ error: "Connect your LinkedIn account to use cloud prospect storage." }, { status: 401 });
-  }
-  try {
-    const leads = await readLeads(`prospects/${encodeURIComponent(access.personId)}.json`);
-    return NextResponse.json({ leads }, { headers: { "Cache-Control": "private, no-store" } });
-  } catch (error) {
-    console.error("Prospect storage read failed:", error);
-    return NextResponse.json({ error: "Could not load saved prospects from private storage." }, { status: 500 });
-  }
-}
-
-export async function PUT(request: NextRequest) {
-  const access = await getAccess(request);
-  if (!access.assistant && !access.personId) {
-    return NextResponse.json({ error: "Connect your LinkedIn account to use cloud prospect storage." }, { status: 401 });
-  }
-
-  const body = await request.json().catch(() => null);
-  const leads = normalizeLeads(body?.leads);
-  if (!leads) {
-    return NextResponse.json({ error: "Invalid prospect list. Check the fields and try again." }, { status: 400 });
-  }
-
-  const personId = access.assistant ? body?.personId : access.personId;
-  if (!validPersonId(personId)) {
-    return NextResponse.json({ error: "A valid personId is required for assistant updates." }, { status: 400 });
-  }
-
-  try {
-    const pathname = `prospects/${encodeURIComponent(personId)}.json`;
-    await put(pathname, JSON.stringify({ leads, updatedAt: new Date().toISOString() }), {
-      access: "private",
-      addRandomSuffix: false,
-      allowOverwrite: true,
-      contentType: "application/json"
-    });
-    return NextResponse.json({ ok: true, count: leads.length }, { headers: { "Cache-Control": "no-store" } });
-  } catch (error) {
-    console.error("Prospect storage write failed:", error);
-    return NextResponse.json({ error: "Could not save prospects to private storage." }, { status: 500 });
-  }
+export async function DELETE(request:NextRequest) {
+ const user=await currentUser(); if(!user)return fail("Sign in required.",401);
+ const id=request.nextUrl.searchParams.get("id")||"";
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return fail("A valid prospect ID is required.",400);
+ try {const sql=db();const rows: any=await sql`DELETE FROM prospects WHERE id=${id}::uuid AND user_id=${user.userId} RETURNING id`;if(!rows.length)return fail("Prospect not found in your account.",404);return NextResponse.json({ok:true},{headers:{"Cache-Control":"no-store"}});}
+ catch(e){console.error("Prospect delete failed",e);return fail("Could not delete this prospect.",503);}
 }

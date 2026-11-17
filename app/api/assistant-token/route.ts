@@ -1,24 +1,6 @@
-import { put } from "@vercel/blob";
-import { randomBytes, createHash } from "node:crypto";
-import { cookies } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
-import { COOKIE_NAME, openSession } from "@/lib/session";
+import { randomBytes,createHash } from "node:crypto";
+import { NextResponse } from "next/server";
+import { currentUser } from "@/lib/app-auth";
+import { db } from "@/lib/db";
 export const runtime="nodejs";
-export async function POST(request:NextRequest){
- const jar=await cookies();const value=jar.get(COOKIE_NAME)?.value;const session=value?openSession(value):null;
- if(!session)return NextResponse.json({error:"Connect LinkedIn before creating an assistant save token."},{status:401});
- // Register the signed-in LinkedIn account as the owner for future server-side automation.
- try{await put("assistant-config/automation-owner.json",JSON.stringify({personId:session.personId,updatedAt:Date.now()}),{access:"private",addRandomSuffix:false,allowOverwrite:true,contentType:"application/json"});}catch(error){console.error("Assistant automation owner registration failed:",error);return NextResponse.json({error:"Could not register this account for assistant automation."},{status:500,headers:{"Cache-Control":"no-store"}});}
- const bypass=process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
- if(!bypass)return NextResponse.json({error:"The temporary bridge is not configured yet. Contact the app administrator."},{status:503});
- const token=randomBytes(32).toString("base64url");const tokenHash=createHash("sha256").update(token).digest("hex");
- const expiresAt=Date.now()+10*60*1000;
- try{
-  await put("assistant-tokens/"+tokenHash+".json",JSON.stringify({personId:session.personId,expiresAt,usedAt:null,usesRemaining:50}),{access:"private",addRandomSuffix:false,allowOverwrite:false,contentType:"application/json"});
-  const saveUrl=new URL("/api/assistant-save",request.url);
-  saveUrl.searchParams.set("token",token);
-  saveUrl.searchParams.set("x-vercel-protection-bypass",bypass);
-  saveUrl.searchParams.set("x-vercel-set-bypass-cookie","true");
-  return NextResponse.json({token,expiresAt,saveUrl:saveUrl.toString()},{headers:{"Cache-Control":"no-store"}});
- }catch(error){console.error("Assistant token creation failed:",error);return NextResponse.json({error:"Could not create a temporary save token."},{status:500});}
-}
+export async function POST(request:Request){const user=await currentUser();if(!user)return NextResponse.json({error:"Sign in to create a ChatGPT connection."},{status:401});try{const token=randomBytes(32).toString("base64url");const hash=createHash("sha256").update(token).digest("hex");const expiresAt=new Date(Date.now()+10*60*1000);const sql=db();await sql`INSERT INTO assistant_tokens(token_hash,user_id,expires_at,batches_remaining,max_leads,read_used_at) VALUES(${hash},${user.userId},${expiresAt.toISOString()},1,50,NULL)`;const base=process.env.VERCEL_ENV==="production"&&process.env.APP_URL?process.env.APP_URL:new URL(request.url).origin;const read=new URL("/api/assistant-prospects",base),save=new URL("/api/assistant-save",base);read.searchParams.set("token",token);save.searchParams.set("token",token);const bypass=process.env.VERCEL_AUTOMATION_BYPASS_SECRET;if(bypass){for(const url of [read,save]){url.searchParams.set("x-vercel-protection-bypass",bypass);url.searchParams.set("x-vercel-set-bypass-cookie","true");}}return NextResponse.json({ok:true,expiresAt:expiresAt.toISOString(),readUrl:read.toString(),saveUrl:save.toString(),uses:1,maxLeads:50},{headers:{"Cache-Control":"no-store","Pragma":"no-cache"}});}catch(e){console.error("Assistant token issue failed",e);return NextResponse.json({error:"Could not create a temporary ChatGPT connection. Check database setup."},{status:503});}}
