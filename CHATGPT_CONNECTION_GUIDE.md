@@ -5,10 +5,20 @@
 1. Sign in to your own LinkedIn Assistant account.
 2. Open **Search settings**.
 3. Under **ChatGPT Connection**, select **Generate ChatGPT connection**.
-4. Copy the private endpoint and paste it into your ChatGPT instructions or the chat where you do prospect research.
+4. Copy both endpoints shown: **Search context endpoint** and **Prospect save endpoint**. Add them to your ChatGPT instructions or the chat where you do prospect research.
 5. Keep the endpoint private. It grants permission to add prospects to that account. You can revoke it at any time from Settings.
 
 Each user must generate their own endpoint. Do not share Vercel access, Vercel bypass secrets, or another user's endpoint.
+
+## Before every prospect search
+
+1. Make a GET request to the **Search context endpoint**.
+2. Read the returned `owner` and `searchPreferences` fields.
+3. Use the owner's LinkedIn URL and profile summary as context about the account owner, not as facts about the prospect being researched.
+4. Apply the saved countries, industries, keywords, job titles, exclusions and preferred language as default search preferences. The user's latest explicit instruction in the current chat overrides a saved preference when they conflict.
+5. Combine this context with your own research and reasoning. Verify prospect details independently; never assume the owner's profile describes the prospect.
+
+The context endpoint is read-only and always returns the latest saved preferences. It is private to the account that generated the token and returns no-cache headers.
 
 ## Saving prospects
 
@@ -32,7 +42,7 @@ The response reports saved, duplicate, and invalid counts for each lead. Duplica
 
 ## Security and troubleshooting
 
-- The endpoint contains a private, random token. Treat it like a password.
+- Both endpoints contain the same private, random token. Treat them like passwords.
 - A newly generated endpoint automatically revokes the previous endpoint.
 - Use **Revoke connection** in Settings to disable access immediately.
 - A 401 response means the endpoint token is invalid or revoked, or the request was blocked before reaching the application. Use the public production domain endpoint copied from Settings; do not add Vercel deployment-protection bypass credentials.
