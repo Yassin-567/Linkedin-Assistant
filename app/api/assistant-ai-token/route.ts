@@ -1,111 +1,61 @@
-import { get, put } from "@vercel/blob";
-import { createHash, randomBytes } from "node:crypto";
-import { cookies } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
-import { COOKIE_NAME, openSession } from "@/lib/session";
+import { randomBytes, createHash } from "node:crypto";
+import { NextResponse } from "next/server";
+import { currentUser } from "@/lib/app-auth";
+import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
-const noStore = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
-
-type TokenRecord = { personId: string; createdAt: number; revokedAt?: number | null };
-type TokenConfig = { tokenHash?: string; createdAt?: number; updatedAt?: number };
-
-async function currentPersonId() {
-  const jar = await cookies();
-  const value = jar.get(COOKIE_NAME)?.value;
-  const session = value ? openSession(value) : null;
-  return session?.personId || null;
-}
-
-async function readJson<T>(path: string): Promise<T | null> {
-  try {
-    const file = await get(path, { access: "private", useCache: false });
-    if (!file || file.statusCode !== 200 || !file.stream) return null;
-    return JSON.parse(await new Response(file.stream).text()) as T;
-  } catch (error) {
-    if (error instanceof Error && /not found|does not exist/i.test(error.message)) return null;
-    throw error;
-  }
-}
+const noStore = { "Cache-Control": "no-store", "Pragma": "no-cache", "Referrer-Policy": "no-referrer" };
 
 export async function GET() {
-  const personId = await currentPersonId();
-  if (!personId) return NextResponse.json({ error: "Sign in to LinkedIn Assistant first." }, { status: 401, headers: noStore });
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: noStore });
   try {
-    const config = await readJson<TokenConfig>("assistant-ai-config/" + encodeURIComponent(personId) + ".json");
-    return NextResponse.json({ enabled: !!config?.tokenHash, createdAt: config?.createdAt || null }, { headers: noStore });
+    const sql = db();
+    const rows: any = await sql`SELECT created_at FROM ai_access_tokens WHERE user_id=${user.userId} AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 1`;
+    return NextResponse.json({ enabled: rows.length > 0, createdAt: rows[0]?.created_at || null }, { headers: noStore });
   } catch (error) {
-    console.error("AI token status failed:", error);
-    return NextResponse.json({ error: "Could not check AI access status." }, { status: 500, headers: noStore });
+    console.error("AI access status failed", error);
+    return NextResponse.json({ error: "AI access is not initialized. Apply the latest database schema." }, { status: 503, headers: noStore });
   }
 }
 
-export async function POST(request: NextRequest) {
-  const personId = await currentPersonId();
-  if (!personId) return NextResponse.json({ error: "Sign in to LinkedIn Assistant first." }, { status: 401, headers: noStore });
-  const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
-  if (!bypass) return NextResponse.json({ error: "The app's Vercel access bypass is not configured." }, { status: 503, headers: noStore });
-
+export async function POST(request: Request) {
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: noStore });
   try {
-    const configPath = "assistant-ai-config/" + encodeURIComponent(personId) + ".json";
-    const previous = await readJson<TokenConfig>(configPath);
-    if (previous?.tokenHash) {
-      const oldPath = "assistant-ai-tokens/" + previous.tokenHash + ".json";
-      const oldRecord = await readJson<TokenRecord>(oldPath);
-      if (oldRecord) {
-        await put(oldPath, JSON.stringify({ ...oldRecord, revokedAt: Date.now() }), {
-          access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json"
-        });
-      }
-    }
-
+    const sql = db();
+    await sql`UPDATE ai_access_tokens SET revoked_at=now() WHERE user_id=${user.userId} AND revoked_at IS NULL`;
     const token = randomBytes(32).toString("base64url");
-    const tokenHash = createHash("sha256").update(token).digest("hex");
-    const createdAt = Date.now();
-    await put("assistant-ai-tokens/" + tokenHash + ".json", JSON.stringify({ personId, createdAt, revokedAt: null } satisfies TokenRecord), {
-      access: "private", addRandomSuffix: false, allowOverwrite: false, contentType: "application/json"
-    });
-    await put(configPath, JSON.stringify({ tokenHash, createdAt, updatedAt: createdAt } satisfies TokenConfig), {
-      access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json"
-    });
-
-    const endpoint = new URL("/api/assistant-save", request.url);
+    const hash = createHash("sha256").update(token).digest("hex");
+    await sql`INSERT INTO ai_access_tokens(token_hash,user_id) VALUES(${hash},${user.userId})`;
+    const base = process.env.APP_URL || new URL(request.url).origin;
+    const endpoint = new URL("/api/assistant-save", base);
     endpoint.searchParams.set("ai", token);
-    endpoint.searchParams.set("x-vercel-protection-bypass", bypass);
-    endpoint.searchParams.set("x-vercel-set-bypass-cookie", "true");
+    const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+    if (bypass) {
+      endpoint.searchParams.set("x-vercel-protection-bypass", bypass);
+      endpoint.searchParams.set("x-vercel-set-bypass-cookie", "true");
+    }
     return NextResponse.json({
       token,
       endpoint: endpoint.toString(),
-      createdAt,
-      message: "Copy this token now. It is shown only once. Generating another token revokes this one."
+      message: "Copy this token now. It is shown only once. Regenerating it revokes the previous token."
     }, { headers: noStore });
   } catch (error) {
-    console.error("AI token generation failed:", error);
-    return NextResponse.json({ error: "Could not generate the AI access token." }, { status: 500, headers: noStore });
+    console.error("AI access token generation failed", error);
+    return NextResponse.json({ error: "Could not generate the AI Access Token. Check the database schema." }, { status: 503, headers: noStore });
   }
 }
 
 export async function DELETE() {
-  const personId = await currentPersonId();
-  if (!personId) return NextResponse.json({ error: "Sign in to LinkedIn Assistant first." }, { status: 401, headers: noStore });
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: noStore });
   try {
-    const configPath = "assistant-ai-config/" + encodeURIComponent(personId) + ".json";
-    const config = await readJson<TokenConfig>(configPath);
-    if (config?.tokenHash) {
-      const tokenPath = "assistant-ai-tokens/" + config.tokenHash + ".json";
-      const record = await readJson<TokenRecord>(tokenPath);
-      if (record) {
-        await put(tokenPath, JSON.stringify({ ...record, revokedAt: Date.now() }), {
-          access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json"
-        });
-      }
-    }
-    await put(configPath, JSON.stringify({ updatedAt: Date.now() } satisfies TokenConfig), {
-      access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json"
-    });
+    const sql = db();
+    await sql`UPDATE ai_access_tokens SET revoked_at=now() WHERE user_id=${user.userId} AND revoked_at IS NULL`;
     return NextResponse.json({ ok: true, enabled: false }, { headers: noStore });
   } catch (error) {
-    console.error("AI token revocation failed:", error);
-    return NextResponse.json({ error: "Could not revoke the AI access token." }, { status: 500, headers: noStore });
+    console.error("AI access token revocation failed", error);
+    return NextResponse.json({ error: "Could not revoke the AI Access Token." }, { status: 503, headers: noStore });
   }
 }
