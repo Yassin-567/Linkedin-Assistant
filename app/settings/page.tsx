@@ -33,8 +33,8 @@ export default function SettingsPage() {
   const [verifiedAt, setVerifiedAt] = useState("");
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiCreatedAt, setAiCreatedAt] = useState("");
+  const [aiAuthToken, setAiAuthToken] = useState("");
   const [aiEndpoint, setAiEndpoint] = useState("");
-  const [aiContextEndpoint, setAiContextEndpoint] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMessage, setAiMessage] = useState("");
 
@@ -66,13 +66,14 @@ export default function SettingsPage() {
   }, []);
 
   async function generateAiConnection() {
-    setAiBusy(true); setAiMessage(""); setAiEndpoint(""); setAiContextEndpoint("");
+    if (aiEnabled && !window.confirm("Regenerate the AI Auth Token? The previous token will stop working immediately.")) return;
+    setAiBusy(true); setAiMessage(""); setAiEndpoint(""); setAiAuthToken("");
     try {
       const r = await fetch("/api/assistant-ai-token", { method: "POST" });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Could not generate the connection.");
-      setAiEnabled(true); setAiCreatedAt(new Date().toISOString()); setAiEndpoint(d.endpoint); setAiContextEndpoint(d.contextEndpoint);
-      setAiMessage("Connection created. Copy the endpoint now; the token is shown only once.");
+      setAiEnabled(true); setAiCreatedAt(d.createdAt || new Date().toISOString()); setAiEndpoint(d.credentialsEndpoint); setAiAuthToken(d.aiAuthToken);
+      setAiMessage("AI Auth Token created. Copy it and save it in your ChatGPT Memory. It is shown only once.");
     } catch (error) { setAiMessage(error instanceof Error ? error.message : "Could not generate the connection."); }
     finally { setAiBusy(false); }
   }
@@ -84,7 +85,7 @@ export default function SettingsPage() {
       const r = await fetch("/api/assistant-ai-token", { method: "DELETE" });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Could not revoke the connection.");
-      setAiEnabled(false); setAiCreatedAt(""); setAiEndpoint(""); setAiContextEndpoint("");
+      setAiEnabled(false); setAiCreatedAt(""); setAiEndpoint(""); setAiAuthToken("");
       setAiMessage("AI connection revoked.");
     } catch (error) { setAiMessage(error instanceof Error ? error.message : "Could not revoke the connection."); }
     finally { setAiBusy(false); }
@@ -95,43 +96,48 @@ export default function SettingsPage() {
     catch { setAiMessage("Copy was blocked by your browser. Select and copy the endpoint manually."); }
   }
 
-  async function copyAiContextEndpoint() {
-    try { await navigator.clipboard.writeText(aiContextEndpoint); setAiMessage("Search context endpoint copied."); }
-    catch { setAiMessage("Copy was blocked by your browser. Select and copy the endpoint manually."); }
+  async function copyAiAuthToken() {
+    try { await navigator.clipboard.writeText(aiAuthToken); setAiMessage("AI Auth Token copied. Save it in your ChatGPT Memory; treat it like a password."); }
+    catch { setAiMessage("Copy was blocked by your browser. Select and copy the token manually."); }
   }
 
   async function copyChatGPTPrompt() {
-    const prompt = `You are my LinkedIn prospect research assistant. Follow these instructions for this chat.
+    const prompt = `You are my LinkedIn prospect research assistant.
 
-LINKEDIN ASSISTANT CONNECTION
-Search context endpoint (GET before every search and whenever preferences may have changed):
-${aiContextEndpoint}
+## FIRECRAWL IS MANDATORY
+Use the connected Firecrawl plugin for every HTTP request to my LinkedIn Assistant API. If Firecrawl is not installed and connected, stop and tell me: "Connect Firecrawl, it is mandatory." Do not use another HTTP client or unrelated connector as a substitute.
 
-Prospect save endpoint (POST qualified prospects here):
-${aiEndpoint}
+## MY PRIVATE AI AUTHENTICATION
+AI Auth Token: ${aiAuthToken}
+Credential issuance endpoint: ${aiEndpoint}
 
-DEFAULT TARGET
-Find up to 50 qualified prospects per research batch. Aim for 50, but never pad the list with weak, irrelevant, unverifiable, or invented prospects. If fewer than 50 genuinely qualify, return fewer and explain why.
+Treat the AI Auth Token as a secret. Do not print it, send it to search engines, or disclose it. This token is unique to my Inlinked account.
 
-MANDATORY WORKFLOW
-1. Before searching, call the Search context endpoint using HTTP GET. Read the latest owner profile, LinkedIn URL, search preferences, exclusions, uploaded connection URLs, and already-saved prospect URLs.
-2. Use the owner profile only as context about me. Never confuse my details with a prospect's facts.
-3. Apply my saved countries, industries, keywords, job titles, excluded keywords and language by default. My latest instructions in this chat override saved preferences when they conflict.
-4. EXCLUDE every person whose LinkedIn profile URL appears in exclusions.uploadedConnectionProfileUrls. These are people I am already connected to. Also exclude every URL in exclusions.savedProspectProfileUrls so you do not return people already in my pipeline.
-5. Compare URLs after normalizing case and removing trailing slashes. Deduplicate within each search batch too.
-6. Research prospects independently using current public sources. Verify each person's name, current role, company and relevance. Do not treat search snippets as verified facts. Never invent missing information.
-7. Prioritize decision-makers and people/companies who can genuinely benefit from my background and services. Explain briefly why each prospect is relevant.
-8. Only save prospects that pass all checks and have a valid personal LinkedIn URL under linkedin.com/in/. Do not save company pages, search pages, uploaded connections, existing saved prospects, or uncertain matches.
-9. Save in one HTTP POST request to the exact Prospect save endpoint above, with Content-Type: application/json and body:
+## AUTHENTICATION WORKFLOW
+1. Before each prospect research session, use Firecrawl to send an HTTP POST request to the credential issuance endpoint. The endpoint URL already includes my AI Auth Token. Do not alter or expose the URL.
+2. Read the JSON response. It contains a short-lived Search Context endpoint and a separate short-lived Prospect Save endpoint.
+3. Use the Search Context endpoint with HTTP GET before every search and whenever preferences may have changed.
+4. Use only the Prospect Save endpoint for saving. Send HTTP POST with Content-Type: application/json and body:
 {"leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug/"}]}
-10. The endpoint accepts up to 50 prospects per request. Read the actual response and report saved, duplicate, invalid and other counts accurately. Never claim a prospect was saved unless the API confirms it.
-11. Keep both endpoints private. Never print, publish, or send them to search engines or unrelated services.
+5. The Context Token is read-only. The Save Token can only save prospects. Both expire after 24 hours. Re-authenticate with the AI Auth Token when they expire.
+6. If credential issuance fails, stop and report the exact error. Never guess tokens or bypass authentication.
 
-OUTPUT
-Return a concise research report with prospect name, role, company, location, LinkedIn URL, evidence/source links, and a short reason for fit. Clearly separate verified facts from uncertain details. Finish with the exact save results returned by the API.
+## RESEARCH RULES
+Read the latest owner profile, LinkedIn URL, search preferences, exclusions, uploaded connection URLs, and already-saved prospect URLs from the context response. Treat owner details only as context, never as prospect facts.
 
-If either endpoint fails, stop the save workflow, explain the error, and do not guess the missing preferences or exclusions.`;
-    try { await navigator.clipboard.writeText(prompt); setAiMessage("Complete ChatGPT prospecting prompt copied. Paste it into a new ChatGPT chat."); }
+Apply saved countries, industries, keywords, job titles, excluded keywords and language by default. My latest instruction overrides saved preferences.
+
+Exclude uploaded connections and all already-saved prospect URLs. Normalize LinkedIn URLs by ignoring case and trailing slashes. Deduplicate each batch.
+
+Research independently using current public sources. Verify every prospect's full name, current role, company, location and relevance. Do not rely on search snippets alone. Do not invent details.
+
+Prioritize relevant business owners, founders, directors and decision-makers. Only save verified people with a valid personal linkedin.com/in/ URL. Never save company pages, search pages, connections, existing prospects or uncertain matches.
+
+Return each prospect's name, role, company, location, LinkedIn URL, evidence links and brief reason for fit. Save no more than 50 per request. Read the actual API response and report exact saved, duplicate, invalid and failed counts.
+
+Keep all authentication URLs and tokens private. Never claim a save succeeded unless the API confirms it.
+`;
+    try { await navigator.clipboard.writeText(prompt); setAiMessage("Complete Firecrawl-enabled ChatGPT prompt copied. Add the AI Auth Token to ChatGPT Memory securely."); }
     catch { setAiMessage("Copy was blocked by your browser. Select and copy the prompt manually."); }
   }
 
@@ -175,18 +181,19 @@ If either endpoint fails, stop the save workflow, explain the error, and do not 
   return <main className="workspace">
     <header className="topbar"><div><div className="eyebrow">PERSONALIZE DISCOVERY</div><h1>Search settings</h1><p className="muted">Your settings guide searches by default. You can still narrow or change each search.</p></div><div className="row"><a className="button secondary" href="/intelligence">AI Lead Intelligence</a><a className="button secondary" href="/">Back to workspace</a></div></header>
     <section className="panel">
-      <div className="eyebrow">CHATGPT CONNECTION</div>
-      <h2>Connect ChatGPT to your prospect list</h2>
-      <p className="muted">Create a private connection for this account. ChatGPT can read your search context and save prospects without access to your Vercel project or login password.</p>
+      <div className="eyebrow">CHATGPT AI AUTHENTICATION</div>
+      <h2>Connect your ChatGPT assistant</h2>
+      <p className="muted">Generate one permanent AI Auth Token for this account. ChatGPT uses it to request separate, short-lived, permission-limited Context and Save tokens.</p>
       <div className="row">
-        <span className="muted">{aiEnabled ? "Connection active" : "No active AI connection"}</span>
-        {aiEnabled ? <button type="button" className="secondary" onClick={() => void revokeAiConnection()} disabled={aiBusy}>{aiBusy ? "Please wait..." : "Revoke connection"}</button> : <button type="button" onClick={() => void generateAiConnection()} disabled={aiBusy}>{aiBusy ? "Creating..." : "Generate ChatGPT connection"}</button>}
+        <span className="muted">{aiEnabled ? "AI Auth Token active" : "No active AI Auth Token"}</span>
+        <button type="button" onClick={() => void generateAiConnection()} disabled={aiBusy}>{aiBusy ? "Creating..." : aiEnabled ? "Regenerate AI Auth Token" : "Generate AI Auth Token"}</button>
+        {aiEnabled && <button type="button" className="secondary" onClick={() => void revokeAiConnection()} disabled={aiBusy}>{aiBusy ? "Please wait..." : "Revoke token"}</button>}
       </div>
       {aiCreatedAt && <p className="muted">Active since: {new Date(aiCreatedAt).toLocaleString()}</p>}
-      {aiEndpoint && <label className="wide">Prospect save endpoint<textarea rows={2} readOnly value={aiEndpoint} /><button type="button" className="secondary" onClick={() => void copyAiEndpoint()}>Copy save endpoint</button></label>}
-      {aiContextEndpoint && <label className="wide">Search context endpoint<textarea rows={2} readOnly value={aiContextEndpoint} /><button type="button" className="secondary" onClick={() => void copyAiContextEndpoint()}>Copy context endpoint</button><small className="muted">ChatGPT calls this before searching to retrieve your profile, saved preferences, uploaded connections and existing saved prospects for exclusion.</small></label>}
-      {aiEndpoint && aiContextEndpoint && <div className="wide"><button type="button" onClick={() => void copyChatGPTPrompt()}>Copy complete ChatGPT prompt · 50 prospects</button><small className="muted">Includes both private endpoints, search instructions, duplicate and connection exclusions, and the default 50-prospect target. Paste it into a new ChatGPT chat.</small></div>}
-      <p className="footnote">Keep this endpoint private. Anyone who has it can add prospects to this account. You can revoke it at any time. Generating a new connection automatically revokes the previous one.</p>
+      {aiAuthToken && <label className="wide">Your AI Auth Token<textarea rows={2} readOnly value={aiAuthToken} /><button type="button" className="secondary" onClick={() => void copyAiAuthToken()}>Copy AI Auth Token</button><small className="muted">Copy this token into ChatGPT Memory yourself. It is shown only once; if you lose it, regenerate it. Never share it publicly.</small></label>}
+      {aiEndpoint && <label className="wide">Credential issuance endpoint<textarea rows={2} readOnly value={aiEndpoint} /><button type="button" className="secondary" onClick={() => void copyAiEndpoint()}>Copy credential endpoint</button><small className="muted">ChatGPT sends POST here with Firecrawl to obtain separate read-only Context and prospect-saving tokens.</small></label>}
+      {aiAuthToken && aiEndpoint && <div className="wide"><button type="button" onClick={() => void copyChatGPTPrompt()}>Copy Firecrawl-enabled ChatGPT prompt</button><small className="muted">Includes the AI Auth Token and credential workflow. Save the token in ChatGPT Memory, then use the prompt for prospect research.</small></div>}
+      <p className="footnote">Treat the AI Auth Token as a password. Anyone who has it can issue scoped access to this account. Revoke it immediately if exposed. Revoking also invalidates active scoped tokens.</p>
       <p className="muted">{aiMessage}</p>
     </section>
 
