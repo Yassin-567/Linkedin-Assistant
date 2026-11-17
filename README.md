@@ -30,10 +30,25 @@ A global, individual-account prospecting workspace. Every Google-authenticated u
 - AI synthesis uses Vercel AI Gateway. Vercel deployments can authenticate with the deployment OIDC token; local development can use `AI_GATEWAY_API_KEY`. The model is configurable with `AI_GATEWAY_MODEL` (default: `openai/gpt-5.6-sol`).
 - Public search results may be incomplete or outdated. Signals and pain points are not verified internal facts.
 
+## Phase 5: outreach and relationship management
+
+- Private per-user outreach history for LinkedIn, email and other channels.
+- Editable connection-request, LinkedIn follow-up, email-introduction and email-follow-up drafts.
+- The app never sends messages automatically. A user reviews, copies and sends manually, then explicitly records that it was sent.
+- Sent messages, replies, meetings and notes are logged against the selected prospect. Sent/replied/meeting events update the prospect pipeline status.
+- Follow-up dates create due/upcoming reminders. Duplicate profile saves are blocked by the existing per-user unique profile constraint; repeated identical sent-message logs are blocked for 10 minutes, and request idempotency keys prevent duplicate submissions.
+
+## Phase 6: client acquisition dashboard
+
+- Private counts for discovered, qualified, contacted, replies, meetings and clients won.
+- Reply, meeting and client conversion rates based on recorded prospect statuses.
+- Industry and outreach-message performance summaries, where the user has recorded those details.
+- Weekly outreach activity and upcoming/overdue next actions.
+
 ## Setup
 
 1. Create a Neon PostgreSQL database (the Neon free tier may be sufficient for an early test).
-2. For a new database, run the SQL in `db/schema.sql`. For an existing database, run `db/phase_3_preferences.sql` and then `db/phase_4_intelligence_profile_verification.sql` against that database before deploying this version.
+2. For a new database, run the SQL in `db/schema.sql`. For an existing database, run `db/phase_3_preferences.sql`, `db/phase_4_intelligence_profile_verification.sql`, and `db/phase_5_6_outreach_dashboard.sql` against that database before deploying this version.
 3. Create Google OAuth credentials in Google Cloud Console. Add this exact redirect URI: `https://YOUR_DOMAIN/api/auth/google/callback`.
 4. Configure the environment variables below in Vercel and redeploy.
 5. Set `APP_URL` to the public application origin.
