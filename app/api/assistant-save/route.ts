@@ -31,6 +31,14 @@ async function resolveAiUser(token: string) {
   return rows.length ? String(rows[0].user_id) : null;
 }
 
+async function resolveScopedUser(token: string, scope: "context" | "save") {
+  if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) return null;
+  const sql = db();
+  const hash = createHash("sha256").update(token).digest("hex");
+  const rows: any = await sql`SELECT user_id FROM assistant_scoped_tokens WHERE token_hash=${hash} AND scope=${scope} AND expires_at>now() AND revoked_at IS NULL LIMIT 1`;
+  return rows.length ? String(rows[0].user_id) : null;
+}
+
 async function saveBatch(userId: string, candidates: Candidate[], note: string, savedVia: string) {
   if (!Array.isArray(candidates) || candidates.length === 0 || candidates.length > 50) {
     return NextResponse.json({ error: "Provide between 1 and 50 leads." }, { status: 400, headers: noStore });
@@ -80,7 +88,8 @@ async function saveBatch(userId: string, candidates: Candidate[], note: string, 
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams;
   const aiToken = p.get("ai") || "";
-  if (aiToken) {
+  const scopedSaveToken = p.get("st") || "";
+  if (aiToken || scopedSaveToken) {
     const encoded = p.get("data") || "";
     if (!encoded || encoded.length > 6500) {
       return NextResponse.json({ error: "Provide a base64url data parameter (maximum 6,500 characters)." }, { status: 400, headers: noStore });
@@ -89,8 +98,10 @@ export async function GET(request: NextRequest) {
     try { body = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as { leads?: Candidate[] }; }
     catch { return NextResponse.json({ error: "Invalid base64url JSON data." }, { status: 400, headers: noStore }); }
     try {
-      const userId = await resolveAiUser(aiToken);
-      if (!userId) return NextResponse.json({ error: "AI Access Token is invalid or revoked." }, { status: 401, headers: noStore });
+      const userId = scopedSaveToken
+        ? await resolveScopedUser(scopedSaveToken, "save")
+        : await resolveAiUser(aiToken);
+      if (!userId) return NextResponse.json({ error: "Save Token is invalid or expired." }, { status: 401, headers: noStore });
       return saveBatch(userId, body.leads || [], "Added through permanent ChatGPT AI Access Token.", "ChatGPT AI Token");
     } catch (error) {
       console.error("AI URL bulk save failed", error);
@@ -120,6 +131,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const p = request.nextUrl.searchParams;
   const aiToken = p.get("ai") || "";
+  const scopedSaveToken = p.get("st") || "";
   let body: { leads?: Candidate[] };
   try { body = await request.json() as { leads?: Candidate[] }; }
   catch { return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400, headers: noStore }); }
@@ -129,10 +141,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    if (aiToken) {
-      const userId = await resolveAiUser(aiToken);
-      if (!userId) return NextResponse.json({ error: "AI Access Token is invalid or revoked." }, { status: 401, headers: noStore });
-      return saveBatch(userId, body.leads, "Added through permanent ChatGPT AI Access Token.", "ChatGPT AI Token");
+    if (aiToken || scopedSaveToken) {
+      const userId = scopedSaveToken
+        ? await resolveScopedUser(scopedSaveToken, "save")
+        : await resolveAiUser(aiToken);
+      if (!userId) return NextResponse.json({ error: "Save Token is invalid or expired." }, { status: 401, headers: noStore });
+      return saveBatch(userId, body.leads, "Added through ChatGPT scoped Save Token.", "ChatGPT Save Token");
     }
     const token = p.get("token") || "";
     const grant = await consumeTemporary(token, body.leads.length);
