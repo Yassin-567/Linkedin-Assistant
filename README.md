@@ -20,10 +20,20 @@ A global, individual-account prospecting workspace. Every Google-authenticated u
 - Search results receive a transparent keyword-based match estimate and match reasons.
 - Existing prospects and imported connections are filtered out in the search page before saving.
 
+## Phase 4: profile verification and AI lead intelligence
+
+- Profile verification checks the exact LinkedIn URL against public search results and displays the title and snippet actually found.
+- Missing profile sections remain marked as not found. Users can correct or enter name, headline, company, About context, skills, experience and education.
+- On confirmation, each field is labelled as public indexed data or user-entered/edited data. The confirmed summary is saved to that user's account and used for lead matching and tailored research.
+- AI Lead Intelligence searches public company, hiring, growth and operational signals, then creates an evidence-led company snapshot, hypotheses, opportunities, a reason to contact, a tailored value proposition and an outreach angle.
+- Sources are shown with the report. Reports are private to the account and saved against the selected prospect.
+- AI synthesis uses Vercel AI Gateway. Vercel deployments can authenticate with the deployment OIDC token; local development can use `AI_GATEWAY_API_KEY`. The model is configurable with `AI_GATEWAY_MODEL` (default: `openai/gpt-5.6-sol`).
+- Public search results may be incomplete or outdated. Signals and pain points are not verified internal facts.
+
 ## Setup
 
 1. Create a Neon PostgreSQL database (the Neon free tier may be sufficient for an early test).
-2. For a new database, run the SQL in `db/schema.sql`. For an existing database, run `db/phase_3_preferences.sql` against that database before deploying this version.
+2. For a new database, run the SQL in `db/schema.sql`. For an existing database, run `db/phase_3_preferences.sql` and then `db/phase_4_intelligence_profile_verification.sql` against that database before deploying this version.
 3. Create Google OAuth credentials in Google Cloud Console. Add this exact redirect URI: `https://YOUR_DOMAIN/api/auth/google/callback`.
 4. Configure the environment variables below in Vercel and redeploy.
 5. Set `APP_URL` to the public application origin.
@@ -36,7 +46,9 @@ A global, individual-account prospecting workspace. Every Google-authenticated u
 - `GOOGLE_REDIRECT_URI`: Exact HTTPS callback URL registered in Google Cloud.
 - `APP_URL`: Public application origin.
 - `SESSION_SECRET`: Random secret of at least 32 characters.
-- `SERPER_API_KEY`: Search provider API key. This is separate from any LinkedIn Assistant app subscription.
+- `SERPER_API_KEY`: Search provider API key.
+- `AI_GATEWAY_MODEL`: Optional model override for AI Lead Intelligence. Defaults to `openai/gpt-5.6-sol`.
+- `AI_GATEWAY_API_KEY`: Optional local-development credential. Vercel deployments use OIDC authentication when AI Gateway is enabled.
 
 ## ChatGPT bulk-save workflow
 
@@ -47,7 +59,7 @@ A global, individual-account prospecting workspace. Every Google-authenticated u
 5. Each request is scoped to the token owner. LinkedIn profile URLs are normalized and database uniqueness skips duplicates.
 6. Regenerating a token revokes the previous one. Users can also revoke it from the home page. Treat the token like a password; do not publish it or commit it to source control.
 
-The app's bulk-save flow does not require a paid LinkedIn Assistant plan or a LinkedIn OAuth connection. ChatGPT plan/feature availability is controlled by ChatGPT itself. Search-provider usage may have its own limits or charges.
+The app's bulk-save flow does not require a paid LinkedIn Assistant plan or a LinkedIn OAuth connection. ChatGPT plan/feature availability is controlled by ChatGPT itself. Search-provider and AI-model usage may have their own limits or charges.
 
 ## Existing data
 
