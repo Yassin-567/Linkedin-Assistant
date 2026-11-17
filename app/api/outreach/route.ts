@@ -22,12 +22,12 @@ export async function GET() {
         FROM outreach_activities a JOIN prospects p ON p.id = a.prospect_id AND p.user_id = a.user_id
         WHERE a.user_id = ${user.userId} ORDER BY a.created_at DESC LIMIT 500`,
       sql`SELECT id::text, name, company, linkedin_url AS "profileUrl", status,
-        CASE WHEN follow_up ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN follow_up ELSE '' END AS "followUp",
-        CASE WHEN follow_up ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN (follow_up::date - CURRENT_DATE) ELSE NULL END AS "daysUntil"
+        CASE WHEN follow_up ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN follow_up ELSE '' END AS "followUp",
+        CASE WHEN follow_up ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN (CASE WHEN pg_input_is_valid(follow_up, 'date') THEN follow_up::date ELSE NULL END - CURRENT_DATE) ELSE NULL END AS "daysUntil"
         FROM prospects WHERE user_id = ${user.userId}
-        AND follow_up ~ '^\\d{4}-\\d{2}-\\d{2}$'
-        AND follow_up::date <= CURRENT_DATE + 14
-        ORDER BY follow_up::date ASC LIMIT 100`
+        AND follow_up ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+        AND CASE WHEN pg_input_is_valid(follow_up, 'date') THEN follow_up::date ELSE NULL END <= CURRENT_DATE + 14
+        ORDER BY CASE WHEN pg_input_is_valid(follow_up, 'date') THEN follow_up::date ELSE NULL END ASC LIMIT 100`
     ]);
     return NextResponse.json({ activities, reminders }, { headers: { "Cache-Control": "private,no-store" } });
   } catch (error) {
