@@ -126,9 +126,22 @@ export async function POST(request: NextRequest) {
     if (!aiResponse.ok) {
       const detail = await aiResponse.text().catch(() => "");
       console.error("AI Gateway failed", aiResponse.status, detail.slice(0, 500));
-      throw new Error(aiResponse.status === 401 || aiResponse.status === 403
-        ? "AI Gateway rejected this deployment. Check that AI Gateway is enabled for this Vercel project."
-        : "AI research returned HTTP " + aiResponse.status + ". Try again later.");
+      let gatewayError: any = null;
+      try { gatewayError = JSON.parse(detail).error; } catch { /* Keep the safe generic message below. */ }
+
+      if (gatewayError?.type === "customer_verification_required") {
+        throw new Error("Vercel AI Gateway requires a valid payment card on the Vercel team before it can provide free credits. Add a card in Vercel AI settings, then retry.");
+      }
+      if (gatewayError?.type === "insufficient_funds") {
+        throw new Error("Vercel AI Gateway has insufficient credits. Check the team's AI Gateway balance and billing, then retry.");
+      }
+      if (gatewayError?.type === "quota_for_entity_exceeded") {
+        throw new Error("The Vercel AI Gateway budget for this team, project, or key has been reached. Review the AI Gateway budget, then retry.");
+      }
+      if (aiResponse.status === 401 || aiResponse.status === 403) {
+        throw new Error("Vercel AI Gateway denied this request. Check the project's AI Gateway access and deployment authentication.");
+      }
+      throw new Error("AI research returned HTTP " + aiResponse.status + ". Try again later.");
     }
     const aiData = await aiResponse.json();
     const content = aiData.choices?.[0]?.message?.content;
