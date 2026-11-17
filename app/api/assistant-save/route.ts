@@ -59,9 +59,9 @@ async function saveBatch(userId: string, candidates: Candidate[], note: string, 
         results.push({ index: x.index, status: "invalid", name: x.name, error: x.error });
         continue;
       }
-      const rows: any = await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,status,follow_up,notes)
+      const rows: any = await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,status,follow_up,notes,discovery_source,saved_via)
         VALUES(${userId},${x.name.slice(0,200)},${x.company.slice(0,300)},${x.url},${x.url},'To research','',${note},'ChatGPT research',${savedVia})
-        ON CONFLICT(user_id,normalized_linkedin_url) DO NOTHING RETURNING id`;
+        ON CONFLICT(user_id,normalized_linkedin_url) WHERE normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url<>'' DO NOTHING RETURNING id`;
       if (rows.length) {
         saved++;
         results.push({ index: x.index, status: "saved", name: x.name, company: x.company, url: x.url });
@@ -107,9 +107,9 @@ export async function GET(request: NextRequest) {
     const grant = await consumeTemporary(token, 1);
     if ("error" in grant) return NextResponse.json({ error: grant.error }, { status: 401, headers: noStore });
     const sql = db();
-    const rows: any = await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,status,follow_up,notes)
+    const rows: any = await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,status,follow_up,notes,discovery_source,saved_via)
       VALUES(${grant.userId},${name.slice(0,200)},${company.slice(0,300)},${url},${url},'To research','','Added through ChatGPT temporary save link.','ChatGPT research','ChatGPT temporary link')
-      ON CONFLICT(user_id,normalized_linkedin_url) DO NOTHING RETURNING id`;
+      ON CONFLICT(user_id,normalized_linkedin_url) WHERE normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url<>'' DO NOTHING RETURNING id`;
     return NextResponse.json({ ok: true, saved: rows.length === 1, duplicate: rows.length === 0, name, company, url }, { headers: noStore });
   } catch (error) {
     console.error("Single assistant save failed", error);
