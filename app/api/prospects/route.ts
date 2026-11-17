@@ -24,7 +24,7 @@ export async function POST(request:NextRequest) {
  if(!name||!company)return fail("Contact name and company are required.",400);
  if(b.url&&!url)return fail("Use a valid LinkedIn personal profile URL, or leave it blank.",400);
  try {
-  const sql=db(); const rows=await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,status,follow_up,notes,connected,connected_on,discovery_source,saved_via)
+  const sql=db(); const rows: any=await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,status,follow_up,notes,connected,connected_on,discovery_source,saved_via)
    VALUES(${user.userId},${name},${company},${url},${url},${pick(b.status,statuses,"To research")},${clean(b.followUp,30)},${clean(b.notes,5000)},${!!b.connected},${clean(b.connectedOn,100)},${pick(b.discoverySource,sources,"Manual")},${pick(b.savedVia,methods,"Manual entry")})
    ON CONFLICT(user_id,normalized_linkedin_url) WHERE normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url<>'' DO NOTHING
    RETURNING id::text,name,company,linkedin_url AS url,status,follow_up AS "followUp",notes,connected,connected_on AS "connectedOn",discovery_source AS "discoverySource",saved_via AS "savedVia",created_at AS "createdAt",updated_at AS "updatedAt"`;
@@ -41,7 +41,7 @@ export async function PATCH(request:NextRequest) {
  if(hasUrl&&b.url&&!url)return fail("Use a valid LinkedIn personal profile URL, or leave it blank.",400);
  try {
   const sql=db();
-  const rows=hasUrl
+  const rows: any=hasUrl
    ? await sql`UPDATE prospects SET name=${name},company=${company},linkedin_url=${url},normalized_linkedin_url=${url},status=${pick(b.status,statuses,"To research")},follow_up=${clean(b.followUp,30)},notes=${clean(b.notes,5000)},connected=${!!b.connected},connected_on=${clean(b.connectedOn,100)},discovery_source=${pick(b.discoverySource,sources,"Unknown")},saved_via=${pick(b.savedVia,methods,"Unknown")},updated_at=now() WHERE id=${id}::uuid AND user_id=${user.userId} RETURNING id::text,name,company,linkedin_url AS url,status,follow_up AS "followUp",notes,connected,connected_on AS "connectedOn",discovery_source AS "discoverySource",saved_via AS "savedVia"`
    : await sql`UPDATE prospects SET name=${name},company=${company},status=${pick(b.status,statuses,"To research")},follow_up=${clean(b.followUp,30)},notes=${clean(b.notes,5000)},connected=${!!b.connected},connected_on=${clean(b.connectedOn,100)},discovery_source=${pick(b.discoverySource,sources,"Unknown")},saved_via=${pick(b.savedVia,methods,"Unknown")},updated_at=now() WHERE id=${id}::uuid AND user_id=${user.userId} RETURNING id::text,name,company,linkedin_url AS url,status,follow_up AS "followUp",notes,connected,connected_on AS "connectedOn",discovery_source AS "discoverySource",saved_via AS "savedVia"`;
   if(!rows.length)return fail("Prospect not found in your account, or its LinkedIn URL is already used.",404);
@@ -52,6 +52,6 @@ export async function DELETE(request:NextRequest) {
  const user=await currentUser(); if(!user)return fail("Sign in required.",401);
  const id=request.nextUrl.searchParams.get("id")||"";
  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return fail("A valid prospect ID is required.",400);
- try {const sql=db();const rows=await sql`DELETE FROM prospects WHERE id=${id}::uuid AND user_id=${user.userId} RETURNING id`;if(!rows.length)return fail("Prospect not found in your account.",404);return NextResponse.json({ok:true},{headers:{"Cache-Control":"no-store"}});}
+ try {const sql=db();const rows: any=await sql`DELETE FROM prospects WHERE id=${id}::uuid AND user_id=${user.userId} RETURNING id`;if(!rows.length)return fail("Prospect not found in your account.",404);return NextResponse.json({ok:true},{headers:{"Cache-Control":"no-store"}});}
  catch(e){console.error("Prospect delete failed",e);return fail("Could not delete this prospect.",503);}
 }
