@@ -114,13 +114,13 @@ Credential issuance endpoint: ${aiEndpoint}
 Treat the AI Auth Token as a secret. Do not print it, send it to search engines, or disclose it. This token is unique to my Inlinked account.
 
 ## AUTHENTICATION WORKFLOW
-1. Before each prospect research session, use Firecrawl to send an HTTP POST request to the credential issuance endpoint. The endpoint URL already includes my AI Auth Token. Do not alter or expose the URL.
-2. Read the JSON response. It contains a short-lived Search Context endpoint and a separate short-lived Prospect Save endpoint.
-3. Use the Search Context endpoint with HTTP GET before every search and whenever preferences may have changed.
-4. Use only the Prospect Save endpoint for saving. Send HTTP POST with Content-Type: application/json and body:
+1. Before each prospect research session, use Firecrawl to POST to the credential issuance endpoint. The URL already includes my permanent AI Auth Token. Do not expose or alter it.
+2. Read the response. It returns one temporary Access Token, a Context endpoint and a Save endpoint. Both endpoint URLs use the same token.
+3. Use the Context endpoint with HTTP GET before every search and whenever preferences may have changed.
+4. Use the Save endpoint with HTTP POST, Content-Type: application/json, and body:
 {"leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug/"}]}
-5. The Context Token is read-only. The Save Token can only save prospects. Both expire after 24 hours. Re-authenticate with the AI Auth Token when they expire.
-6. If credential issuance fails, stop and report the exact error. Never guess tokens or bypass authentication.
+5. The temporary Access Token works with both endpoints for 10 minutes. When it expires, request a new one using the permanent AI Auth Token.
+6. The permanent AI Auth Token must never be sent directly to the Context or Save endpoints. If credential issuance fails, stop and report the exact error.
 
 ## RESEARCH RULES
 Read the latest owner profile, LinkedIn URL, search preferences, exclusions, uploaded connection URLs, and already-saved prospect URLs from the context response. Treat owner details only as context, never as prospect facts.
@@ -137,7 +137,7 @@ Return each prospect's name, role, company, location, LinkedIn URL, evidence lin
 
 Keep all authentication URLs and tokens private. Never claim a save succeeded unless the API confirms it.
 `;
-    try { await navigator.clipboard.writeText(prompt); setAiMessage("Complete Firecrawl-enabled ChatGPT prompt copied. Add the AI Auth Token to ChatGPT Memory securely."); }
+    try { await navigator.clipboard.writeText(prompt); setAiMessage("Firecrawl-enabled ChatGPT prompt copied. Add the permanent AI Auth Token to ChatGPT Memory securely."); }
     catch { setAiMessage("Copy was blocked by your browser. Select and copy the prompt manually."); }
   }
 
@@ -183,7 +183,7 @@ Keep all authentication URLs and tokens private. Never claim a save succeeded un
     <section className="panel">
       <div className="eyebrow">CHATGPT AI AUTHENTICATION</div>
       <h2>Connect your ChatGPT assistant</h2>
-      <p className="muted">Generate one permanent AI Auth Token for this account. ChatGPT uses it to request separate, short-lived, permission-limited Context and Save tokens.</p>
+      <p className="muted">Generate one permanent AI Auth Token for this account. ChatGPT uses it only to request one temporary access token that works with both endpoints for 10 minutes.</p>
       <div className="row">
         <span className="muted">{aiEnabled ? "AI Auth Token active" : "No active AI Auth Token"}</span>
         <button type="button" onClick={() => void generateAiConnection()} disabled={aiBusy}>{aiBusy ? "Creating..." : aiEnabled ? "Regenerate AI Auth Token" : "Generate AI Auth Token"}</button>
@@ -191,9 +191,9 @@ Keep all authentication URLs and tokens private. Never claim a save succeeded un
       </div>
       {aiCreatedAt && <p className="muted">Active since: {new Date(aiCreatedAt).toLocaleString()}</p>}
       {aiAuthToken && <label className="wide">Your AI Auth Token<textarea rows={2} readOnly value={aiAuthToken} /><button type="button" className="secondary" onClick={() => void copyAiAuthToken()}>Copy AI Auth Token</button><small className="muted">Copy this token into ChatGPT Memory yourself. It is shown only once; if you lose it, regenerate it. Never share it publicly.</small></label>}
-      {aiEndpoint && <label className="wide">Credential issuance endpoint<textarea rows={2} readOnly value={aiEndpoint} /><button type="button" className="secondary" onClick={() => void copyAiEndpoint()}>Copy credential endpoint</button><small className="muted">ChatGPT sends POST here with Firecrawl to obtain separate read-only Context and prospect-saving tokens.</small></label>}
+      {aiEndpoint && <label className="wide">Credential issuance endpoint<textarea rows={2} readOnly value={aiEndpoint} /><button type="button" className="secondary" onClick={() => void copyAiEndpoint()}>Copy credential endpoint</button><small className="muted">ChatGPT sends POST here with Firecrawl to obtain one temporary token for both endpoints. It expires after 10 minutes.</small></label>}
       {aiAuthToken && aiEndpoint && <div className="wide"><button type="button" onClick={() => void copyChatGPTPrompt()}>Copy Firecrawl-enabled ChatGPT prompt</button><small className="muted">Includes the AI Auth Token and credential workflow. Save the token in ChatGPT Memory, then use the prompt for prospect research.</small></div>}
-      <p className="footnote">Treat the AI Auth Token as a password. Anyone who has it can issue scoped access to this account. Revoke it immediately if exposed. Revoking also invalidates active scoped tokens.</p>
+      <p className="footnote">Treat the AI Auth Token as a password. It can only issue temporary access tokens. Revoke or regenerate it immediately if exposed; both actions invalidate all active temporary access tokens.</p>
       <p className="muted">{aiMessage}</p>
     </section>
 
