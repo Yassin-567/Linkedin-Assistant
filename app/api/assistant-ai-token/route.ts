@@ -32,7 +32,6 @@ export async function POST(request: Request) {
     await sql`INSERT INTO ai_access_tokens(token_hash,user_id) VALUES(${hash},${user.userId})`;
     const base = process.env.APP_URL || new URL(request.url).origin;
     const credentialsEndpoint = new URL("/api/assistant-credentials", base);
-    credentialsEndpoint.searchParams.set("auth", token);
     return NextResponse.json({
       aiAuthToken: token,
       credentialsEndpoint: credentialsEndpoint.toString(),
