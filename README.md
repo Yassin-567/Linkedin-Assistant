@@ -10,7 +10,7 @@ A global, individual-account prospecting workspace. Every Google-authenticated u
 - Per-user prospects and imported LinkedIn connections.
 - Database uniqueness on `(user_id, normalized_linkedin_url)` prevents duplicate profile saves, including concurrent writes.
 - ChatGPT handoff using per-user, revocable tokens (10-minute access tokens or a permanent token). Each token can read context and create prospects only for its owner. Bulk saves support up to 50 prospects per request and database uniqueness prevents duplicate LinkedIn profiles.
-- Public search via the existing Serper provider. Search defaults come from each user's preferences; one-off industry or location inputs can narrow a search. Publicly indexed profile snippets may be used as optional context when a user supplies their own LinkedIn URL.
+- Public search via Serper. Search requests use plain-text queries (without exact-phrase quotes or Google search operators) and request up to 10 results per page; the app then filters results to public LinkedIn personal profiles. Search defaults come from each user's preferences; one-off industry or location inputs can narrow a search. Publicly indexed profile snippets may be used as optional context when a user supplies their own LinkedIn URL.
 
 ## Phase 3: personalized discovery
 
