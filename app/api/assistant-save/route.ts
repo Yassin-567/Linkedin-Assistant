@@ -9,7 +9,7 @@ const noStore = { "Cache-Control": "no-store, no-cache, must-revalidate", "Pragm
 function canonical(value: string) {
   try {
     const u = new URL(value);
-    if (!/(^|\\.)linkedin\\.com$/i.test(u.hostname) || !u.pathname.toLowerCase().startsWith("/in/")) return "";
+    if (!/(^|\.)linkedin\.com$/i.test(u.hostname) || !u.pathname.toLowerCase().startsWith("/in/")) return "";
     return "https://www.linkedin.com" + u.pathname.replace(/\\/$/, "").toLowerCase();
   } catch { return ""; }
 }
