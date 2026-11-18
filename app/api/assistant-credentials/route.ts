@@ -14,9 +14,10 @@ function hashToken(token: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const authToken = request.nextUrl.searchParams.get("auth") || "";
+  const authorization = request.headers.get("authorization") || "";
+  const authToken = authorization.match(/^Bearer\\s+([A-Za-z0-9_-]{40,60})$/i)?.[1] || "";
   if (!/^[A-Za-z0-9_-]{40,60}$/.test(authToken)) {
-    return NextResponse.json({ error: "AI Auth Token is required." }, { status: 401, headers });
+    return NextResponse.json({ error: "Send the permanent AI Auth Token in the Authorization: Bearer header." }, { status: 401, headers });
   }
 
   try {
