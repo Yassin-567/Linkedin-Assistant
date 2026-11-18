@@ -23,10 +23,10 @@ export function buildChatGptPrompt({
     ? [
         "## Connection — Quick Session",
         "This prompt contains a temporary Inlinked access token. It expires 10 minutes after it was created.",
-        `Context endpoint (HTTP GET): ${context}?ai=${token}`,
-        `Prospect save endpoint (HTTP POST, Content-Type: application/json): ${save}?ai=${token}`,
+        `Context endpoint (HTTP GET): ${context}?access=${token}`,
+        `Prospect save endpoint (HTTP POST, Content-Type: application/json): ${save}?access=${token}`,
         "Use these exact URLs, including the ai query parameter. Do not add, remove or rewrite parameters. The token authorizes reading this account's search context and saving prospects only.",
-        "If either endpoint returns 401, stop. The session token has expired; ask me to create a fresh Quick Session prompt in Inlinked."
+        "If either endpoint returns 401, stop. The session token is expired, revoked or invalid; ask me to create a fresh Quick Session prompt in Inlinked."
       ]
     : [
         "## Connection — Permanent Token",
@@ -70,7 +70,7 @@ export function buildChatGptPrompt({
     "9. Save all qualified prospects in ONE HTTP POST request to the exact Prospect save endpoint. In Permanent Token mode, use the exact saveEndpoint returned by Credentials. Set Content-Type: application/json and send this body:",
     LEAD_EXAMPLE,
     "10. The endpoint accepts up to 50 prospects per request. Read the actual POST status and response body. The response uses the fields total, saved, duplicates and invalid (not duplicate). Report these exact returned values accurately. Never claim a prospect was saved unless the API confirms it.",
-    "11. If context retrieval fails, do not guess the preferences or exclusions. If saving fails, report the actual error and do not claim the prospects were saved.",
+    "11. If context retrieval fails, stop and report the actual HTTP status; do not guess preferences or exclusions. If the save request returns a 5xx error or times out, retry the exact same batch once: the database's per-user unique LinkedIn URL constraint makes this retry safe, because already-saved prospects will be returned as duplicates and unsaved prospects can still be added. Verify the retry's actual HTTP status and response body before reporting results. If the retry also fails, report that the final saved count is unknown because the first request may have partially succeeded; never claim that zero prospects were saved. For 400 or 401 responses, do not repeat the same request unchanged; report the actual error and fix the input or credentials first.",
     "12. Stop the Firecrawl browser-interaction session after the final API response has been inspected. If a session fails to initialize, retry once using a completely fresh firecrawl_interact session started directly on the first endpoint URL; do not use a prior scrapeId.",
     "",
     "## Output",
