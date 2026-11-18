@@ -6,19 +6,18 @@
 2. Open **Search settings**.
 3. Under **ChatGPT AI Authentication**, choose **Generate AI Auth Token**.
 4. Copy the AI Auth Token and save it in your ChatGPT Memory/instructions yourself. The token is shown only once.
-5. Keep the token private. Anyone with it can request scoped access to this Inlinked account. Revoke it immediately if exposed.
+5. Keep the token private. Anyone with it can request temporary access to this Inlinked account. Revoke it immediately if exposed.
 
 Each Inlinked user must generate their own token. Never share another user's token, Vercel access, login password, or deployment-protection bypass credentials.
 
 ## Authentication architecture
 
-The permanent **AI Auth Token** is different from the operational tokens:
+There are two token types:
 
-- **AI Auth Token:** permanent account-specific credential. It authorizes the assistant to request scoped credentials for that account.
-- **Context Token:** short-lived (24 hours), read-only access to the owner's profile, preferences, uploaded LinkedIn connections and already-saved prospects.
-- **Save Token:** short-lived (24 hours), save-only access to the owner's prospect pipeline.
+- **Permanent AI Auth Token:** account-specific credential used only to request a temporary access token. It is never accepted by the Context or Save endpoints.
+- **Temporary Access Token:** one random token valid for exactly 10 minutes. The same token is accepted by both the Context and Save endpoints.
 
-The AI requests fresh Context and Save tokens by sending an HTTP POST request to the **Credential issuance endpoint** copied from Settings. That URL contains the AI Auth Token. The response contains separate context and save endpoint URLs. Never use the AI Auth Token directly for routine context reads or prospect saves.
+The assistant requests a fresh temporary token by sending HTTP POST to the **Credential issuance endpoint** copied from Settings. The URL contains the permanent AI Auth Token. The response returns one temporary token plus Context and Save endpoint URLs that both carry that same temporary token.
 
 ## Mandatory Firecrawl requirement
 
@@ -30,7 +29,7 @@ Do not substitute another HTTP client or unrelated connector.
 
 ## Before every prospect search
 
-1. Use Firecrawl to POST to the credential issuance endpoint and read the returned contextEndpoint and saveEndpoint.
+1. Use Firecrawl to POST to the credential issuance endpoint and read the returned temporary access token, Context endpoint, Save endpoint, and expiry.
 2. Use the Context endpoint with HTTP GET before every search and whenever preferences may have changed.
 3. Read owner, searchPreferences, and exclusions.
 4. Use the owner's profile only as context about the account owner, not as facts about prospects.
@@ -43,7 +42,7 @@ The Context endpoint is read-only. It returns the latest preferences and uploade
 
 ## Saving prospects
 
-Use the separate Save endpoint with HTTP POST, Content-Type application/json, and this body:
+Use the Save endpoint returned in the same credential response. It carries the **same temporary access token** as the Context endpoint. Send HTTP POST with Content-Type application/json and this body:
 
 ```json
 {
@@ -65,7 +64,8 @@ Read the actual response and report saved, duplicate, invalid and failed counts.
 
 - The app stores only SHA-256 hashes of tokens, not their plaintext values.
 - The AI Auth Token is shown only once. If lost, regenerate it in Settings.
-- Regenerating the AI Auth Token revokes the previous one.
-- **Revoke token** disables the AI Auth Token and all active scoped tokens.
-- Context and Save tokens expire after 24 hours; authenticate again to obtain fresh ones.
+- Regenerating the AI Auth Token revokes the previous permanent token and all previously issued temporary access tokens.
+- **Revoke token** disables the permanent AI Auth Token and all active temporary access tokens.
+- Temporary Access Tokens expire after 10 minutes. Request a new one using the permanent AI Auth Token.
+- The permanent AI Auth Token is never accepted directly by Context or Save endpoints.
 - Never print tokens or endpoints in research reports, send them to search engines, or publish them.
