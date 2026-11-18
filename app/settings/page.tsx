@@ -105,47 +105,66 @@ export default function SettingsPage() {
     catch { setAiMessage("Copy was blocked by your browser. Select and copy the token manually."); }
   }
 
-  async function copyChatGPTPrompt() {
-    const prompt = `You are my LinkedIn prospect research assistant.
+  async function generateTemporaryAccessToken() {
+    if (!aiAuthToken || !aiEndpoint) { setAiMessage("Generate your permanent AI Auth Token first."); return; }
+    setAiBusy(true); setAiMessage("");
+    try {
+      const r = await fetch(aiEndpoint, { method: "POST", headers: { Authorization: "Bearer " + aiAuthToken } });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Could not generate temporary access.");
+      setAiAccessToken(d.accessToken || ""); setContextEndpoint(d.contextEndpoint || "");
+      setSaveEndpoint(d.saveEndpoint || ""); setAccessExpiresAt(d.expiresAt || "");
+      setAiMessage("Temporary AI Access Token generated. Shared by Context and Save for 10 minutes.");
+    } catch (error) { setAiMessage(error instanceof Error ? error.message : "Could not generate temporary access."); }
+    finally { setAiBusy(false); }
+  }
 
-## FIRECRAWL IS MANDATORY
-Use the connected Firecrawl plugin for every HTTP request to my LinkedIn Assistant API. If Firecrawl is not installed and connected, stop and tell me: "Connect Firecrawl, it is mandatory." Do not use another HTTP client or unrelated connector as a substitute.
+  async function copyTemporaryAccessToken() {
+    try { await navigator.clipboard.writeText(aiAccessToken); setAiMessage("Temporary AI Access Token copied."); }
+    catch { setAiMessage("Copy was blocked. Select and copy the token manually."); }
+  }
 
-## MY PRIVATE AI AUTHENTICATION
-AI Auth Token: ${aiAuthToken}
-Credential issuance endpoint: ${aiEndpoint}
+  async function copyNormalPrompt() {
+    if (!aiAccessToken || !contextEndpoint || !saveEndpoint) { setAiMessage("Generate an AI Access Token first."); return; }
+    const prompt = [
+      "You are my LinkedIn prospect research assistant.",
+      "FIRECRAWL IS MANDATORY. Use connected Firecrawl for every HTTP request. If it is not installed and connected, stop and say: Connect Firecrawl, it is mandatory. Do not substitute another HTTP client.",
+      "Temporary AI Access Token: " + aiAccessToken,
+      "Context endpoint: " + contextEndpoint,
+      "Save endpoint: " + saveEndpoint,
+      "This same temporary token authorizes Context and Save and expires in 10 minutes. This prompt is for manual research only. Do not request or use a permanent token. If expired, stop and ask me to generate a fresh temporary token in Settings.",
+      "Before every search, use Firecrawl browser interaction to GET Context. Context is the only source of my profile, preferences, exclusions, uploaded connections and already-saved prospects. Do not assume or hardcode criteria.",
+      "Apply the latest Context preferences. Exclude uploaded connections and existing prospects. Normalize LinkedIn URLs by ignoring case and trailing slashes; deduplicate each batch.",
+      "Verify each prospect's full name, current role, company, location, relevance and personal LinkedIn URL using current public evidence. Do not invent details or rely on snippets alone.",
+      "Save up to 50 verified leads using Firecrawl browser interaction: POST to Save with Content-Type application/json and body:",
+      "{\"leads\":[{\"name\":\"Full name\",\"company\":\"Company name\",\"linkedin\":\"https://www.linkedin.com/in/profile-slug/\"}]}",
+      "Only save personal linkedin.com/in/ URLs. Read the actual API response and report saved, duplicate, invalid and failed counts. Include names, roles, companies, locations, evidence links and reasons for fit.",
+      "Keep tokens and endpoint URLs private. Never claim a save succeeded unless the API confirms it."
+    ].join("\n");
+    try { await navigator.clipboard.writeText(prompt); setAiMessage("Normal Research Prompt copied."); }
+    catch { setAiMessage("Copy was blocked. Select and copy the prompt manually."); }
+  }
 
-Treat the AI Auth Token as a secret. Do not print it, send it to search engines, or disclose it. This token is unique to my Inlinked account.
-
-## AUTHENTICATION WORKFLOW
-1. Retrieve my permanent AI Auth Token from ChatGPT Memory. Never ask me to paste it again if it is already available.
-2. Use Firecrawl's browser-interaction tool (not a page-scrape request) to send HTTP POST to the credential issuance endpoint with header Authorization: Bearer <permanent AI Auth Token>. Do not put the permanent token in the URL, query string, request body, logs, or output.
-3. Read the JSON response. It returns one temporary Access Token, a Context endpoint and a Save endpoint. Both endpoint URLs contain the same temporary token.
-4. Use Firecrawl to HTTP GET the Context endpoint before every search and whenever preferences may have changed.
-5. Use Firecrawl to HTTP POST the Save endpoint with Content-Type: application/json, and body:
-{"leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug/"}]}
-6. The same temporary Access Token works with both endpoints for exactly 10 minutes. When it expires, request a new one using the permanent AI Auth Token.
-7. The permanent AI Auth Token is accepted only by the credential issuance endpoint, never by Context or Save. If credential issuance fails, stop and report the exact error.
-
-For Firecrawl HTTP calls, use its browser-interaction capability to execute fetch requests with the required method, headers and JSON body. Do not use a scrape-only GET operation for POST requests.
-
-## RESEARCH RULES
-Read the latest owner profile, LinkedIn URL, search preferences, exclusions, uploaded connection URLs, and already-saved prospect URLs from the context response. Treat owner details only as context, never as prospect facts.
-
-Apply saved countries, industries, keywords, job titles, excluded keywords and language by default. My latest instruction overrides saved preferences.
-
-Exclude uploaded connections and all already-saved prospect URLs. Normalize LinkedIn URLs by ignoring case and trailing slashes. Deduplicate each batch.
-
-Research independently using current public sources. Verify every prospect's full name, current role, company, location and relevance. Do not rely on search snippets alone. Do not invent details.
-
-Prioritize relevant business owners, founders, directors and decision-makers. Only save verified people with a valid personal linkedin.com/in/ URL. Never save company pages, search pages, connections, existing prospects or uncertain matches.
-
-Return each prospect's name, role, company, location, LinkedIn URL, evidence links and brief reason for fit. Save no more than 50 per request. Read the actual API response and report exact saved, duplicate, invalid and failed counts.
-
-Keep all authentication URLs and tokens private. Never claim a save succeeded unless the API confirms it.
-`;
-    try { await navigator.clipboard.writeText(prompt); setAiMessage("Firecrawl-enabled ChatGPT prompt copied. Add the permanent AI Auth Token to ChatGPT Memory securely."); }
-    catch { setAiMessage("Copy was blocked by your browser. Select and copy the prompt manually."); }
+  async function copyAutomaticPrompt() {
+    if (!aiAuthToken || !aiEndpoint) { setAiMessage("Generate your permanent AI Auth Token first."); return; }
+    const prompt = [
+      "You are my automated LinkedIn prospect research assistant.",
+      "FIRECRAWL IS MANDATORY. Use connected Firecrawl for every HTTP request. If it is not installed and connected, stop and say: Connect Firecrawl, it is mandatory. Do not substitute another HTTP client.",
+      "Permanent AI Auth Token: " + aiAuthToken,
+      "Credential issuance endpoint: " + aiEndpoint,
+      "Treat the permanent token as a password. Send it only in the Authorization: Bearer header to the credential issuance endpoint. Never put it in a URL, query string, body, logs or output. It is never accepted by Context or Save.",
+      "CREATE AND ENABLE a recurring ChatGPT task that runs automatically twice every day, 12 hours apart, in Africa/Cairo time. If exact times are required, use 09:00 and 21:00 Africa/Cairo. Each run must research and attempt to save up to 50 NEW, VERIFIED, QUALIFIED leads. Actually create the task and confirm its schedule. If recurring Tasks are unavailable, say so; never pretend it was scheduled.",
+      "FOR EVERY RUN: use Firecrawl browser interaction to POST to the credential issuance endpoint with Authorization: Bearer <permanent token>. Read the response and use its temporary access token, Context endpoint and Save endpoint. The same temporary token works with both endpoints and expires after 10 minutes; obtain a fresh one whenever needed.",
+      "GET Context through Firecrawl before every search. Context is the only source of current profile, search preferences, exclusions, uploaded connection URLs and already-saved prospect URLs. Do not hardcode or assume criteria.",
+      "Exclude uploaded connections and all saved prospects. Normalize LinkedIn URLs by ignoring case and trailing slashes. Deduplicate across runs.",
+      "Find up to 50 NEW leads per run. Fifty is a target, not a reason to lower quality. Save fewer if fewer qualify. Verify full name, current role, company, location, relevance and personal LinkedIn URL using current public evidence.",
+      "Save verified leads with Firecrawl POST to Save, Content-Type application/json, body:",
+      "{\"leads\":[{\"name\":\"Full name\",\"company\":\"Company name\",\"linkedin\":\"https://www.linkedin.com/in/profile-slug/\"}]}",
+      "Read the actual Save response. Record timestamp, researched, saved, duplicate, invalid and failed counts, plus saved lead names and evidence links. Never claim success without API confirmation.",
+      "Report errors accurately. Keep all tokens and endpoints private. If recurring Tasks are unavailable, do not claim the schedule exists."
+    ].join("\n");
+    try { await navigator.clipboard.writeText(prompt); setAiMessage("Automatic Prospecting Prompt copied."); }
+    catch { setAiMessage("Copy was blocked. Select and copy the prompt manually."); }
   }
 
   function field(key: "countries" | "industries" | "keywords" | "jobTitles" | "excludedKeywords", label: string, hint: string) {
