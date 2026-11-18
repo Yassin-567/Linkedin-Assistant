@@ -34,6 +34,10 @@ export default function SettingsPage() {
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiCreatedAt, setAiCreatedAt] = useState("");
   const [aiAuthToken, setAiAuthToken] = useState("");
+  const [aiAccessToken, setAiAccessToken] = useState("");
+  const [contextEndpoint, setContextEndpoint] = useState("");
+  const [saveEndpoint, setSaveEndpoint] = useState("");
+  const [accessExpiresAt, setAccessExpiresAt] = useState("");
   const [aiEndpoint, setAiEndpoint] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMessage, setAiMessage] = useState("");
