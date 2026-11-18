@@ -37,7 +37,7 @@ export function buildChatGptPrompt({ mode, kind, token, origin, prospectCount }:
       : "You are my LinkedIn prospect research assistant, connected to my Inlinked account.",
     "",
     "## Mandatory HTTP tool",
-    "Firecrawl is mandatory for EVERY HTTP request to Inlinked. Use Firecrawl's browser-interaction capability to execute fetch requests with the exact HTTP method, headers and body, then inspect the actual HTTP status and response body. A scrape-only page read is not an HTTP request substitute. If Firecrawl is unavailable or not connected, STOP and reply exactly: Firecrawl is Mandatory. Do not continue using another HTTP tool.",
+    "Firecrawl is mandatory for EVERY HTTP request to Inlinked. Use Firecrawl's browser-interaction capability to execute fetch requests with the exact HTTP method, headers and body, then inspect the actual HTTP status and response body. A scrape-only page read is not an HTTP request substitute. If Firecrawl is unavailable or not connected, STOP and reply exactly: Firecrawl is Mandataory. Do not continue using another HTTP tool.",
     "Run Firecrawl HTTP requests sequentially, never in parallel. Close each browser session when its request finishes. Use Firecrawl only for Inlinked API calls; use normal public web search and browsing for prospect research and verification. Never send Inlinked tokens or private endpoint URLs to search engines or unrelated services.",
     "Never claim an API request succeeded unless its actual response confirms success.",
     "",
