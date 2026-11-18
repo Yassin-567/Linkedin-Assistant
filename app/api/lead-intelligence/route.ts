@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/app-auth";
 import { db } from "@/lib/db";
+import { serperSearch } from "@/lib/serper";
 
 export const runtime = "nodejs";
 type Evidence = { category: string; title: string; url: string; snippet: string };
 const clean = (value: unknown, max = 240) => typeof value === "string" ? value.trim().slice(0, max) : "";
 
 async function searchEvidence(key: string, query: string, category: string): Promise<Evidence[]> {
-  const response = await fetch("https://google.serper.dev/search", {
-    method: "POST",
-    headers: { "X-API-KEY": key, "Content-Type": "application/json" },
-    body: JSON.stringify({ q: query, hl: "en", num: 6 }),
-    cache: "no-store"
-  });
-  if (!response.ok) throw new Error("Search provider returned HTTP " + response.status + ".");
-  const data = await response.json();
+  const data = await serperSearch(key, query, { hl: "en" });
   return (Array.isArray(data.organic) ? data.organic : []).map((item: any) => ({
     category,
     title: clean(item.title, 300),
@@ -70,12 +64,21 @@ export async function POST(request: NextRequest) {
       if (!owned.length) return NextResponse.json({ error: "That prospect does not belong to your account." }, { status: 404 });
     }
 
+    let profileSlug = "";
+    if (profileUrl) {
+      try {
+        profileSlug = new URL(profileUrl).pathname.split("/").filter(Boolean).pop() || "";
+      } catch {
+        profileSlug = "";
+      }
+    }
+    // Use normal words only so the same research works with Serper free accounts.
     const queries = [
-      searchEvidence(serperKey, "\"" + company + "\" official website about services", "Company website"),
-      searchEvidence(serperKey, "\"" + company + "\" hiring jobs careers vacancies", "Hiring signals"),
-      searchEvidence(serperKey, "\"" + company + "\" expansion new location opening growth contract", "Growth signals"),
-      searchEvidence(serperKey, "\"" + company + "\" operations service delivery scheduling maintenance customer reviews", "Operational signals"),
-      ...(profileUrl ? [searchEvidence(serperKey, "\"" + profileUrl + "\" OR \"" + contactName + "\" site:linkedin.com/in", "Public LinkedIn context")] : [])
+      searchEvidence(serperKey, company + " official website about services", "Company website"),
+      searchEvidence(serperKey, company + " hiring jobs careers vacancies", "Hiring signals"),
+      searchEvidence(serperKey, company + " expansion new location opening growth contract", "Growth signals"),
+      searchEvidence(serperKey, company + " operations service delivery scheduling maintenance customer reviews", "Operational signals"),
+      ...(profileUrl ? [searchEvidence(serperKey, contactName + " " + profileSlug + " " + company + " LinkedIn profile", "Public LinkedIn context")] : [])
     ];
     const groups = await Promise.all(queries);
     const seen = new Set<string>();
