@@ -10,6 +10,7 @@ type ProfileFields = { name: string; headline: string; company: string; about: s
 type ProfileSource = Record<string, string>;
 const defaults: Prefs = { linkedinProfileUrl: "", countries: [], industries: [], keywords: [], jobTitles: [], excludedKeywords: [], language: "English", profileSummary: "" };
 const emptyProfile: ProfileFields = { name: "", headline: "", company: "", about: "", skills: "", experience: "", education: "" };
+const assistantSaveExample = JSON.stringify({ leads: [{ name: "Full name", company: "Company name", linkedin: "https://www.linkedin.com/in/profile-slug/" }] }, null, 2);
 const profileLabels: Record<keyof ProfileFields, string> = {
   name: "Full name", headline: "Professional headline", company: "Current company",
   about: "Public search snippet / About context", skills: "Skills", experience: "Experience", education: "Education"
@@ -120,15 +121,7 @@ Authorization: Bearer YOUR_PERMANENT_AI_TOKEN</pre><button type="button" classNa
           <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-save?access=YOUR_10_MINUTE_ACCESS_TOKEN
 Content-Type: application/json
 
-&#123;
-  "leads": [
-    {
-      "name": "Full name",
-      "company": "Company name",
-      "linkedin": "https://www.linkedin.com/in/profile-slug/"
-    }
-  ]
-&#125;</pre>
+{assistantSaveExample}</pre>
           <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-save?access=YOUR_10_MINUTE_ACCESS_TOKEN")}>Copy POST URL</button><small className="muted">POST only. Send the same token in the Authorization: Bearer header if you prefer. Accepts 1–50 leads.</small>
         </label>
         <label className="wide">5. Example permanent-token exchange response
