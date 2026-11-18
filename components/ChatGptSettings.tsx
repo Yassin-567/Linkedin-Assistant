@@ -8,7 +8,7 @@ type Permanent = { token: string; origin: string };
 
 const KINDS: { id: PromptKind; title: string; hint: string }[] = [
   { id: "research", title: "Research now", hint: "ChatGPT finds and saves the number of prospects you choose below, then reports back." },
-  { id: "scheduled", title: "Recurring (scheduled)", hint: "ChatGPT asks you for a schedule first, then repeats the research using your chosen prospect target." }
+  { id: "scheduled", title: "Recurring (scheduled)", hint: "Uses your permanent token and repeats the same prospect research workflow on the schedule you choose." }
 ];
 
 function mask(prompt: string, token: string) {
@@ -114,7 +114,7 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
     <section className="panel">
       <h2>1. What should ChatGPT do?</h2>
       <div className="method-grid">
-        {KINDS.map(k => <button key={k.id} type="button" className={"method-card" + (kind === k.id ? " active" : "")} onClick={() => setKind(k.id)} aria-pressed={kind === k.id}><strong>{k.title}</strong><span className="muted">{k.hint}</span></button>)}
+        {KINDS.map(k => <button key={k.id} type="button" className={"method-card" + (kind === k.id ? " active" : "")} onClick={() => { setKind(k.id); if (k.id === "scheduled") setMode("permanent"); }} aria-pressed={kind === k.id}><strong>{k.title}</strong><span className="muted">{k.hint}</span></button>)}
       </div>
       </section>
 
@@ -139,7 +139,8 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
         <div className={"method-card" + (mode === "session" ? " active" : "")}>
           <strong>Quick session <span className="pill">Recommended</span></strong>
           <span className="muted">One prompt that works for 10 minutes. Nothing permanent is stored in ChatGPT.</span>
-          <button type="button" onClick={() => void createSession()} disabled={Boolean(busy)}>{busy === "session" ? "Creating..." : sessionLive ? "Create a new prompt" : "Create 10-minute prompt"}</button>
+          {kind === "scheduled" && <small className="expired">Quick Session is unavailable for recurring tasks because its token expires after 10 minutes. Select Permanent Token instead.</small>}
+          <button type="button" onClick={() => void createSession()} disabled={Boolean(busy) || kind === "scheduled"}>{busy === "session" ? "Creating..." : sessionLive ? "Create a new prompt" : "Create 10-minute prompt"}</button>
           {session && <><small className={sessionLive ? "muted" : "expired"}>{sessionLive ? `Expires in ${mm}:${ss}` : "Expired. Create a new prompt."}</small>{sessionLive && <label className="wide">Quick Session token<input type="text" readOnly value={session.token} /><button type="button" className="secondary" onClick={() => void navigator.clipboard.writeText(session.token)}>Copy session token</button></label>}</>}
         </div>
         <div className={"method-card" + (mode === "permanent" ? " active" : "")}>
