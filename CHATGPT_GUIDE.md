@@ -9,7 +9,7 @@ ChatGPT researches prospects and saves them to your Prospects list. ChatGPT must
 4. Click **Copy prompt** and paste it into a new ChatGPT chat.
 
 ## Endpoints
-All use `Authorization: Bearer <token>`.
+Context and Save accept the token as `?access=<token>` in the URL (what the generated prompt uses, so ChatGPT sends no custom headers) or as `Authorization: Bearer <token>`. The credentials endpoint needs the permanent token as a Bearer header.
 
 | Purpose | Request | Token |
 |---|---|---|
