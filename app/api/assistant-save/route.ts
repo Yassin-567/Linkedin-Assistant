@@ -10,7 +10,7 @@ function canonical(value: string) {
   try {
     const u = new URL(value);
     if (!/(^|\.)linkedin\.com$/i.test(u.hostname) || !u.pathname.toLowerCase().startsWith("/in/")) return "";
-    return "https://www.linkedin.com" + u.pathname.replace(/\\/$/, "").toLowerCase();
+    return "https://www.linkedin.com" + u.pathname.replace(/\/$/, "").toLowerCase();
   } catch { return ""; }
 }
 
