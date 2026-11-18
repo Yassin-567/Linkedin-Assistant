@@ -53,7 +53,7 @@ export function buildChatGptPrompt({
     "The prospect count is a target, not a quota. Return fewer when fewer genuinely qualify.",
     "",
     "## Mandatory workflow",
-    "1. Before searching, call the Context endpoint using HTTP GET. In Permanent Token mode, first obtain fresh endpoint URLs from the Credentials endpoint as instructed above. Read the latest owner profile, LinkedIn URL, search preferences, exclusions, uploaded connection URLs and already-saved prospect URLs.",
+    "1. Before doing ANY public prospect search, first complete authentication and successfully read the latest Context endpoint using HTTP GET. In Permanent Token mode, obtain fresh endpoint URLs from the Credentials endpoint first, then GET the exact returned contextEndpoint. Do not search until Context has succeeded. Read the latest owner profile, LinkedIn URL, search preferences, exclusions, uploaded connection URLs and already-saved prospect URLs.",
     "2. Use the owner profile only as context about me. Never confuse my details with a prospect's facts.",
     "3. Apply my saved countries, industries, keywords, job titles, excluded keywords and language by default. My latest instructions in this chat override saved preferences when they conflict.",
     "4. EXCLUDE every person whose LinkedIn profile URL appears in exclusions.uploadedConnectionProfileUrls. These people are already connected to me. Also exclude every URL in exclusions.savedProspectProfileUrls so you do not return people already in my pipeline.",
