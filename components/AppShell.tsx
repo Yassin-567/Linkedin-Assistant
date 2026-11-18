@@ -13,7 +13,6 @@ const items = [
   { label: "Analytics", href: "/analytics", icon: "▥" },
   { label: "AI Intelligence", href: "/intelligence", icon: "✦" },
   { label: "Connections", href: "/connections", icon: "↗" },
-  { label: "ChatGPT", href: "/chatgpt", icon: "✧" },
   { label: "Settings", href: "/settings", icon: "⚙" },
 ];
 
