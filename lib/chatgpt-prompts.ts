@@ -1,17 +1,24 @@
 // Prompts pasted into ChatGPT. Keep authentication instructions distinct for each connection method.
 export type PromptMode = "session" | "permanent";
 export type PromptKind = "research" | "scheduled";
-type Options = { mode: PromptMode; kind: PromptKind; token: string; origin: string; prospectCount: number };
+export type ScheduleFrequency = "daily" | "weekdays" | "weekly";
+type Options = {
+  mode: PromptMode; kind: PromptKind; token: string; origin: string; prospectCount: number;
+  scheduleFrequency?: ScheduleFrequency; scheduleTime?: string; scheduleTimezone?: string;
+};
 
 const LEAD_EXAMPLE = '{"leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug/"}]}';
 
-export function buildChatGptPrompt({ mode, kind, token, origin, prospectCount }: Options): string {
+export function buildChatGptPrompt({
+  mode, kind, token, origin, prospectCount,
+  scheduleFrequency = "daily", scheduleTime = "09:00", scheduleTimezone = "Africa/Cairo"
+}: Options): string {
   const base = origin.replace(/\/$/, "");
   const context = `${base}/api/assistant-context`;
   const save = `${base}/api/assistant-save`;
   const credentials = `${base}/api/assistant-credentials`;
   const scheduled = kind === "scheduled";
-
+  const recurrence = scheduleFrequency === "weekdays" ? "Every weekday (Monday to Friday)" : scheduleFrequency === "weekly" ? "Once every week" : "Every day";
   const connection = mode === "session"
     ? [
         "## Connection — Quick Session",
@@ -32,9 +39,7 @@ export function buildChatGptPrompt({ mode, kind, token, origin, prospectCount }:
       ];
 
   const lines = [
-    scheduled
-      ? "You are my recurring LinkedIn prospect research assistant, connected to my Inlinked account."
-      : "You are my LinkedIn prospect research assistant, connected to my Inlinked account.",
+    "You are my LinkedIn prospect research assistant, connected to my Inlinked account.",
     "",
     "## Mandatory HTTP tool",
     "Firecrawl is mandatory for EVERY HTTP request to Inlinked. Use Firecrawl's browser-interaction capability to execute fetch requests with the exact HTTP method, headers and body, then inspect the actual HTTP status and response body. A scrape-only page read is not an HTTP request substitute. If Firecrawl is unavailable or not connected, STOP and reply exactly: Firecrawl is Mandataory. Do not continue using another HTTP tool.",
@@ -70,15 +75,17 @@ export function buildChatGptPrompt({ mode, kind, token, origin, prospectCount }:
     "- Keep both Inlinked endpoint URLs and all tokens private. Never print, publish, expose in the report, or send them to search engines or unrelated services.",
     "- Only send name, company and linkedin in the save request. Keep location, role, sources and fit notes in the research report; the save API does not store them.",
     "- Do not message anyone on LinkedIn. Do not access private LinkedIn content or bypass access controls.",
-    "- Do not call any Inlinked endpoint other than the Credentials endpoint (Permanent Token mode only), Context endpoint and Save endpoint.",
+    "- Do not call any Inlinked endpoint other than the Credentials endpoint (Permanent Token mode only), Context endpoint and Save endpoint."
   ];
 
   if (scheduled) {
     lines.push(
       "",
-      "## Scheduling",
-      "Before creating any recurring task, ask me which times, timezone and recurrence I want. Summarize the proposed schedule and wait for my confirmation. Do not assume defaults. If recurring tasks are unavailable in this ChatGPT account, say so clearly instead of pretending it was scheduled.",
-      "At every scheduled run, repeat the full workflow: obtain credentials if using Permanent Token mode, GET the latest context, research, exclude existing connections and saved prospects, then save and report the actual API response."
+      "## Recurring ChatGPT task",
+      `Requested recurrence: ${recurrence}.`,
+      `Requested run time: ${scheduleTime} (${scheduleTimezone}).`,
+      "Create a recurring ChatGPT task using exactly this recurrence, time and timezone. Before creating it, show me the proposed schedule and ask for my confirmation. If ChatGPT Tasks are unavailable in this account, say so clearly and do not claim it was scheduled.",
+      "At every scheduled run, repeat the full workflow: obtain credentials if using Permanent Token mode, GET the latest context, research, exclude existing connections and saved prospects, then save and report the actual API response. If the Quick Session token expires, stop and ask me to create a fresh prompt; for recurring tasks, use Permanent Token mode."
     );
   }
 
