@@ -32,22 +32,8 @@ export default function SettingsPage() {
   const [message, setMessage] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
   const [verifiedAt, setVerifiedAt] = useState("");
-  const [aiTokenActive, setAiTokenActive] = useState(false);
-  const [aiTokenCreatedAt, setAiTokenCreatedAt] = useState("");
-  const [aiTokenValue, setAiTokenValue] = useState("");
-  const [quickSessionValue, setQuickSessionValue] = useState<{token:string; expiresAt:string} | null>(null);
-  const [aiTokenBusy, setAiTokenBusy] = useState(false);
-  const [aiTokenMessage, setAiTokenMessage] = useState("");
 
   useEffect(() => {
-    const savedPermanent = localStorage.getItem("inlinked_permanent_token");
-    if (savedPermanent) setAiTokenValue(savedPermanent);
-    try { const savedSession = JSON.parse(localStorage.getItem("inlinked_quick_session") || "null"); if (savedSession?.token && savedSession?.expiresAt && new Date(savedSession.expiresAt).getTime() > Date.now()) setQuickSessionValue(savedSession); } catch { localStorage.removeItem("inlinked_quick_session"); }
-    fetch("/api/assistant-ai-token", { cache: "no-store" }).then(async r => {
-      if (r.status === 401) return;
-      const d = await r.json();
-      if (r.ok) { setAiTokenActive(Boolean(d.enabled)); setAiTokenCreatedAt(d.createdAt || ""); }
-    }).catch(() => {});
     Promise.all([
       fetch("/api/preferences", { cache: "no-store" }),
       fetch("/api/profile-verification", { cache: "no-store" })
@@ -102,39 +88,9 @@ export default function SettingsPage() {
   }
 
 
-  async function generateAiToken() {
-    if (aiTokenActive && !window.confirm("Generate a new token? The old token and all temporary access tokens will stop working immediately.")) return;
-    setAiTokenBusy(true); setAiTokenMessage("");
-    try {
-      const r = await fetch("/api/assistant-ai-token", { method: "POST" });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Could not generate the token.");
-      setAiTokenValue(d.aiAuthToken || "");
-      localStorage.setItem("inlinked_permanent_token", d.aiAuthToken || "");
-      setAiTokenActive(true);
-      setAiTokenCreatedAt(d.createdAt || new Date().toISOString());
-      setAiTokenMessage("New token generated. Copy it now; for security, it cannot be retrieved again after you leave this page.");
-    } catch (error) { setAiTokenMessage(error instanceof Error ? error.message : "Could not generate the token."); }
-    finally { setAiTokenBusy(false); }
-  }
-
-  async function revokeAiToken() {
-    if (!window.confirm("Revoke the permanent ChatGPT token? Any saved ChatGPT prompt using it will stop working.")) return;
-    setAiTokenBusy(true); setAiTokenMessage("");
-    try {
-      const r = await fetch("/api/assistant-ai-token", { method: "DELETE" });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Could not revoke the token.");
-      setAiTokenValue(""); localStorage.removeItem("inlinked_permanent_token"); setAiTokenActive(false); setAiTokenCreatedAt("");
-      setAiTokenMessage("Token revoked successfully.");
-    } catch (error) { setAiTokenMessage(error instanceof Error ? error.message : "Could not revoke the token."); }
-    finally { setAiTokenBusy(false); }
-  }
-
-  async function copyAiToken() {
-    if (!aiTokenValue) return;
-    try { await navigator.clipboard.writeText(aiTokenValue); setAiTokenMessage("Token copied. Keep it private."); }
-    catch { setAiTokenMessage("Copy was blocked by your browser. Select the token and copy it manually."); }
+  async function copyText(value: string) {
+    try { await navigator.clipboard.writeText(value); setMessage("Copied endpoint. Replace the token placeholder before sending."); }
+    catch { setMessage("Copy was blocked. Select the endpoint text and copy it manually."); }
   }
 
   return <main className="workspace">
@@ -157,7 +113,7 @@ Authorization: Bearer YOUR_PERMANENT_AI_TOKEN</pre>
           <small className="muted">POST only. Returns contextEndpoint and saveEndpoint URLs containing a 10-minute access token.</small>
         </label>
         <label className="wide">3. Read your search context
-          <pre className="prompt-box">GET https://inlinked.vercel.app/api/assistant-context?access=YOUR_10_MINUTE_ACCESS_TOKEN</pre>
+          <pre className="prompt-box">GET https://inlinked.vercel.app/api/assistant-context?access=YOUR_10_MINUTE_ACCESS_TOKEN</pre><button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-context?access=YOUR_10_MINUTE_ACCESS_TOKEN")}>Copy GET URL</button>
           <small className="muted">GET only. Alternatively send the token in the Authorization: Bearer YOUR_10_MINUTE_ACCESS_TOKEN header.</small>
         </label>
         <label className="wide">4. Save prospects
@@ -173,7 +129,7 @@ Content-Type: application/json
     }
   ]
 }</pre>
-          <small className="muted">POST only. Send the same token in the Authorization: Bearer header if you prefer. Accepts 1–50 leads.</small>
+          <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-save?access=YOUR_10_MINUTE_ACCESS_TOKEN")}>Copy POST URL</button><small className="muted">POST only. Send the same token in the Authorization: Bearer header if you prefer. Accepts 1–50 leads.</small>
         </label>
         <label className="wide">5. Example permanent-token exchange response
           <pre className="prompt-box">{
