@@ -34,10 +34,14 @@ export default function SettingsPage() {
   const [aiTokenActive, setAiTokenActive] = useState(false);
   const [aiTokenCreatedAt, setAiTokenCreatedAt] = useState("");
   const [aiTokenValue, setAiTokenValue] = useState("");
+  const [quickSessionValue, setQuickSessionValue] = useState<{token:string; expiresAt:string} | null>(null);
   const [aiTokenBusy, setAiTokenBusy] = useState(false);
   const [aiTokenMessage, setAiTokenMessage] = useState("");
 
   useEffect(() => {
+    const savedPermanent = localStorage.getItem("inlinked_permanent_token");
+    if (savedPermanent) setAiTokenValue(savedPermanent);
+    try { const savedSession = JSON.parse(localStorage.getItem("inlinked_quick_session") || "null"); if (savedSession?.token && savedSession?.expiresAt && new Date(savedSession.expiresAt).getTime() > Date.now()) setQuickSessionValue(savedSession); } catch { localStorage.removeItem("inlinked_quick_session"); }
     fetch("/api/assistant-ai-token", { cache: "no-store" }).then(async r => {
       if (r.status === 401) return;
       const d = await r.json();
@@ -105,6 +109,7 @@ export default function SettingsPage() {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Could not generate the token.");
       setAiTokenValue(d.aiAuthToken || "");
+      localStorage.setItem("inlinked_permanent_token", d.aiAuthToken || "");
       setAiTokenActive(true);
       setAiTokenCreatedAt(d.createdAt || new Date().toISOString());
       setAiTokenMessage("New token generated. Copy it now; for security, it cannot be retrieved again after you leave this page.");
@@ -119,7 +124,7 @@ export default function SettingsPage() {
       const r = await fetch("/api/assistant-ai-token", { method: "DELETE" });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Could not revoke the token.");
-      setAiTokenValue(""); setAiTokenActive(false); setAiTokenCreatedAt("");
+      setAiTokenValue(""); localStorage.removeItem("inlinked_permanent_token"); setAiTokenActive(false); setAiTokenCreatedAt("");
       setAiTokenMessage("Token revoked successfully.");
     } catch (error) { setAiTokenMessage(error instanceof Error ? error.message : "Could not revoke the token."); }
     finally { setAiTokenBusy(false); }
@@ -142,10 +147,30 @@ export default function SettingsPage() {
         <button type="button" onClick={() => void generateAiToken()} disabled={aiTokenBusy}>{aiTokenBusy ? "Working..." : aiTokenActive ? "Regenerate and reveal token" : "Generate token"}</button>
         {aiTokenActive && <button type="button" className="secondary" onClick={() => void revokeAiToken()} disabled={aiTokenBusy}>Revoke token</button>}
       </div>
-      {aiTokenValue ? <label className="wide">Your permanent AI token<input type="text" readOnly value={aiTokenValue} autoComplete="off" spellCheck={false} /><button type="button" className="secondary" onClick={() => void copyAiToken()}>Copy token</button></label> : null}
+      {aiTokenValue ? <label className="wide">Your permanent AI token<input type="text" readOnly value={aiTokenValue} autoComplete="off" spellCheck={false} /><button type="button" className="secondary" onClick={() => void copyAiToken()}>Copy token</button></label> : <p className="muted">{aiTokenActive ? "The active token is not saved in this browser. Regenerate it to display it here." : "Generate a token to display it here."}</p>}
+      {quickSessionValue && <label className="wide">Current Quick Session token (expires {new Date(quickSessionValue.expiresAt).toLocaleString()})<input type="text" readOnly value={quickSessionValue.token} /><button type="button" className="secondary" onClick={() => void navigator.clipboard.writeText(quickSessionValue.token)}>Copy session token</button></label>}
       <p className="muted" role="status">{aiTokenMessage || (aiTokenActive ? "A token is active" + (aiTokenCreatedAt ? " · Created " + new Date(aiTokenCreatedAt).toLocaleString() : "") + ". The existing token is stored as a one-way hash and cannot be displayed again. Regenerate it to reveal a new token here." : "No permanent token is active.")}</p>
-      <p className="footnote">The token is shown only immediately after generation. Regenerating it invalidates the previous token and all temporary access grants. Never share it publicly or include it in prospect research queries.</p>
+      <p className="footnote">Tokens generated in this browser remain visible here across reloads. They are kept in this browser's local storage, not retrievable from the server. Anyone with access to this browser profile can see them. Regenerating the permanent token invalidates the previous token and all temporary access grants.</p>
     </section>
+
+    <section className="panel">
+      <div className="section-heading"><div><div className="eyebrow">API REFERENCE</div><h2>Endpoints and request examples</h2><p className="muted">Use the placeholders below with your own tokens. These examples do not contain live credentials.</p></div></div>
+      <div className="lead-form">
+        <label className="wide">1. Create a Quick Session token (POST)<pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-access</pre><small className="muted">Requires your signed-in Inlinked browser session. Returns a 10-minute access token.</small></label>
+        <label className="wide">2. Exchange Permanent Token for temporary access (POST)<pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-credentials
+Authorization: Bearer &lt;PERMANENT_AI_TOKEN&gt;</pre><small className="muted">Returns contextEndpoint and saveEndpoint URLs containing the temporary access token.</small></label>
+        <label className="wide">3. Read search context (GET)<pre className="prompt-box">GET https://inlinked.vercel.app/api/assistant-context?access=&lt;10_MINUTE_ACCESS_TOKEN&gt;
+
+# Or send: Authorization: Bearer &lt;10_MINUTE_ACCESS_TOKEN&gt;</pre><small className="muted">Reads your owner profile, saved search preferences and exclusion lists.</small></label>
+        <label className="wide">4. Save qualified prospects (POST)<pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-save?access=&lt;10_MINUTE_ACCESS_TOKEN&gt;
+Content-Type: application/json
+
+{
+  "leads": [
+    { "name": "Full name", "company": "Company name", "linkedin": "https://www.linkedin.com/in/profile-slug/" }
+  ]
+}</pre><small className="muted">Accepts 1–50 prospects. Response reports saved, duplicates and invalid counts.</small></label>
+      </div>
 
     <section className="panel"><form className="lead-form" onSubmit={save}>
       <label className="wide">Your LinkedIn profile URL<input type="url" value={p.linkedinProfileUrl} onChange={e => setP(old => ({ ...old, linkedinProfileUrl: e.target.value }))} placeholder="https://www.linkedin.com/in/your-profile/" /><small className="muted">The app checks public search results for this exact profile. A URL does not grant access to private LinkedIn content.</small></label>
