@@ -65,14 +65,16 @@ A global, individual-account prospecting workspace. Every Google-authenticated u
 - `AI_GATEWAY_MODEL`: Optional model override for AI Lead Intelligence. Defaults to `openai/gpt-5.6-sol`.
 - `AI_GATEWAY_API_KEY`: Optional local-development credential. Vercel deployments use OIDC authentication when AI Gateway is enabled.
 
-## ChatGPT bulk-save workflow
+## ChatGPT / Inlinked permanent AI token
 
-1. Sign in to the app with Google.
-2. Run `db/ai_access_tokens.sql` once against the Neon database (existing databases only). New databases also receive the table from `db/schema.sql`.
-3. On the home page, generate an AI Access Token. Copy it immediately; the raw token is displayed only once.
-4. Give ChatGPT the token and the generated save endpoint. ChatGPT can POST a JSON `{ "leads": [...] }` body (up to 50 prospects) to that endpoint, or build a GET URL by adding `data=` with base64url-encoded JSON. GET payloads are limited to 6,500 encoded characters to avoid oversized URLs.
-5. Each request is scoped to the token owner. LinkedIn profile URLs are normalized and database uniqueness skips duplicates.
-6. Regenerating a token revokes the previous one. Users can also revoke it from the home page. Treat the token like a password; do not publish it or commit it to source control.
+1. Each signed-in Inlinked user generates their own permanent `INLINKED_AI_AUTH_TOKEN` in Settings → ChatGPT AI Authentication. The raw token is shown once.
+2. The user gives that token to their own ChatGPT. It belongs to the Inlinked user account, not to an individual ChatGPT conversation, so the same token can be used across that user's ChatGPT conversations.
+3. ChatGPT reads the user's current preferences and exclusions with `GET /api/assistant-context`, and saves prospects with `POST /api/assistant-save` using the same permanent token in `Authorization: Bearer <INLINKED_AI_AUTH_TOKEN>`.
+4. For GET-only clients, both endpoints also accept the permanent token as the `ai` query parameter. The save GET endpoint accepts `data=` containing base64url-encoded JSON `{ "leads": [...] }`, up to 50 prospects and 6,500 encoded characters. Prefer the Authorization header because query strings can appear in request logs and browser history.
+5. Every token resolves to exactly one Inlinked user. Prospects are saved only under that token owner's account. LinkedIn URLs are normalized and database uniqueness skips duplicates.
+6. Regenerating or revoking the permanent token invalidates it immediately. Treat it like a password; never publish it or commit it to source control.
+
+The older 10-minute temporary-token credential exchange remains supported for backwards compatibility, but it is not required for the permanent-token workflow.
 
 The app's bulk-save flow does not require a paid LinkedIn Assistant plan or a LinkedIn OAuth connection. ChatGPT plan/feature availability is controlled by ChatGPT itself. Search-provider and AI-model usage may have their own limits or charges.
 
