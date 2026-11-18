@@ -17,11 +17,11 @@ There are two token types:
 - **Permanent AI Auth Token:** account-specific credential used only to request a temporary access token. It is never accepted by the Context or Save endpoints.
 - **Temporary Access Token:** one random token valid for exactly 10 minutes. The same token is accepted by both the Context and Save endpoints.
 
-The assistant requests a fresh temporary token by sending HTTP POST to the **Credential issuance endpoint** copied from Settings. The URL contains the permanent AI Auth Token. The response returns one temporary token plus Context and Save endpoint URLs that both carry that same temporary token.
+The assistant requests a fresh temporary token by sending HTTP POST to the **Credential issuance endpoint** copied from Settings. Send the permanent AI Auth Token only in the `Authorization: Bearer <token>` header. Never put it in the URL, query string, request body, logs, or output. The response returns one temporary token plus Context and Save endpoint URLs that both carry that same temporary token.
 
 ## Mandatory Firecrawl requirement
 
-Firecrawl is mandatory for every HTTP request in the ChatGPT prospecting workflow. If Firecrawl is not installed and connected, stop and tell the user:
+Firecrawl is mandatory for every HTTP request in the ChatGPT prospecting workflow. Use Firecrawl's browser-interaction capability to execute fetch requests with the required HTTP method, headers, and body. A scrape-only page GET is not a substitute for HTTP POST. If Firecrawl is not installed and connected, stop and tell the user:
 
 **"Connect Firecrawl, it is mandatory."**
 
@@ -67,5 +67,5 @@ Read the actual response and report saved, duplicate, invalid and failed counts.
 - Regenerating the AI Auth Token revokes the previous permanent token and all previously issued temporary access tokens.
 - **Revoke token** disables the permanent AI Auth Token and all active temporary access tokens.
 - Temporary Access Tokens expire after 10 minutes. Request a new one using the permanent AI Auth Token.
-- The permanent AI Auth Token is never accepted directly by Context or Save endpoints.
+- The permanent AI Auth Token is accepted only by the credential issuance endpoint, never directly by Context or Save endpoints.
 - Never print tokens or endpoints in research reports, send them to search engines, or publish them.
