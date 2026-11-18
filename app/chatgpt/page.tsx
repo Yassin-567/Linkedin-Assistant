@@ -7,8 +7,8 @@ type Session = { token: string; expiresAt: string; origin: string };
 type Permanent = { token: string; origin: string };
 
 const KINDS: { id: PromptKind; title: string; hint: string }[] = [
-  { id: "research", title: "Research now", hint: "ChatGPT finds and saves up to 50 prospects, then reports back." },
-  { id: "scheduled", title: "Recurring (scheduled)", hint: "ChatGPT asks you for a schedule first, then repeats the research." }
+  { id: "research", title: "Research now", hint: "ChatGPT finds and saves the number of prospects you choose below, then reports back." },
+  { id: "scheduled", title: "Recurring (scheduled)", hint: "ChatGPT asks you for a schedule first, then repeats the research using your chosen prospect target." }
 ];
 
 function mask(prompt: string, token: string) {
@@ -19,6 +19,7 @@ export default function ChatGptPage() {
   const [status, setStatus] = useState<Status>({ enabled: false, createdAt: "" });
   const [signedIn, setSignedIn] = useState(true);
   const [kind, setKind] = useState<PromptKind>("research");
+  const [prospectCount, setProspectCount] = useState(50);
   const [mode, setMode] = useState<PromptMode>("session");
   const [session, setSession] = useState<Session | null>(null);
   const [permanent, setPermanent] = useState<Permanent | null>(null);
@@ -48,8 +49,8 @@ export default function ChatGptPage() {
   const activeOrigin = mode === "session" ? session?.origin || "" : permanent?.origin || "";
 
   const prompt = useMemo(
-    () => (activeToken && activeOrigin ? buildChatGptPrompt({ mode, kind, token: activeToken, origin: activeOrigin }) : ""),
-    [mode, kind, activeToken, activeOrigin]
+    () => (activeToken && activeOrigin ? buildChatGptPrompt({ mode, kind, token: activeToken, origin: activeOrigin, prospectCount }) : ""),
+    [mode, kind, activeToken, activeOrigin, prospectCount]
   );
 
   async function createSession() {
@@ -113,6 +114,7 @@ export default function ChatGptPage() {
       <div className="method-grid">
         {KINDS.map(k => <button key={k.id} type="button" className={"method-card" + (kind === k.id ? " active" : "")} onClick={() => setKind(k.id)} aria-pressed={kind === k.id}><strong>{k.title}</strong><span className="muted">{k.hint}</span></button>)}
       </div>
+      <label className="wide" style={{ display: "block", marginTop: 18, maxWidth: 360 }}>Prospects to target per run<input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isFinite(n)) setProspectCount(Math.max(1, Math.min(50, Math.trunc(n)))); }} /><small className="muted">Choose 1–50. This is a target, not permission to include unverified or low-quality leads. ChatGPT should return fewer when fewer qualify.</small></label>
     </section>
 
     <section className="panel">
