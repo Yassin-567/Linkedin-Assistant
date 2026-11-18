@@ -16,7 +16,7 @@ function canonical(value: string) {
 
 async function resolveUser(request: NextRequest) {
   const authorization = request.headers.get("authorization") || "";
-  const permanentToken = authorization.match(/^Bearer\\s+([A-Za-z0-9_-]{40,60})$/i)?.[1] || "";
+  const permanentToken = authorization.match(/^Bearer\\s+([A-Za-z0-9_-]{40,60})$/i)?.[1] || request.nextUrl.searchParams.get("ai") || "";
   const legacyTemporaryToken = request.nextUrl.searchParams.get("access") || "";
   const token = permanentToken || legacyTemporaryToken;
   if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) return null;
