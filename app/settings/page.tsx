@@ -139,7 +139,7 @@ export default function SettingsPage() {
       "Save verified prospects in batches of up to 50. Build JSON {\"leads\":[{\"name\":\"Full name\",\"company\":\"Company name\",\"linkedin\":\"https://www.linkedin.com/in/profile-slug/\"}]}, encode it as base64url, then GET Save endpoint with Authorization: Bearer <INLINKED_AI_AUTH_TOKEN> and data=<base64url-json>. If your HTTP client cannot send headers, use the ai query parameter as a fallback.",
       "Only save personal linkedin.com/in/ URLs. Read the actual API response and report saved, duplicate, invalid and failed counts. Never claim success unless the endpoint confirms it.",
       "Keep the token private. Do not include it in public messages, research notes or reports."
-    ].join("\\n");
+    ].join("\n");
     try { await navigator.clipboard.writeText(prompt); setAiMessage("Normal Research Prompt copied. It uses the permanent token directly."); }
     catch { setAiMessage("Copy was blocked. Select and copy the prompt manually."); }
   }
@@ -160,7 +160,7 @@ export default function SettingsPage() {
       "Save in batches of up to 50 using GET Save endpoint with Authorization: Bearer <INLINKED_AI_AUTH_TOKEN> and data=<base64url-encoded JSON>. If headers are unavailable, use the ai query parameter as a fallback. The JSON shape is {\"leads\":[{\"name\":\"Full name\",\"company\":\"Company name\",\"linkedin\":\"https://www.linkedin.com/in/profile-slug/\"}]}.",
       "Read the actual API response. Report researched, saved, duplicate, invalid and failed counts, plus saved lead names and evidence links. Never claim success without API confirmation.",
       "Keep the token private. If it is revoked or rejected, stop and ask me to generate a new permanent AI Auth Token in Inlinked Settings."
-    ].join("\\n");
+    ].join("\n");
     try { await navigator.clipboard.writeText(prompt); setAiMessage("Automatic Prospecting Prompt copied. It uses the permanent token directly."); }
     catch { setAiMessage("Copy was blocked. Select and copy the prompt manually."); }
   }
@@ -215,8 +215,8 @@ export default function SettingsPage() {
       </div>
       {aiCreatedAt && <p className="muted">Active since: {new Date(aiCreatedAt).toLocaleString()}</p>}
       {aiAuthToken && <label className="wide">Permanent AI Auth Token<textarea rows={2} readOnly value={aiAuthToken} /><button type="button" className="secondary" onClick={() => void copyAiAuthToken()}>Copy AI Auth Token</button><small className="muted">Give this permanent token to your own ChatGPT. It is shown only once; if lost, regenerate it. It directly authorizes Context and Save for this Inlinked account. Never share it publicly.</small></label>}
-      {aiEndpoint && <label className="wide">Credential issuance endpoint<textarea rows={2} readOnly value={aiEndpoint} /><button type="button" className="secondary" onClick={() => void copyAiEndpoint()}>Copy credential endpoint</button><small className="muted">Use the Context and Save endpoints directly with the permanent token. No temporary token or credential exchange is required.</small></label>}
-      {aiAuthToken && aiEndpoint && <div className="wide"><strong>AI Access Token</strong><p className="muted">Generate a temporary token manually. The same token works with Context and Save for 10 minutes.</p><button type="button" className="secondary" onClick={() => void generateTemporaryAccessToken()} disabled={aiBusy}>{aiBusy ? "Generating..." : "Generate AI Access Token"}</button></div>}
+      {aiEndpoint && <label className="wide">Credential issuance endpoint<textarea rows={2} readOnly value={aiEndpoint} /><button type="button" className="secondary" onClick={() => void copyAiEndpoint()}>Copy credential endpoint</button><small className="muted">This credential endpoint is retained for older integrations only. New ChatGPT connections should use the permanent token directly with Context and Save.</small></label>}
+      {aiAuthToken && aiEndpoint && <div className="wide"><strong>AI Access Token</strong><p className="muted">Optional legacy feature: temporary access tokens are no longer needed. Your permanent AI Auth Token works directly with both endpoints.</p><button type="button" className="secondary" onClick={() => void generateTemporaryAccessToken()} disabled={aiBusy}>{aiBusy ? "Generating..." : "Generate AI Access Token"}</button></div>}
       {aiAccessToken && <label className="wide">Temporary AI Access Token<textarea rows={2} readOnly value={aiAccessToken} /><button type="button" className="secondary" onClick={() => void copyTemporaryAccessToken()}>Copy AI Access Token</button><small className="muted">Expires: {accessExpiresAt ? new Date(accessExpiresAt).toLocaleString() : "10 minutes after generation"}</small></label>}
       {aiAuthToken && <div className="wide"><button type="button" onClick={() => void copyNormalPrompt()}>Copy Normal Research Prompt</button><small className="muted">Uses your permanent AI Auth Token directly.</small></div>}
       {aiAuthToken && aiEndpoint && <div className="wide"><button type="button" onClick={() => void copyAutomaticPrompt()}>Copy Automatic Prospecting Prompt</button><small className="muted">Uses your permanent AI Auth Token directly. ChatGPT will ask you for the time, timezone and recurrence before scheduling. Each run targets up to 50 new leads.</small></div>}
