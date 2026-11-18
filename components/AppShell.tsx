@@ -15,7 +15,6 @@ const items = [
   { label: "Connections", href: "/connections", icon: "↗" },
   { label: "ChatGPT", href: "/chatgpt", icon: "✧" },
   { label: "Settings", href: "/settings", icon: "⚙" },
-  { label: "API connection", href: "/settings/api", icon: "⌘" },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -47,7 +46,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="sidebar-label">WORKSPACE</div>
         <nav className="sidebar-nav" aria-label="Main navigation">
           {items.map((item) => {
-            const active = item.href === "/settings" ? pathname === "/settings" : item.href === "/settings/api" ? pathname === "/settings/api" : pathname === item.href;
+            const active = pathname === item.href;
             return <Link key={item.label} href={item.href} className={active ? "nav-link active" : "nav-link"} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}>
               <span className="nav-icon" aria-hidden="true">{item.icon}</span><span>{item.label}</span>{active && <span className="nav-indicator" />}
             </Link>;
