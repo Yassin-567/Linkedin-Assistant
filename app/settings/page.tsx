@@ -33,6 +33,7 @@ export default function SettingsPage() {
   const [message, setMessage] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
   const [verifiedAt, setVerifiedAt] = useState("");
+  const [activeTab, setActiveTab] = useState<"preferences" | "chatgpt">("preferences");
 
   useEffect(() => {
     Promise.all([
@@ -95,7 +96,12 @@ export default function SettingsPage() {
   }
 
   return <main className="workspace">
-    <header className="topbar"><div><div className="eyebrow">PERSONALIZE DISCOVERY</div><h1>Search settings</h1><p className="muted">Your settings guide searches by default. You can still narrow or change each search.</p></div><div className="row"><a className="button secondary" href="/intelligence">AI Lead Intelligence</a><a className="button secondary" href="/">Back to workspace</a></div></header>
+    <header className="topbar"><div><div className="eyebrow">WORKSPACE CONFIGURATION</div><h1>Settings</h1><p className="muted">Manage your prospecting preferences separately from your ChatGPT connection and API tools.</p></div><div className="row"><a className="button secondary" href="/intelligence">AI Lead Intelligence</a><a className="button secondary" href="/">Back to workspace</a></div></header>
+    <nav aria-label="Settings sections" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20, padding: 5, border: "1px solid #e1e8e9", borderRadius: 12, background: "#fff" }}>
+      <button type="button" onClick={() => setActiveTab("preferences")} aria-selected={activeTab === "preferences"} style={{ flex: 1, minWidth: 150, background: activeTab === "preferences" ? "#087b5b" : "transparent", color: activeTab === "preferences" ? "#fff" : "#52635b" }}>Preferences</button>
+      <button type="button" onClick={() => setActiveTab("chatgpt")} aria-selected={activeTab === "chatgpt"} style={{ flex: 1, minWidth: 150, background: activeTab === "chatgpt" ? "#087b5b" : "transparent", color: activeTab === "chatgpt" ? "#fff" : "#52635b" }}>ChatGPT connection</button>
+    </nav>
+    {activeTab === "chatgpt" && <>
     <section className="panel">
       <div className="section-heading"><div><div className="eyebrow">CHATGPT INTEGRATION</div><h2>ChatGPT connection and prompt builder</h2><p className="muted">Manage tokens, generate research prompts, choose a prospect target, and configure recurring schedules here.</p></div></div>
       <ChatGptSettings />
@@ -104,27 +110,23 @@ export default function SettingsPage() {
     <section className="panel">
       <div className="section-heading"><div><div className="eyebrow">API REFERENCE</div><h2>Endpoints and request examples</h2><p className="muted">Copy these examples into your HTTP client. Replace the placeholder token with your own token. The Quick Session issuance endpoint is called from your signed-in Inlinked browser.</p></div></div>
       <div className="lead-form">
-        <label className="wide">1. Create a Quick Session token
-          <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-access</pre><button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-access")}>Copy POST URL</button>
-          <small className="muted">POST only. Requires your active Inlinked sign-in cookie. Returns a 10-minute accessToken.</small>
-        </label>
-        <label className="wide">2. Exchange your permanent token for temporary access
+        <label className="wide">1. Exchange your permanent token for temporary access
           <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-credentials
 Authorization: Bearer YOUR_PERMANENT_AI_TOKEN</pre><button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-credentials")}>Copy POST URL</button>
           <small className="muted">POST only. Returns contextEndpoint and saveEndpoint URLs containing a 10-minute access token.</small>
         </label>
-        <label className="wide">3. Read your search context
+        <label className="wide">2. Read your search context
           <pre className="prompt-box">GET https://inlinked.vercel.app/api/assistant-context?access=YOUR_10_MINUTE_ACCESS_TOKEN</pre><button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-context?access=YOUR_10_MINUTE_ACCESS_TOKEN")}>Copy GET URL</button>
           <small className="muted">GET only. Alternatively send the token in the Authorization: Bearer YOUR_10_MINUTE_ACCESS_TOKEN header.</small>
         </label>
-        <label className="wide">4. Save prospects
+        <label className="wide">3. Save prospects
           <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-save?access=YOUR_10_MINUTE_ACCESS_TOKEN
 Content-Type: application/json
 
 {assistantSaveExample}</pre>
           <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-save?access=YOUR_10_MINUTE_ACCESS_TOKEN")}>Copy POST URL</button><small className="muted">POST only. Send the same token in the Authorization: Bearer header if you prefer. Accepts 1–50 leads.</small>
         </label>
-        <label className="wide">5. Example permanent-token exchange response
+        <label className="wide">4. Example permanent-token exchange response
           <pre className="prompt-box">&#123;
   "ok": true,
   "contextEndpoint": "https://inlinked.vercel.app/api/assistant-context?access=TEMPORARY_TOKEN",
@@ -135,7 +137,9 @@ Content-Type: application/json
         </label>
       </div>
     </section>
+    </>}
 
+    {activeTab === "preferences" && <>
     <section className="panel"><form className="lead-form" onSubmit={save}>
       <label className="wide">Your LinkedIn profile URL<input type="url" value={p.linkedinProfileUrl} onChange={e => setP(old => ({ ...old, linkedinProfileUrl: e.target.value }))} placeholder="https://www.linkedin.com/in/your-profile/" /><small className="muted">The app checks public search results for this exact profile. A URL does not grant access to private LinkedIn content.</small></label>
       {field("countries", "Target countries and locations", "One country or area per line. Leave blank if you want to enter a location for each search.")}
@@ -157,5 +161,6 @@ Content-Type: application/json
       <div className="form-footer"><span className="muted">{profileMessage}{verifiedAt ? " · Last confirmed: " + new Date(verifiedAt).toLocaleString() : ""}</span><button type="button" onClick={() => void confirmProfile()} disabled={confirming || inspecting}>{confirming ? "Saving confirmed details..." : "Confirm and save profile details"}</button></div>
       <p className="footnote">The name and headline may come from a public LinkedIn search result. The snippet is not necessarily the full About section. Skills, experience and education may not be publicly indexed. Fields you change or enter are labelled as user-provided.</p>
     </section>
+    </>}
   </main>;
 }
