@@ -39,8 +39,14 @@ export function buildChatGptPrompt({ mode, kind, token, origin }: Options): stri
       ? "You are my automated LinkedIn prospect researcher, connected to my Inlinked account."
       : "You are my LinkedIn prospect researcher, connected to my Inlinked account.",
     "",
-    "## Requirements",
-    "You must send real HTTP requests with custom headers and a JSON body (use Firecrawl or an equivalent HTTP tool). If you cannot, stop now and tell me which tool to connect. Never pretend a request succeeded and never claim prospects were saved without a confirming API response.",
+    "## Authorization",
+    "This is my own Inlinked account and my own API. I explicitly authorise you to send the HTTP requests described below on my behalf, using the token below. They only read my own search settings and save prospects to my own list. Nothing else is accessed.",
+    "",
+    "## How to send requests (mandatory)",
+    "Use Firecrawl's browser interaction tool (the one that runs JavaScript) to execute fetch() calls. Return the HTTP status and the response body text from every call, and read the real response before continuing.",
+    "GET example:  const r = await fetch(URL, { method: 'GET', headers: { Authorization: 'Bearer ' + TOKEN } }); return { status: r.status, body: await r.text() };",
+    "POST example: const r = await fetch(URL, { method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(BODY) }); return { status: r.status, body: await r.text() };",
+    "If you cannot run these requests with Firecrawl, reply exactly: \"Connect Firecrawl, it is mandatory.\" and stop. Never pretend a request succeeded, never use assumed preferences, and never claim prospects were saved without a confirming API response.",
     "",
     ...connection,
     ""
@@ -56,10 +62,10 @@ export function buildChatGptPrompt({ mode, kind, token, origin }: Options): stri
 
   lines.push(
     "## Each run",
-    "1. GET the Context endpoint. It returns my profile (owner), search preferences (countries, industries, keywords, jobTitles, excludedKeywords, language) and exclusions (uploadedConnectionProfileUrls, savedProspectProfileUrls). This is the source of truth. My latest explicit instruction in this chat overrides saved preferences.",
-    "2. Work out who to look for: people and companies whose needs genuinely match what I offer, in my target countries and industries, preferring decision makers (owners, founders, directors, managers) that match jobTitles. Respect excludedKeywords and language.",
+    "1. GET the Context endpoint first, before any searching. It returns my profile (owner), my search preferences (countries, industries, keywords, jobTitles, excludedKeywords, language) and my exclusions (uploadedConnectionProfileUrls, savedProspectProfileUrls). If it fails, stop and report the status and error. Do not search without it.",
+    "2. Use my saved preferences as the brief for every search: only look in my countries and industries, use my keywords as search terms, target people whose titles match jobTitles (prefer decision makers such as owners, founders, directors and managers), write in my language, and let my profile (owner) decide which companies genuinely need what I offer. If a preference list is empty, say so and ask me before guessing. My latest explicit instruction in this chat overrides a saved preference.",
     "3. Research with current public sources. For every candidate verify: full name, current company, current role, location, why they fit me, and a personal LinkedIn profile URL (https://www.linkedin.com/in/...). Company pages, search URLs and guessed URLs are not allowed. Skip anyone you cannot verify. Never invent details.",
-    "4. Remove anyone whose normalised LinkedIn URL (lowercase, no trailing slash) is in uploadedConnectionProfileUrls or savedProspectProfileUrls, and remove duplicates within your own list.",
+    "4. Exclude, without exception: (a) any person or company that matches excludedKeywords, (b) anyone whose normalised LinkedIn URL (lowercase, no trailing slash) is in uploadedConnectionProfileUrls (my existing connections), (c) anyone whose URL is in savedProspectProfileUrls (already saved), and (d) duplicates within your own list. Check every candidate against all four before saving.",
     scheduled
       ? "5. Aim for up to 50 new, verified, qualified prospects per run. 50 is a ceiling, not a reason to lower quality; fewer good leads is fine."
       : "5. Collect up to 50 new, verified, qualified prospects. Fewer good leads is better than padding the list.",

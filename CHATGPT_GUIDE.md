@@ -1,6 +1,6 @@
 # Connecting ChatGPT to Inlinked
 
-ChatGPT researches prospects and saves them to your Prospects list. It needs a tool that can send HTTP requests with headers and a JSON body (for example Firecrawl). Without one, use the paste fallback at the bottom.
+ChatGPT researches prospects and saves them to your Prospects list. ChatGPT must use Firecrawl's browser interaction tool to run `fetch()` calls; the prompt includes the exact examples and tells ChatGPT it is authorised to call your own API. It must apply your saved preferences and exclude your excluded keywords, existing connections and saved prospects. Without Firecrawl, use the paste fallback at the bottom.
 
 ## Quick start
 1. Sign in and open **ChatGPT** in the menu.

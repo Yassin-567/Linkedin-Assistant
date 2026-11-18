@@ -6,7 +6,8 @@ export const runtime = "nodejs";
 const noStore = {
   "Cache-Control": "no-store, no-cache, must-revalidate",
   "Pragma": "no-cache",
-  "Referrer-Policy": "no-referrer"
+  "Referrer-Policy": "no-referrer",
+  "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, OPTIONS", "Access-Control-Max-Age": "86400"
 };
 
 export async function GET(request: NextRequest) {
@@ -84,3 +85,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Could not retrieve this account's AI search context." }, { status: 503, headers: noStore });
   }
 }
+
+// CORS preflight for browser-based HTTP tools. Access still requires a valid Bearer token.
+export function OPTIONS() { return new Response(null, { status: 204, headers: noStore }); }

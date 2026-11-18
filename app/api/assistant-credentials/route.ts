@@ -6,7 +6,8 @@ export const runtime = "nodejs";
 const headers = {
   "Cache-Control": "no-store, no-cache, must-revalidate",
   "Pragma": "no-cache",
-  "Referrer-Policy": "no-referrer"
+  "Referrer-Policy": "no-referrer",
+  "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Max-Age": "86400"
 };
 
 function hashToken(token: string) {
@@ -60,3 +61,6 @@ async function issue(request: NextRequest) {
     return NextResponse.json({ error: "Could not issue temporary access. Check the assistant_scoped_tokens database migration." }, { status: 503, headers });
   }
 }
+
+// CORS preflight for browser-based HTTP tools. Access still requires a valid Bearer token.
+export function OPTIONS() { return new Response(null, { status: 204, headers: headers }); }

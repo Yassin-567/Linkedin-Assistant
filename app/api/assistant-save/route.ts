@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 // Body: {"leads":[{"name":"...","company":"...","linkedin":"https://www.linkedin.com/in/slug"}]}  (1-50 leads)
 
 type Candidate = { name?: unknown; company?: unknown; linkedin?: unknown; url?: unknown };
-const noStore = { "Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache", "Referrer-Policy": "no-referrer" };
+const noStore = { "Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache", "Referrer-Policy": "no-referrer", "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Max-Age": "86400" };
 const fail = (error: string, status: number, extra: Record<string, unknown> = {}) => NextResponse.json({ error, ...extra }, { status, headers: noStore });
 
 function canonical(value: string) {
@@ -63,3 +63,6 @@ export async function POST(request: NextRequest) {
     return fail("Could not save this batch. Nothing should be reported as saved.", 503);
   }
 }
+
+// CORS preflight for browser-based HTTP tools. Access still requires a valid Bearer token.
+export function OPTIONS() { return new Response(null, { status: 204, headers: noStore }); }
