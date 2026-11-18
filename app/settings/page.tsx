@@ -107,6 +107,10 @@ export default function SettingsPage() {
     {activeTab === "chatgpt" && <>
     <section className="panel">
       <div className="section-heading"><div><div className="eyebrow">CHATGPT INTEGRATION</div><h2>ChatGPT connection and prompt builder</h2><p className="muted">Manage tokens, generate research prompts, choose a prospect target, and configure recurring schedules here.</p></div></div>
+      <label className="wide">Prospects to target per prompt
+        <input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setProspectCount(n); localStorage.setItem("inlinked_prospect_count", String(n)); } }} />
+        <small className="muted">Choose 1–50. This count is included in both Quick Session and Permanent Token prompts, for one-time or recurring research. ChatGPT may save fewer if fewer qualified prospects are found.</small>
+      </label>
       <ChatGptSettings prospectCount={prospectCount} />
     </section>
 
