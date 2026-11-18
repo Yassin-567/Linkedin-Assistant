@@ -23,6 +23,8 @@ export default function Home() {
   const [aiEndpoint, setAiEndpoint] = useState("");
   const [aiTokenEnabled, setAiTokenEnabled] = useState(false);
   const [aiTokenBusy, setAiTokenBusy] = useState(false);
+  const [pasted, setPasted] = useState("");
+  const [pasteBusy, setPasteBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,6 +79,24 @@ export default function Home() {
     } else setLeads(old=>[{id:crypto.randomUUID(),...payload},...old]);
     setName("");setCompany("");setUrl("");setStatus(statuses[0]);setFollowUp("");setNotes("");
   }
+  async function importPasted() {
+    if (!cloudStorage) { setMessage("Sign in to import prospects."); return; }
+    const rows = pasted.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).slice(0,50);
+    if (!rows.length) return;
+    setPasteBusy(true);
+    let saved=0, dupes=0, bad=0; const added:Lead[]=[];
+    for (const row of rows) {
+      const parts=row.replace(/^[-*\d.)\s]+/,"").split("|").map(s=>s.trim());
+      const url=parts[parts.length-1]||"", name=parts[0]||"", company=parts.slice(1,-1).join(" | ");
+      if(!name||!company||!/linkedin\.com\/in\//i.test(url)){bad++;continue;}
+      const r=await fetch("/api/prospects",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,company,url,status:statuses[0],notes:"Pasted from ChatGPT.",discoverySource:"ChatGPT research",savedVia:"ChatGPT AI Token"})});
+      if(r.ok){const d=await r.json();added.push(d.lead);saved++;} else if(r.status===409)dupes++; else bad++;
+    }
+    if(added.length)setLeads(old=>[...added,...old]);
+    setMessage(`Pasted import: saved ${saved}, duplicates ${dupes}, invalid or failed ${bad}.`);
+    if(!bad)setPasted("");
+    setPasteBusy(false);
+  }
   async function updateLead(id:string, changes:Partial<Lead>) {
     const current=leads.find(x=>x.id===id);if(!current)return;const next={...current,...changes};
     if(cloudStorage){const r=await fetch("/api/prospects",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(next)});const d=await r.json();if(!r.ok){setMessage(d.error||"Could not update prospect.");return;}setLeads(old=>old.map(x=>x.id===id?d.lead:x));}
@@ -122,6 +142,7 @@ export default function Home() {
       {shown.length ? <div className="lead-list">{shown.map(x=><article className="lead" key={x.id}><div><strong>{x.name}</strong><div>{x.company}</div>{x.connected && <span className="connected-tag">✓ Connected{x.connectedOn ? ` · ${x.connectedOn}` : ""}</span>}{x.followUp && <small>Follow up: {x.followUp}</small>}{x.notes && <p>{x.notes}</p>}{x.url && <a href={x.url} target="_blank" rel="noreferrer">Open LinkedIn ↗</a>}</div><div className="lead-controls"><select value={x.status} onChange={e=>void updateLead(x.id,{status:e.target.value})}>{statuses.map(s=><option key={s}>{s}</option>)}</select><button className="delete" onClick={()=>void removeLead(x.id)}>×</button></div></article>)}</div> : <div className="empty"><strong>{leads.length ? "No matching prospects" : "Your pipeline starts here"}</strong><p>Add a business and decision-maker from any country or industry to track your next step.</p></div>}
       <p className="storage-note">{cloudStorage ? "Synced to your private cloud storage and mirrored in this browser." : "Saved in this browser until you sign in to enable private database sync."} Export CSV regularly for backup.</p>
     </section>
+    {account.connected&&<section className="panel"><h2>Paste from ChatGPT</h2><p className="muted">Ask ChatGPT to list prospects one per line as <code>Name | Company | LinkedIn profile URL</code>, then paste them here (up to 50). Duplicates are skipped.</p><textarea rows={5} value={pasted} onChange={e=>setPasted(e.target.value)} placeholder={"Jane Smith | ABC Appliance Repairs | https://www.linkedin.com/in/jane-smith"}/><div className="row"><button onClick={()=>void importPasted()} disabled={pasteBusy||!pasted.trim()}>{pasteBusy?"Importing...":"Import pasted prospects"}</button></div></section>}
     <section className="panel"><h2>Your account</h2>{account.connected?<><p className="muted">Signed in as <strong>{account.profile?.name || "Google user"}</strong> {account.profile?.email || ""}</p><div className="row"><a className="button secondary" href="/settings">Edit search preferences</a><button className="text-button" onClick={async()=>{await fetch("/api/auth/logout",{method:"POST"});setAccount({connected:false});window.location.href="/login";}}>Sign out</button></div></>:<><p className="muted">Sign in to save prospects privately, configure your target markets and connect ChatGPT.</p><a className="button" href="/api/auth/google">Continue with Google</a></>}{message && <p className="status">{message}</p>}</section>
     <footer>LinkedIn Assistant · Early build</footer>
   </main>;
