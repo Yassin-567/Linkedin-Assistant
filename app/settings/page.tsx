@@ -104,12 +104,12 @@ export default function SettingsPage() {
       <div className="section-heading"><div><div className="eyebrow">API REFERENCE</div><h2>Endpoints and request examples</h2><p className="muted">Copy these examples into your HTTP client. Replace the placeholder token with your own token. The Quick Session issuance endpoint is called from your signed-in Inlinked browser.</p></div></div>
       <div className="lead-form">
         <label className="wide">1. Create a Quick Session token
-          <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-access</pre>
+          <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-access</pre><button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-access")}>Copy POST URL</button>
           <small className="muted">POST only. Requires your active Inlinked sign-in cookie. Returns a 10-minute accessToken.</small>
         </label>
         <label className="wide">2. Exchange your permanent token for temporary access
           <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-credentials
-Authorization: Bearer YOUR_PERMANENT_AI_TOKEN</pre>
+Authorization: Bearer YOUR_PERMANENT_AI_TOKEN</pre><button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-credentials")}>Copy POST URL</button>
           <small className="muted">POST only. Returns contextEndpoint and saveEndpoint URLs containing a 10-minute access token.</small>
         </label>
         <label className="wide">3. Read your search context
