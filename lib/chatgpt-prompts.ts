@@ -4,11 +4,11 @@
 export type PromptMode = "session" | "permanent";
 export type PromptKind = "research" | "scheduled";
 
-type Options = { mode: PromptMode; kind: PromptKind; token: string; origin: string };
+type Options = { mode: PromptMode; kind: PromptKind; token: string; origin: string; prospectCount: number };
 
 const LEAD_EXAMPLE = '{"leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug"}]}';
 
-export function buildChatGptPrompt({ mode, kind, token, origin }: Options): string {
+export function buildChatGptPrompt({ mode, kind, token, origin, prospectCount }: Options): string {
   const context = `${origin}/api/assistant-context`;
   const save = `${origin}/api/assistant-save`;
   const credentials = `${origin}/api/assistant-credentials`;
@@ -64,8 +64,8 @@ export function buildChatGptPrompt({ mode, kind, token, origin }: Options): stri
     "3. Research with current public sources. For every candidate verify: full name, current company, current role, location, why they fit me, and a personal LinkedIn profile URL (https://www.linkedin.com/in/...). Company pages, search URLs and guessed URLs are not allowed. Skip anyone you cannot verify. Never invent details.",
     "4. Exclude, without exception: (a) any person or company that matches excludedKeywords, (b) anyone whose normalised LinkedIn URL (lowercase, no trailing slash) is in uploadedConnectionProfileUrls (my existing connections), (c) anyone whose URL is in savedProspectProfileUrls (already saved), and (d) duplicates within your own list. Check every candidate against all four before saving.",
     scheduled
-      ? "5. Aim for up to 50 new, verified, qualified prospects per run. 50 is a ceiling, not a reason to lower quality; fewer good leads is fine."
-      : "5. Collect up to 50 new, verified, qualified prospects. Fewer good leads is better than padding the list.",
+      ? `5. Target up to ${prospectCount} new, verified, qualified prospects per run. This is a target, not a reason to lower quality; return fewer if fewer genuinely qualify.`
+      : `5. Collect up to ${prospectCount} new, verified, qualified prospects. Treat this as a target, not a quota; fewer good leads is better than padding the list.`,
     `6. POST them to the Save URL with Content-Type: application/json and this body shape (1 to 50 leads per request): ${LEAD_EXAMPLE}`,
     "7. Read the actual response, which has total, saved, duplicates, invalid and a results array. Report those exact counts, list the saved prospects (name, company, one line on why they fit) and list anything invalid or failed with the reason. If the request failed, say so plainly.",
     "",
