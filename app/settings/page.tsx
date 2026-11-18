@@ -31,8 +31,18 @@ export default function SettingsPage() {
   const [message, setMessage] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
   const [verifiedAt, setVerifiedAt] = useState("");
+  const [aiTokenActive, setAiTokenActive] = useState(false);
+  const [aiTokenCreatedAt, setAiTokenCreatedAt] = useState("");
+  const [aiTokenValue, setAiTokenValue] = useState("");
+  const [aiTokenBusy, setAiTokenBusy] = useState(false);
+  const [aiTokenMessage, setAiTokenMessage] = useState("");
 
   useEffect(() => {
+    fetch("/api/assistant-ai-token", { cache: "no-store" }).then(async r => {
+      if (r.status === 401) return;
+      const d = await r.json();
+      if (r.ok) { setAiTokenActive(Boolean(d.enabled)); setAiTokenCreatedAt(d.createdAt || ""); }
+    }).catch(() => {});
     Promise.all([
       fetch("/api/preferences", { cache: "no-store" }),
       fetch("/api/profile-verification", { cache: "no-store" })
@@ -86,9 +96,56 @@ export default function SettingsPage() {
     finally { setConfirming(false); }
   }
 
+
+  async function generateAiToken() {
+    if (aiTokenActive && !window.confirm("Generate a new token? The old token and all temporary access tokens will stop working immediately.")) return;
+    setAiTokenBusy(true); setAiTokenMessage("");
+    try {
+      const r = await fetch("/api/assistant-ai-token", { method: "POST" });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Could not generate the token.");
+      setAiTokenValue(d.aiAuthToken || "");
+      setAiTokenActive(true);
+      setAiTokenCreatedAt(d.createdAt || new Date().toISOString());
+      setAiTokenMessage("New token generated. Copy it now; for security, it cannot be retrieved again after you leave this page.");
+    } catch (error) { setAiTokenMessage(error instanceof Error ? error.message : "Could not generate the token."); }
+    finally { setAiTokenBusy(false); }
+  }
+
+  async function revokeAiToken() {
+    if (!window.confirm("Revoke the permanent ChatGPT token? Any saved ChatGPT prompt using it will stop working.")) return;
+    setAiTokenBusy(true); setAiTokenMessage("");
+    try {
+      const r = await fetch("/api/assistant-ai-token", { method: "DELETE" });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Could not revoke the token.");
+      setAiTokenValue(""); setAiTokenActive(false); setAiTokenCreatedAt("");
+      setAiTokenMessage("Token revoked successfully.");
+    } catch (error) { setAiTokenMessage(error instanceof Error ? error.message : "Could not revoke the token."); }
+    finally { setAiTokenBusy(false); }
+  }
+
+  async function copyAiToken() {
+    if (!aiTokenValue) return;
+    try { await navigator.clipboard.writeText(aiTokenValue); setAiTokenMessage("Token copied. Keep it private."); }
+    catch { setAiTokenMessage("Copy was blocked by your browser. Select the token and copy it manually."); }
+  }
+
   return <main className="workspace">
     <header className="topbar"><div><div className="eyebrow">PERSONALIZE DISCOVERY</div><h1>Search settings</h1><p className="muted">Your settings guide searches by default. You can still narrow or change each search.</p></div><div className="row"><a className="button secondary" href="/intelligence">AI Lead Intelligence</a><a className="button secondary" href="/">Back to workspace</a></div></header>
     <section className="panel"><div className="section-heading"><div><div className="eyebrow">CHATGPT</div><h2>Connect your ChatGPT assistant</h2><p className="muted">Create a ready-to-paste prompt so ChatGPT can research and save prospects for you.</p></div><a className="button" href="/chatgpt">Open ChatGPT connection</a></div></section>
+
+
+    <section className="panel">
+      <div className="section-heading"><div><div className="eyebrow">CHATGPT AUTHENTICATION</div><h2>Permanent AI access token</h2><p className="muted">Use this token for your recurring ChatGPT connection. It only grants access to your own Inlinked context and prospect-saving endpoints.</p></div><span className={aiTokenActive ? "pill" : "muted"}>{aiTokenActive ? "Active" : "Not connected"}</span></div>
+      <div className="row" style={{ justifyContent: "flex-start" }}>
+        <button type="button" onClick={() => void generateAiToken()} disabled={aiTokenBusy}>{aiTokenBusy ? "Working..." : aiTokenActive ? "Regenerate and reveal token" : "Generate token"}</button>
+        {aiTokenActive && <button type="button" className="secondary" onClick={() => void revokeAiToken()} disabled={aiTokenBusy}>Revoke token</button>}
+      </div>
+      {aiTokenValue ? <label className="wide">Your permanent AI token<input type="text" readOnly value={aiTokenValue} autoComplete="off" spellCheck={false} /><button type="button" className="secondary" onClick={() => void copyAiToken()}>Copy token</button></label> : null}
+      <p className="muted" role="status">{aiTokenMessage || (aiTokenActive ? "A token is active" + (aiTokenCreatedAt ? " · Created " + new Date(aiTokenCreatedAt).toLocaleString() : "") + ". The existing token is stored as a one-way hash and cannot be displayed again. Regenerate it to reveal a new token here." : "No permanent token is active.")}</p>
+      <p className="footnote">The token is shown only immediately after generation. Regenerating it invalidates the previous token and all temporary access grants. Never share it publicly or include it in prospect research queries.</p>
+    </section>
 
     <section className="panel"><form className="lead-form" onSubmit={save}>
       <label className="wide">Your LinkedIn profile URL<input type="url" value={p.linkedinProfileUrl} onChange={e => setP(old => ({ ...old, linkedinProfileUrl: e.target.value }))} placeholder="https://www.linkedin.com/in/your-profile/" /><small className="muted">The app checks public search results for this exact profile. A URL does not grant access to private LinkedIn content.</small></label>
