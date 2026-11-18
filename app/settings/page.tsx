@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import ChatGptSettings from "@/components/ChatGptSettings";
 
 type Prefs = {
   linkedinProfileUrl: string; countries: string[]; industries: string[]; keywords: string[];
@@ -138,39 +139,53 @@ export default function SettingsPage() {
 
   return <main className="workspace">
     <header className="topbar"><div><div className="eyebrow">PERSONALIZE DISCOVERY</div><h1>Search settings</h1><p className="muted">Your settings guide searches by default. You can still narrow or change each search.</p></div><div className="row"><a className="button secondary" href="/intelligence">AI Lead Intelligence</a><a className="button secondary" href="/">Back to workspace</a></div></header>
-    <section className="panel"><div className="section-heading"><div><div className="eyebrow">CHATGPT</div><h2>Connect your ChatGPT assistant</h2><p className="muted">Create a ready-to-paste prompt so ChatGPT can research and save prospects for you.</p></div><a className="button" href="/chatgpt">Open ChatGPT connection</a></div></section>
-
-
     <section className="panel">
-      <div className="section-heading"><div><div className="eyebrow">CHATGPT AUTHENTICATION</div><h2>Permanent AI access token</h2><p className="muted">Use this token for your recurring ChatGPT connection. It only grants access to your own Inlinked context and prospect-saving endpoints.</p></div><span className={aiTokenActive ? "pill" : "muted"}>{aiTokenActive ? "Active" : "Not connected"}</span></div>
-      <div className="row" style={{ justifyContent: "flex-start" }}>
-        <button type="button" onClick={() => void generateAiToken()} disabled={aiTokenBusy}>{aiTokenBusy ? "Working..." : aiTokenActive ? "Regenerate and reveal token" : "Generate token"}</button>
-        {aiTokenActive && <button type="button" className="secondary" onClick={() => void revokeAiToken()} disabled={aiTokenBusy}>Revoke token</button>}
-      </div>
-      {aiTokenValue ? <label className="wide">Your permanent AI token<input type="text" readOnly value={aiTokenValue} autoComplete="off" spellCheck={false} /><button type="button" className="secondary" onClick={() => void copyAiToken()}>Copy token</button></label> : <p className="muted">{aiTokenActive ? "The active token is not saved in this browser. Regenerate it to display it here." : "Generate a token to display it here."}</p>}
-      {quickSessionValue && <label className="wide">Current Quick Session token (expires {new Date(quickSessionValue.expiresAt).toLocaleString()})<input type="text" readOnly value={quickSessionValue.token} /><button type="button" className="secondary" onClick={() => void navigator.clipboard.writeText(quickSessionValue.token)}>Copy session token</button></label>}
-      <p className="muted" role="status">{aiTokenMessage || (aiTokenActive ? "A token is active" + (aiTokenCreatedAt ? " · Created " + new Date(aiTokenCreatedAt).toLocaleString() : "") + ". The existing token is stored as a one-way hash and cannot be displayed again. Regenerate it to reveal a new token here." : "No permanent token is active.")}</p>
-      <p className="footnote">Tokens generated in this browser remain visible here across reloads. They are kept in this browser's local storage, not retrievable from the server. Anyone with access to this browser profile can see them. Regenerating the permanent token invalidates the previous token and all temporary access grants.</p>
+      <div className="section-heading"><div><div className="eyebrow">CHATGPT INTEGRATION</div><h2>ChatGPT connection and prompt builder</h2><p className="muted">Manage tokens, generate research prompts, choose a prospect target, and configure recurring schedules here.</p></div></div>
+      <ChatGptSettings />
     </section>
 
     <section className="panel">
-      <div className="section-heading"><div><div className="eyebrow">API REFERENCE</div><h2>Endpoints and request examples</h2><p className="muted">Use the placeholders below with your own tokens. These examples do not contain live credentials.</p></div></div>
+      <div className="section-heading"><div><div className="eyebrow">API REFERENCE</div><h2>Endpoints and request examples</h2><p className="muted">Copy these examples into your HTTP client. Replace the placeholder token with your own token. The Quick Session issuance endpoint is called from your signed-in Inlinked browser.</p></div></div>
       <div className="lead-form">
-        <label className="wide">1. Create a Quick Session token (POST)<pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-access</pre><small className="muted">Requires your signed-in Inlinked browser session. Returns a 10-minute access token.</small></label>
-        <label className="wide">2. Exchange Permanent Token for temporary access (POST)<pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-credentials
-Authorization: Bearer &lt;PERMANENT_AI_TOKEN&gt;</pre><small className="muted">Returns contextEndpoint and saveEndpoint URLs containing the temporary access token.</small></label>
-        <label className="wide">3. Read search context (GET)<pre className="prompt-box">GET https://inlinked.vercel.app/api/assistant-context?access=&lt;10_MINUTE_ACCESS_TOKEN&gt;
-
-# Or send: Authorization: Bearer &lt;10_MINUTE_ACCESS_TOKEN&gt;</pre><small className="muted">Reads your owner profile, saved search preferences and exclusion lists.</small></label>
-        <label className="wide">4. Save qualified prospects (POST)<pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-save?access=&lt;10_MINUTE_ACCESS_TOKEN&gt;
+        <label className="wide">1. Create a Quick Session token
+          <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-access</pre>
+          <small className="muted">POST only. Requires your active Inlinked sign-in cookie. Returns a 10-minute accessToken.</small>
+        </label>
+        <label className="wide">2. Exchange your permanent token for temporary access
+          <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-credentials
+Authorization: Bearer YOUR_PERMANENT_AI_TOKEN</pre>
+          <small className="muted">POST only. Returns contextEndpoint and saveEndpoint URLs containing a 10-minute access token.</small>
+        </label>
+        <label className="wide">3. Read your search context
+          <pre className="prompt-box">GET https://inlinked.vercel.app/api/assistant-context?access=YOUR_10_MINUTE_ACCESS_TOKEN</pre>
+          <small className="muted">GET only. Alternatively send the token in the Authorization: Bearer YOUR_10_MINUTE_ACCESS_TOKEN header.</small>
+        </label>
+        <label className="wide">4. Save prospects
+          <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-save?access=YOUR_10_MINUTE_ACCESS_TOKEN
 Content-Type: application/json
 
 {
   "leads": [
-    { "name": "Full name", "company": "Company name", "linkedin": "https://www.linkedin.com/in/profile-slug/" }
+    {
+      "name": "Full name",
+      "company": "Company name",
+      "linkedin": "https://www.linkedin.com/in/profile-slug/"
+    }
   ]
-}</pre><small className="muted">Accepts 1–50 prospects. Response reports saved, duplicates and invalid counts.</small></label>
+}</pre>
+          <small className="muted">POST only. Send the same token in the Authorization: Bearer header if you prefer. Accepts 1–50 leads.</small>
+        </label>
+        <label className="wide">5. Example permanent-token exchange response
+          <pre className="prompt-box">{
+  "ok": true,
+  "contextEndpoint": "https://inlinked.vercel.app/api/assistant-context?access=TEMPORARY_TOKEN",
+  "saveEndpoint": "https://inlinked.vercel.app/api/assistant-save?access=TEMPORARY_TOKEN",
+  "expiresInSeconds": 600
+}</pre>
+          <small className="muted">The temporary token expires after 10 minutes. Never share a real token or paste it into a public URL.</small>
+        </label>
       </div>
+    </section>
 
     <section className="panel"><form className="lead-form" onSubmit={save}>
       <label className="wide">Your LinkedIn profile URL<input type="url" value={p.linkedinProfileUrl} onChange={e => setP(old => ({ ...old, linkedinProfileUrl: e.target.value }))} placeholder="https://www.linkedin.com/in/your-profile/" /><small className="muted">The app checks public search results for this exact profile. A URL does not grant access to private LinkedIn content.</small></label>
