@@ -24,7 +24,9 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: noStore });
   try {
     const sql = db();
+    // Regeneration invalidates every previously issued temporary access token as well.
     await sql`UPDATE ai_access_tokens SET revoked_at=now() WHERE user_id=${user.userId} AND revoked_at IS NULL`;
+    await sql`UPDATE assistant_scoped_tokens SET revoked_at=now() WHERE user_id=${user.userId} AND revoked_at IS NULL`;
     const token = randomBytes(32).toString("base64url");
     const hash = createHash("sha256").update(token).digest("hex");
     await sql`INSERT INTO ai_access_tokens(token_hash,user_id) VALUES(${hash},${user.userId})`;
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
       aiAuthToken: token,
       credentialsEndpoint: credentialsEndpoint.toString(),
       createdAt: new Date().toISOString(),
-      message: "Copy the AI Auth Token into your ChatGPT Memory/instructions. It is shown only once. Regenerating it revokes the previous token and any future credential issuance using it."
+      message: "Copy the AI Auth Token into your ChatGPT Memory/instructions. It is shown only once. Regenerating it revokes the previous permanent token and all previously issued temporary access tokens."
     }, { headers: noStore });
   } catch (error) {
     console.error("AI Auth Token generation failed", error);
@@ -53,6 +55,6 @@ export async function DELETE() {
     return NextResponse.json({ ok: true, enabled: false }, { headers: noStore });
   } catch (error) {
     console.error("AI Auth Token revocation failed", error);
-    return NextResponse.json({ error: "Could not revoke the AI Auth Token and scoped credentials." }, { status: 503, headers: noStore });
+    return NextResponse.json({ error: "Could not revoke the AI Auth Token and active temporary access tokens." }, { status: 503, headers: noStore });
   }
 }
