@@ -39,9 +39,12 @@ export async function GET(request: NextRequest) {
   const reply = (status: number, payload: Record<string, unknown>, plain: string) =>
     wantsJson ? NextResponse.json(payload, { status, headers }) : text(plain, status);
 
-  const token = request.nextUrl.searchParams.get("ai") || "";
+  // Accepts either the permanent AI Auth Token (?ai=) or a 10-minute temporary access token (?access=).
+  const permanent = request.nextUrl.searchParams.get("ai") || "";
+  const temporary = request.nextUrl.searchParams.get("access") || "";
+  const token = permanent || temporary;
   if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) {
-    return reply(401, { error: "AI Auth Token is missing or invalid." }, "ERROR: AI Auth Token is missing or invalid. Nothing was saved.");
+    return reply(401, { error: "AI Auth Token or access token is missing or invalid." }, "ERROR: AI Auth Token or access token is missing or invalid. Nothing was saved.");
   }
 
   const rawLeads = request.nextUrl.searchParams.getAll("l").flatMap(v => v.split(/\r?\n/)).map(v => v.trim()).filter(Boolean);
@@ -54,7 +57,9 @@ export async function GET(request: NextRequest) {
   try {
     const sql = db();
     const hash = createHash("sha256").update(token).digest("hex");
-    const owner: any = await sql`SELECT user_id FROM ai_access_tokens WHERE token_hash=${hash} AND revoked_at IS NULL LIMIT 1`;
+    const owner: any = permanent
+      ? await sql`SELECT user_id FROM ai_access_tokens WHERE token_hash=${hash} AND revoked_at IS NULL LIMIT 1`
+      : await sql`SELECT user_id FROM assistant_scoped_tokens WHERE token_hash=${hash} AND scope='context' AND expires_at>now() AND revoked_at IS NULL LIMIT 1`;
     if (!owner.length) {
       return reply(401, { error: "AI Auth Token is invalid or revoked." }, "ERROR: AI Auth Token is invalid or revoked. Nothing was saved.");
     }

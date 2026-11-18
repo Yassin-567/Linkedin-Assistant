@@ -1,27 +1,24 @@
-# ChatGPT Simple Bridge (no Firecrawl, no MCP, free ChatGPT)
+# ChatGPT bridge: two methods, GET requests only (no Firecrawl, no MCP)
 
-ChatGPT saves prospects by opening one link with its normal web browsing. Nothing else is needed.
+Endpoints (base `https://inlinked.vercel.app`):
 
-## One-time setup
-1. Sign in to Inlinked, open **Search settings**, and generate your **AI Auth Token**. It is shown once; keep it private.
-2. Tell ChatGPT (Memory or Custom Instructions): "My Inlinked AI Auth Token is `<token>`. Never print it in reports."
+| Purpose | URL | Auth |
+|---|---|---|
+| Credentials | `/api/assistant-credentials?ai=<PERMANENT_TOKEN>` | permanent AI Auth Token |
+| Context | `/api/assistant-context?access=<ACCESS_TOKEN>` | 10-minute access token |
+| Save | `/api/save?access=<ACCESS_TOKEN>&l=Name\|Company\|LinkedInURL` (repeat `l=`, max 50) | 10-minute access token |
 
-## Save link format
+## Method 1: give ChatGPT an access token
+Send ChatGPT the 10-minute access token with the Context and Save links already filled in. It opens Context, researches based on it, then saves with the Save link.
 
-```
-https://inlinked.vercel.app/api/save?ai=<TOKEN>&l=Name|Company|LinkedInProfileURL&l=Name2|Company2|LinkedInProfileURL2
-```
+## Method 2: give ChatGPT the permanent token
+Send the permanent AI Auth Token and the three endpoints. ChatGPT opens the Credentials URL (GET with `?ai=`, or POST with `Authorization: Bearer`), reads the returned `accessToken`, `contextEndpoint` and `saveEndpoint`, and continues as in Method 1.
 
-- Open it with a normal browse/open-URL action (HTTP GET). No POST, no headers, no encoding.
-- Repeat `l=` once per prospect, up to 50 per link.
-- Each lead is `Full name|Company|https://www.linkedin.com/in/profile-slug` (personal profile only; company pages and search URLs are rejected).
-- URL-encode spaces as `%20` if your browser tool requires it.
-- The reply is plain text, for example `Saved 3, duplicates 1, invalid 0, total 4.` followed by one line per lead. Add `&format=json` for JSON.
-- Report only what the reply confirms. If the page cannot be opened, say so; never claim prospects were saved.
+## Save format
+`l=Full name|Company|https://www.linkedin.com/in/profile-slug` (personal profiles only). Reply is plain text such as `Saved 3, duplicates 1, invalid 0, total 4.` plus one line per lead; add `&format=json` for JSON. Only report what the reply confirms.
 
-## If ChatGPT cannot open the link
-Ask it to list prospects one per line as `Name | Company | LinkedIn profile URL`, then paste them into **Prospects → Paste from ChatGPT** in Inlinked.
+## Fallback
+If ChatGPT cannot open the links, have it list `Name | Company | LinkedIn URL` per line and paste them into **Prospects → Paste from ChatGPT**.
 
 ## Security
-- The token only allows saving prospects. Revoke or regenerate it in Settings if exposed.
-- A token in a URL can appear in browser history or logs, so do not share the link.
+The permanent token only issues access tokens; access tokens expire in 10 minutes and can only read context and save prospects. Regenerate or revoke the permanent token in Settings if it is exposed. Never print tokens in research output.
