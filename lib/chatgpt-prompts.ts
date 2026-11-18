@@ -19,6 +19,13 @@ export function buildChatGptPrompt({
   const credentials = `${base}/api/assistant-credentials`;
   const scheduled = kind === "scheduled";
   const recurrence = scheduleFrequency === "weekdays" ? "Every weekday (Monday to Friday)" : scheduleFrequency === "weekly" ? "Once every week" : "Every day";
+  const scheduleHeader = scheduled
+    ? [
+        "SCHEDULED TASK",
+        `Execution time: ${scheduleTime} (${scheduleTimezone})`,
+        `Recurrence: ${recurrence}`
+      ]
+    : [];
   const connection = mode === "session"
     ? [
         "## Connection — Quick Session",
@@ -54,7 +61,7 @@ export function buildChatGptPrompt({
     ...connection,
     "",
     "## Research target — editable",
-    `The currently selected target is ${prospectCount} NEW qualified prospects for this ${scheduled ? "scheduled run" : "research batch"}.`,
+    `The currently selected target is ${prospectCount} NEW qualified prospects for this research batch.`,
     `Treat ${prospectCount} as the editable target selected in Inlinked. If I explicitly change the target in this chat, follow my latest number instead. The API accepts a maximum of 50 prospects per save request; never exceed 50 in one request. If the selected target is 50, do not stop after finding only a handful: run multiple distinct searches, vary relevant titles/company keywords/locations, inspect further result pages where available, and continue deduplicating until you reach the target or have made a documented, reasonable effort and the available market is exhausted.`,
     "Aim for the full selected target. Do not arbitrarily stop at the first search results page or after a small initial batch. Continue searching and verifying until the target is reached. Never pad the list with weak, irrelevant, unverifiable or invented prospects; if the target cannot genuinely be reached, explain how many search rounds and distinct queries were completed and why further qualified results were unavailable.",
     "",
@@ -86,19 +93,5 @@ export function buildChatGptPrompt({
     "- Do not call any Inlinked endpoint other than the Credentials endpoint (Permanent Token mode only), Context endpoint and Save endpoint."
   ];
 
-  if (scheduled) {
-    lines.push(
-      "",
-      "## Recurring ChatGPT task — editable schedule",
-      `Selected recurrence: ${recurrence}.`,
-      `Selected execution time: ${scheduleTime}.`,
-      `Selected timezone: ${scheduleTimezone}.`,
-      "These schedule values are the current editable settings selected in Inlinked. If I explicitly change the frequency, time, timezone or target number in chat, use my latest settings for future runs.",
-      "Create a recurring ChatGPT task using exactly the selected recurrence, execution time and timezone. If the recurrence is weekly, ask me which day of the week before creating it. Before creating the task, show me the complete proposed schedule and ask for my confirmation. Do not create or claim to have created a task before I confirm. If ChatGPT Tasks are unavailable in this account, say so clearly and do not claim it was scheduled.",
-      "At every scheduled run, treat the selected prospect count as the target number of NEW qualified prospects for that run, and repeat the full workflow: initialize a fresh Firecrawl session directly on the first Inlinked endpoint, obtain credentials if using Permanent Token mode, GET the latest context, research, exclude existing connections and saved prospects, save through the same live session, verify the actual API response, and stop the session.",
-      "Recurring tasks must use Permanent Token mode because Quick Session tokens expire. If this prompt is generated in Quick Session mode, explain that it is suitable for a one-time run only and ask me to generate a Permanent Token prompt before setting up recurrence."
-    );
-  }
-
-  return lines.join("\n");
+  return [...scheduleHeader, ...lines].join("\n");
 }
