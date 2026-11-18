@@ -27,31 +27,32 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = String(owners[0].user_id);
-    const contextToken = randomBytes(32).toString("base64url");
-    const saveToken = randomBytes(32).toString("base64url");
-    const contextHash = hashToken(contextToken);
-    const saveHash = hashToken(saveToken);
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const accessToken = randomBytes(32).toString("base64url");
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
+    // The existing "context" scope is used as the single shared ChatGPT access grant.
+    // Both the read-only context endpoint and the prospect-save endpoint validate this same hash.
     await sql`INSERT INTO assistant_scoped_tokens(token_hash,user_id,scope,expires_at)
-      VALUES (${contextHash},${userId},'context',${expiresAt}),(${saveHash},${userId},'save',${expiresAt})`;
+      VALUES (${hashToken(accessToken)},${userId},'context',${expiresAt})`;
 
     const base = process.env.APP_URL || new URL(request.url).origin;
     const contextEndpoint = new URL("/api/assistant-context", base);
-    contextEndpoint.searchParams.set("ct", contextToken);
+    contextEndpoint.searchParams.set("access", accessToken);
     const saveEndpoint = new URL("/api/assistant-save", base);
-    saveEndpoint.searchParams.set("st", saveToken);
+    saveEndpoint.searchParams.set("access", accessToken);
 
     return NextResponse.json({
       ok: true,
+      accessToken,
       contextEndpoint: contextEndpoint.toString(),
       saveEndpoint: saveEndpoint.toString(),
       expiresAt,
+      expiresInSeconds: 600,
       permissions: { context: "read-only", save: "save-prospects-only" },
-      message: "Scoped tokens expire after 24 hours. Authenticate again with the AI Auth Token to issue fresh tokens."
+      message: "One temporary access token works with both endpoints and expires after 10 minutes. Request another using the permanent AI Auth Token when it expires."
     }, { headers });
   } catch (error) {
-    console.error("Scoped assistant credentials issue failed", error);
-    return NextResponse.json({ error: "Could not issue scoped credentials. Apply db/assistant_scoped_tokens.sql first." }, { status: 503, headers });
+    console.error("Temporary assistant access issuance failed", error);
+    return NextResponse.json({ error: "Could not issue temporary access. Check the assistant_scoped_tokens database migration." }, { status: 503, headers });
   }
 }
