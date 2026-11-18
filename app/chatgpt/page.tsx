@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { buildChatGptPrompt, type PromptKind, type PromptMode } from "@/lib/chatgpt-prompts";
+import { buildChatGptPrompt, type PromptKind, type PromptMode, type ScheduleFrequency } from "@/lib/chatgpt-prompts";
 
 type Status = { enabled: boolean; createdAt: string };
 type Session = { token: string; expiresAt: string; origin: string };
@@ -20,6 +20,9 @@ export default function ChatGptPage() {
   const [signedIn, setSignedIn] = useState(true);
   const [kind, setKind] = useState<PromptKind>("research");
   const [prospectCount, setProspectCount] = useState(50);
+  const [scheduleFrequency, setScheduleFrequency] = useState<ScheduleFrequency>("daily");
+  const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [scheduleTimezone, setScheduleTimezone] = useState("Africa/Cairo");
   const [mode, setMode] = useState<PromptMode>("session");
   const [session, setSession] = useState<Session | null>(null);
   const [permanent, setPermanent] = useState<Permanent | null>(null);
@@ -49,8 +52,8 @@ export default function ChatGptPage() {
   const activeOrigin = mode === "session" ? session?.origin || "" : permanent?.origin || "";
 
   const prompt = useMemo(
-    () => (activeToken && activeOrigin ? buildChatGptPrompt({ mode, kind, token: activeToken, origin: activeOrigin, prospectCount }) : ""),
-    [mode, kind, activeToken, activeOrigin, prospectCount]
+    () => (activeToken && activeOrigin ? buildChatGptPrompt({ mode, kind, token: activeToken, origin: activeOrigin, prospectCount, scheduleFrequency, scheduleTime, scheduleTimezone }) : ""),
+    [mode, kind, activeToken, activeOrigin, prospectCount, scheduleFrequency, scheduleTime, scheduleTimezone]
   );
 
   async function createSession() {
@@ -60,6 +63,7 @@ export default function ChatGptPage() {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Could not create the prompt.");
       setSession({ token: d.accessToken, expiresAt: d.expiresAt, origin: d.origin });
+      localStorage.setItem("inlinked_quick_session", JSON.stringify({ token: d.accessToken, expiresAt: d.expiresAt, origin: d.origin }));
       setNow(Date.now());
       setMessage("Prompt ready. Copy it and paste it into ChatGPT within 10 minutes.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not create the prompt."); }
@@ -74,6 +78,7 @@ export default function ChatGptPage() {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Could not generate the token.");
       setPermanent({ token: d.aiAuthToken, origin: new URL(d.credentialsEndpoint).origin });
+      localStorage.setItem("inlinked_permanent_token", d.aiAuthToken);
       setStatus({ enabled: true, createdAt: d.createdAt || new Date().toISOString() });
       setMessage("Token created. It is shown only once, so copy the prompt now.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not generate the token."); }
@@ -88,6 +93,7 @@ export default function ChatGptPage() {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Could not revoke the token.");
       setStatus({ enabled: false, createdAt: "" }); setPermanent(null); setSession(null);
+      localStorage.removeItem("inlinked_permanent_token"); localStorage.removeItem("inlinked_quick_session");
       setMessage("Token revoked. Any active 10-minute tokens were revoked too.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not revoke the token."); }
     finally { setBusy(""); }
@@ -116,6 +122,21 @@ export default function ChatGptPage() {
       </div>
       <label className="wide" style={{ display: "block", marginTop: 18, maxWidth: 360 }}>Prospects to target per run<input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isFinite(n)) setProspectCount(Math.max(1, Math.min(50, Math.trunc(n)))); }} /><small className="muted">Choose 1–50. This is a target, not permission to include unverified or low-quality leads. ChatGPT should return fewer when fewer qualify.</small></label>
     </section>
+
+    {kind === "scheduled" && <section className="panel">
+      <h2>Recurring schedule</h2>
+      <p className="muted">Choose when ChatGPT should run the prospect research. These settings will be included in the generated prompt.</p>
+      <div className="lead-form">
+        <label>Repeat<select value={scheduleFrequency} onChange={e => setScheduleFrequency(e.target.value as ScheduleFrequency)}>
+          <option value="daily">Every day</option><option value="weekdays">Weekdays (Monday–Friday)</option><option value="weekly">Once every week</option>
+        </select></label>
+        <label>Time<input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} /></label>
+        <label className="wide">Timezone<select value={scheduleTimezone} onChange={e => setScheduleTimezone(e.target.value)}>
+          <option value="Africa/Cairo">Egypt (Africa/Cairo)</option><option value="Europe/London">United Kingdom (Europe/London)</option><option value="UTC">UTC</option><option value="America/New_York">US Eastern (America/New_York)</option>
+        </select></label>
+      </div>
+      <p className="muted">The prompt asks ChatGPT to confirm this schedule before creating a task. For weekly schedules, ChatGPT will ask which day you prefer.</p>
+    </section>}
 
     <section className="panel">
       <h2>2. Choose how to connect</h2>
