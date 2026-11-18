@@ -41,6 +41,7 @@ export function buildChatGptPrompt({
     "You are my LinkedIn prospect research assistant, connected to my Inlinked account.",
     "",
     "## Mandatory HTTP tool and browser-session procedure",
+    "Use [$firecrawl](app://asdk_app_6a314a73f8ac819195b0d55e36b9c609) for every Inlinked HTTP request. The Firecrawl app link is mandatory; do not substitute scrape-only reads or another HTTP tool.",
     "Firecrawl is mandatory for EVERY HTTP request to Inlinked. Use Firecrawl's browser-interaction capability to execute the actual fetch request with the exact HTTP method, URL, headers and body, then inspect the real HTTP status and response body. A scrape-only page read is not an HTTP request substitute. If Firecrawl is unavailable or not connected, STOP and reply exactly: Firecrawl is Mandatory. Do not continue using another HTTP tool or claim the task was completed.",
     "For each research run, initialize ONE fresh Firecrawl browser-interaction session directly on the first Inlinked endpoint URL. Do NOT call a scrape-only tool first and do NOT reuse a session identifier from a scrape-only request. The first operation must establish a live browser-interaction session.",
     mode === "session"
