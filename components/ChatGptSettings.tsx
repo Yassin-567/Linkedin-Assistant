@@ -15,10 +15,9 @@ function mask(prompt: string, token: string) {
   return token ? prompt.split(token).join("••••••••••••••••") : prompt;
 }
 
-export default function ChatGptSettings() {
+export default function ChatGptSettings({ prospectCount }: { prospectCount: number }) {
   const [status, setStatus] = useState<Status>({ enabled: false, createdAt: "" });
   const [kind, setKind] = useState<PromptKind>("research");
-  const [prospectCount, setProspectCount] = useState(50);
   const [scheduleFrequency, setScheduleFrequency] = useState<ScheduleFrequency>("daily");
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [scheduleTimezone, setScheduleTimezone] = useState("Africa/Cairo");
@@ -117,8 +116,7 @@ export default function ChatGptSettings() {
       <div className="method-grid">
         {KINDS.map(k => <button key={k.id} type="button" className={"method-card" + (kind === k.id ? " active" : "")} onClick={() => setKind(k.id)} aria-pressed={kind === k.id}><strong>{k.title}</strong><span className="muted">{k.hint}</span></button>)}
       </div>
-      <label className="wide" style={{ display: "block", marginTop: 18, maxWidth: 360 }}>Prospects to target per run<input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isFinite(n)) setProspectCount(Math.max(1, Math.min(50, Math.trunc(n)))); }} /><small className="muted">Choose 1–50. This is a target, not permission to include unverified or low-quality leads. ChatGPT should return fewer when fewer qualify.</small></label>
-    </section>
+      </section>
 
     {kind === "scheduled" && <section className="panel">
       <h2>Recurring schedule</h2>
