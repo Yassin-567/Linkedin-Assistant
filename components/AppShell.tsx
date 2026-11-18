@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 type Account = { connected: boolean; profile?: { name?: string; email?: string } };
 const items = [
   { label: "Dashboard", href: "/", icon: "⌂" },
-  { label: "Prospects", href: "/#prospects", icon: "◎" },
+  { label: "Prospects", href: "/prospects", icon: "◎" },
   { label: "Find Leads", href: "/search", icon: "⌕" },
   { label: "Outreach", href: "/outreach", icon: "✉" },
   { label: "Analytics", href: "/analytics", icon: "▥" },
@@ -67,9 +67,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="sidebar-label">WORKSPACE</div>
         <nav className="sidebar-nav" aria-label="Main navigation">
           {items.map((item) => {
-            const active = item.href === "/#prospects"
-              ? pathname === "/" && hash === "#prospects"
-              : pathname === item.href;
+            const active = pathname === item.href;
             return (
               <Link
                 key={item.label}
