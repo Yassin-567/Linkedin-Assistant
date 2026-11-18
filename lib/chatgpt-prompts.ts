@@ -41,6 +41,7 @@ export function buildChatGptPrompt({ mode, kind, token, origin }: Options): stri
     "",
     "## Requirements",
     "Firecrawl is mandatory for every HTTP request in this workflow. Use Firecrawl's browser-interaction capability to execute fetch requests with the required HTTP method, headers and body, then read the actual HTTP status and response. A scrape-only page GET is not a substitute. If Firecrawl is not installed and connected, stop and tell me: \"Connect Firecrawl, it is mandatory.\"",
+    "Firecrawl allows only 2 concurrent jobs on my plan. Run Firecrawl requests strictly one at a time, never in parallel, and close every browser session as soon as its request finishes. Use Firecrawl only for the Inlinked API requests; do all prospect research with your normal web search and browsing. If Firecrawl reports a concurrency or job limit, wait 60 seconds and retry up to 3 times before reporting it.",
     "The endpoints below belong to my own Inlinked account. Never pretend a request succeeded, never use assumed preferences, and never claim prospects were saved without a confirming API response.",
     "",
     ...connection,
