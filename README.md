@@ -10,7 +10,7 @@ A global, individual-account prospecting workspace. Every Google-authenticated u
 - Per-user prospects and imported LinkedIn connections.
 - Database uniqueness on `(user_id, normalized_linkedin_url)` prevents duplicate profile saves, including concurrent writes.
 - ChatGPT handoff using per-user, revocable tokens (10-minute access tokens or a permanent token). Each token can read context and create prospects only for its owner. Bulk saves support up to 50 prospects per request and database uniqueness prevents duplicate LinkedIn profiles.
-- Public search via the existing Serper provider. Search defaults come from each user's preferences; one-off industry or location inputs can narrow a search. Publicly indexed profile snippets may be used as optional context when a user supplies their own LinkedIn URL.
+- Public search via Serper. Search requests use plain-text queries (without exact-phrase quotes or Google search operators) and request up to 10 results per page; the app then filters results to public LinkedIn personal profiles. Search defaults come from each user's preferences; one-off industry or location inputs can narrow a search. Publicly indexed profile snippets may be used as optional context when a user supplies their own LinkedIn URL.
 
 ## Phase 3: personalized discovery
 
@@ -48,10 +48,11 @@ A global, individual-account prospecting workspace. Every Google-authenticated u
 ## Setup
 
 1. Create a Neon PostgreSQL database (the Neon free tier may be sufficient for an early test).
-2. For a new database, run the SQL in `db/schema.sql`. For an existing database, run `db/phase_3_preferences.sql`, `db/phase_4_intelligence_profile_verification.sql`, and `db/phase_5_6_outreach_dashboard.sql` against that database before deploying this version.
-3. Create Google OAuth credentials in Google Cloud Console. Add this exact redirect URI: `https://YOUR_DOMAIN/api/auth/google/callback`.
-4. Configure the environment variables below in Vercel and redeploy.
-5. Set `APP_URL` to the public application origin.
+2. **Fresh database:** run `db/schema.sql` once. It is the canonical current schema and includes every table and column used by the application. No phase migrations are needed for a fresh install.
+3. **Existing database created from the earlier base schema:** run `db/phase_3_preferences.sql`, `db/phase_4_intelligence_profile_verification.sql`, `db/phase_5_6_outreach_dashboard.sql`, and finally `db/phase_7_schema_alignment.sql`, in that order. The migrations are designed to be re-runnable. If Phases 3–6 have already been applied, run only Phase 7. Take a database backup before applying migrations to a database containing important data.
+4. Create Google OAuth credentials in Google Cloud Console. Add this exact redirect URI: `https://YOUR_DOMAIN/api/auth/google/callback`.
+5. Configure the environment variables below in Vercel and redeploy.
+6. Set `APP_URL` to the public application origin.
 
 ## Environment variables
 
