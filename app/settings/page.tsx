@@ -34,8 +34,11 @@ export default function SettingsPage() {
   const [profileMessage, setProfileMessage] = useState("");
   const [verifiedAt, setVerifiedAt] = useState("");
   const [activeTab, setActiveTab] = useState<"preferences" | "chatgpt">("preferences");
+  const [prospectCount, setProspectCount] = useState(50);
 
   useEffect(() => {
+    const savedCount = Number(localStorage.getItem("inlinked_prospect_count"));
+    if (Number.isInteger(savedCount) && savedCount >= 1 && savedCount <= 50) setProspectCount(savedCount);
     Promise.all([
       fetch("/api/preferences", { cache: "no-store" }),
       fetch("/api/profile-verification", { cache: "no-store" })
@@ -104,11 +107,11 @@ export default function SettingsPage() {
     {activeTab === "chatgpt" && <>
     <section className="panel">
       <div className="section-heading"><div><div className="eyebrow">CHATGPT INTEGRATION</div><h2>ChatGPT connection and prompt builder</h2><p className="muted">Manage tokens, generate research prompts, choose a prospect target, and configure recurring schedules here.</p></div></div>
-      <ChatGptSettings />
+      <ChatGptSettings prospectCount={prospectCount} />
     </section>
 
     <section className="panel">
-      <div className="section-heading"><div><div className="eyebrow">API REFERENCE</div><h2>Endpoints and request examples</h2><p className="muted">Copy these examples into your HTTP client. Replace the placeholder token with your own token. The Quick Session issuance endpoint is called from your signed-in Inlinked browser.</p></div></div>
+      <div className="section-heading"><div><div className="eyebrow">API REFERENCE</div><h2>Endpoints and request examples</h2><p className="muted">Copy these examples into your HTTP client. Replace the placeholder token with your own token. Use the permanent token exchange to obtain temporary URLs for the context and save requests.</p></div></div>
       <div className="lead-form">
         <label className="wide">1. Exchange your permanent token for temporary access
           <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-credentials
@@ -136,6 +139,7 @@ Content-Type: application/json
           <small className="muted">The temporary token expires after 10 minutes. Never share a real token or paste it into a public URL.</small>
         </label>
       </div>
+      {message && <p className="muted" role="status">{message}</p>}
     </section>
     </>}
 
@@ -147,6 +151,7 @@ Content-Type: application/json
       {field("keywords", "Interests and search keywords", "Skills, services, topics or phrases that should guide discovery.")}
       {field("jobTitles", "People and job titles", "Examples: Founder, Owner, Managing Director, Recruiter, Engineer.")}
       {field("excludedKeywords", "Exclude keywords", "Profiles or companies containing these terms will be filtered out where possible.")}
+      <label className="wide">Prospects to target per research run<input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setProspectCount(n); localStorage.setItem("inlinked_prospect_count", String(n)); } }} /><small className="muted">Choose 1–50. ChatGPT may return fewer when fewer qualified prospects are available. This preference is saved in this browser.</small></label>
       <label className="wide">Preferred language<input value={p.language} onChange={e => setP(old => ({ ...old, language: e.target.value }))} /></label>
       <label className="wide">About me / additional interests<textarea rows={5} value={p.profileSummary} onChange={e => setP(old => ({ ...old, profileSummary: e.target.value }))} placeholder="Add a short description of your background, skills, interests or the people you want to meet." /><small className="muted">This is your editable context for lead matching. Confirmed profile details below can update this summary.</small></label>
       <div className="wide form-footer"><span className="muted">{busy ? "Loading settings..." : message}</span><button disabled={busy || saving}>{saving ? "Saving..." : "Save preferences"}</button></div>
