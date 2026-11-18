@@ -84,7 +84,7 @@ export function buildChatGptPrompt({
       "## Recurring ChatGPT task",
       `Requested recurrence: ${recurrence}.`,
       `Requested run time: ${scheduleTime} (${scheduleTimezone}).`,
-      "Create a recurring ChatGPT task using exactly this recurrence, time and timezone. Before creating it, show me the proposed schedule and ask for my confirmation. If ChatGPT Tasks are unavailable in this account, say so clearly and do not claim it was scheduled.",
+      "Create a recurring ChatGPT task using exactly this recurrence, time and timezone. If the recurrence is weekly, ask me which day of the week before creating it. Before creating the task, show me the complete proposed schedule and ask for my confirmation. If ChatGPT Tasks are unavailable in this account, say so clearly and do not claim it was scheduled.",
       "At every scheduled run, repeat the full workflow: obtain credentials if using Permanent Token mode, GET the latest context, research, exclude existing connections and saved prospects, then save and report the actual API response. If the Quick Session token expires, stop and ask me to create a fresh prompt; for recurring tasks, use Permanent Token mode."
     );
   }
