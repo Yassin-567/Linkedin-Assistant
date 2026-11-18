@@ -11,7 +11,7 @@ const noStore = {
 
 async function resolveUser(request: NextRequest) {
   const authorization = request.headers.get("authorization") || "";
-  const permanentToken = authorization.match(/^Bearer\\s+([A-Za-z0-9_-]{40,60})$/i)?.[1] || "";
+  const permanentToken = authorization.match(/^Bearer\\s+([A-Za-z0-9_-]{40,60})$/i)?.[1] || request.nextUrl.searchParams.get("ai") || "";
   const legacyTemporaryToken = request.nextUrl.searchParams.get("access") || "";
   const token = permanentToken || legacyTemporaryToken;
   if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) return null;
@@ -30,7 +30,7 @@ async function resolveUser(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const userId = await resolveUser(request);
-    if (!userId) return NextResponse.json({ error: "Permanent AI Auth Token is missing, invalid or revoked. Send it in the Authorization: Bearer header." }, { status: 401, headers: noStore });
+    if (!userId) return NextResponse.json({ error: "Permanent AI Auth Token is missing, invalid or revoked. Send it as Authorization: Bearer or the ai query parameter." }, { status: 401, headers: noStore });
 
     const sql = db();
     const rows: any = await sql`
