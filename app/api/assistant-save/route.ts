@@ -14,15 +14,6 @@ function canonical(value: string) {
   } catch { return ""; }
 }
 
-async function consumeTemporary(token: string, batchSize: number) {
-  if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) return { error: "A valid temporary save link is required." };
-  const sql = db();
-  const hash = createHash("sha256").update(token).digest("hex");
-  const grant: any = await sql`UPDATE assistant_tokens SET batches_remaining=batches_remaining-1,used_at=now() WHERE token_hash=${hash} AND expires_at>now() AND batches_remaining>0 AND ${batchSize}<=max_leads RETURNING user_id`;
-  if (!grant.length) return { error: "This save link expired, was already used, or the batch is too large. Generate a new link in the app." };
-  return { userId: String(grant[0].user_id) };
-}
-
 async function resolveTemporaryUser(token: string) {
   if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) return null;
   const sql = db();
@@ -80,7 +71,6 @@ async function saveBatch(userId: string, candidates: Candidate[], note: string, 
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams;
   const accessToken = p.get("access") || "";
-  const legacySingleUseToken = p.get("token") || "";
   if (accessToken) {
     const encoded = p.get("data") || "";
     if (!encoded || encoded.length > 6500) return NextResponse.json({ error: "Provide a base64url data parameter (maximum 6,500 characters)." }, { status: 400, headers: noStore });
@@ -94,25 +84,6 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       console.error("Temporary access URL bulk save failed", error);
       return NextResponse.json({ error: "Could not process this save request." }, { status: 503, headers: noStore });
-    }
-  }
-
-  if (legacySingleUseToken) {
-    const name = (p.get("name") || "").trim();
-    const company = (p.get("company") || "").trim();
-    const url = canonical(p.get("linkedin") || p.get("url") || "");
-    if (!name || !company || !url) return NextResponse.json({ error: "Provide name, company and a LinkedIn personal profile URL." }, { status: 400, headers: noStore });
-    try {
-      const grant = await consumeTemporary(legacySingleUseToken, 1);
-      if ("error" in grant) return NextResponse.json({ error: grant.error }, { status: 401, headers: noStore });
-      const sql = db();
-      const rows: any = await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,status,follow_up,notes,discovery_source,saved_via)
-        VALUES(${grant.userId},${name.slice(0,200)},${company.slice(0,300)},${url},${url},'To research','','Added through ChatGPT temporary save link.','ChatGPT research','ChatGPT temporary link')
-        ON CONFLICT(user_id,normalized_linkedin_url) WHERE normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url<>'' DO NOTHING RETURNING id`;
-      return NextResponse.json({ ok: true, saved: rows.length === 1, duplicate: rows.length === 0, name, company, url }, { headers: noStore });
-    } catch (error) {
-      console.error("Single assistant save failed", error);
-      return NextResponse.json({ error: "Could not save this prospect." }, { status: 503, headers: noStore });
     }
   }
 
@@ -135,10 +106,7 @@ export async function POST(request: NextRequest) {
       if (!userId) return NextResponse.json({ error: "Temporary Access Token is invalid or expired." }, { status: 401, headers: noStore });
       return saveBatch(userId, body.leads, "Added through ChatGPT temporary access.", "ChatGPT temporary access");
     }
-    const token = request.nextUrl.searchParams.get("token") || "";
-    const grant = await consumeTemporary(token, body.leads.length);
-    if ("error" in grant) return NextResponse.json({ error: grant.error }, { status: 401, headers: noStore });
-    return saveBatch(grant.userId, body.leads, "Added through ChatGPT temporary bulk save link.", "ChatGPT temporary link");
+    return NextResponse.json({ error: "Temporary Access Token is required." }, { status: 401, headers: noStore });
   } catch (error) {
     console.error("Assistant bulk save failed", error);
     return NextResponse.json({ error: "Could not save this batch." }, { status: 503, headers: noStore });
