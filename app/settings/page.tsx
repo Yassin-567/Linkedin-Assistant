@@ -132,12 +132,12 @@ Content-Type: application/json
           <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-save?access=YOUR_10_MINUTE_ACCESS_TOKEN")}>Copy POST URL</button><small className="muted">POST only. Send the same token in the Authorization: Bearer header if you prefer. Accepts 1–50 leads.</small>
         </label>
         <label className="wide">5. Example permanent-token exchange response
-          <pre className="prompt-box">{
+          <pre className="prompt-box">&#123;
   "ok": true,
   "contextEndpoint": "https://inlinked.vercel.app/api/assistant-context?access=TEMPORARY_TOKEN",
   "saveEndpoint": "https://inlinked.vercel.app/api/assistant-save?access=TEMPORARY_TOKEN",
   "expiresInSeconds": 600
-}</pre>
+&#125;</pre>
           <small className="muted">The temporary token expires after 10 minutes. Never share a real token or paste it into a public URL.</small>
         </label>
       </div>
