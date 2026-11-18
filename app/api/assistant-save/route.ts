@@ -9,14 +9,14 @@ const noStore = { "Cache-Control": "no-store, no-cache, must-revalidate", "Pragm
 function canonical(value: string) {
   try {
     const u = new URL(value);
-    if (!/(^|\\.)linkedin\\.com$/i.test(u.hostname) || !u.pathname.toLowerCase().startsWith("/in/")) return "";
-    return "https://www.linkedin.com" + u.pathname.replace(/\\/$/, "").toLowerCase();
+    if (!/(^|\.)linkedin\.com$/i.test(u.hostname) || !u.pathname.toLowerCase().startsWith("/in/")) return "";
+    return "https://www.linkedin.com" + u.pathname.replace(/\/$/, "").toLowerCase();
   } catch { return ""; }
 }
 
 async function resolveUser(request: NextRequest) {
   const authorization = request.headers.get("authorization") || "";
-  const permanentToken = authorization.match(/^Bearer\\s+([A-Za-z0-9_-]{40,60})$/i)?.[1] || request.nextUrl.searchParams.get("ai") || "";
+  const permanentToken = authorization.match(/^Bearer\s+([A-Za-z0-9_-]{40,60})$/i)?.[1] || request.nextUrl.searchParams.get("ai") || "";
   const legacyTemporaryToken = request.nextUrl.searchParams.get("access") || "";
   const token = permanentToken || legacyTemporaryToken;
   if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) return null;
