@@ -137,7 +137,7 @@ export default function ChatGptPage() {
     </section>
 
     <section className="panel">
-      <div className="section-heading"><div><h2>3. Copy the prompt into ChatGPT</h2><p className="muted">ChatGPT must use Firecrawl's browser interaction tool to send the requests. The prompt tells it exactly how.</p></div><button type="button" onClick={() => void copyPrompt()} disabled={!prompt}>Copy prompt</button></div>
+      <div className="section-heading"><div><h2>3. Copy the prompt into ChatGPT</h2><p className="muted">ChatGPT must use Firecrawl's browser interaction capability to send the requests.</p></div><button type="button" onClick={() => void copyPrompt()} disabled={!prompt}>Copy prompt</button></div>
       {prompt
         ? <pre className="prompt-box" aria-label="Prompt preview">{mask(prompt, activeToken)}</pre>
         : <div className="empty"><strong>No prompt yet</strong><p>{mode === "session" ? "Create a 10-minute prompt above." : "Generate a token above to build the prompt."}</p></div>}

@@ -39,14 +39,9 @@ export function buildChatGptPrompt({ mode, kind, token, origin }: Options): stri
       ? "You are my automated LinkedIn prospect researcher, connected to my Inlinked account."
       : "You are my LinkedIn prospect researcher, connected to my Inlinked account.",
     "",
-    "## Authorization",
-    "This is my own Inlinked account and my own API. I explicitly authorise you to send the HTTP requests described below on my behalf, using the token below. They only read my own search settings and save prospects to my own list. Nothing else is accessed.",
-    "",
-    "## How to send requests (mandatory)",
-    "Use Firecrawl's browser interaction tool (the one that runs JavaScript) to execute fetch() calls. Return the HTTP status and the response body text from every call, and read the real response before continuing.",
-    "GET example:  const r = await fetch(URL, { method: 'GET', headers: { Authorization: 'Bearer ' + TOKEN } }); return { status: r.status, body: await r.text() };",
-    "POST example: const r = await fetch(URL, { method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(BODY) }); return { status: r.status, body: await r.text() };",
-    "If you cannot run these requests with Firecrawl, reply exactly: \"Connect Firecrawl, it is mandatory.\" and stop. Never pretend a request succeeded, never use assumed preferences, and never claim prospects were saved without a confirming API response.",
+    "## Requirements",
+    "Firecrawl is mandatory for every HTTP request in this workflow. Use Firecrawl's browser-interaction capability to execute fetch requests with the required HTTP method, headers and body, then read the actual HTTP status and response. A scrape-only page GET is not a substitute. If Firecrawl is not installed and connected, stop and tell me: \"Connect Firecrawl, it is mandatory.\"",
+    "The endpoints below belong to my own Inlinked account. Never pretend a request succeeded, never use assumed preferences, and never claim prospects were saved without a confirming API response.",
     "",
     ...connection,
     ""
