@@ -120,7 +120,7 @@ Authorization: Bearer YOUR_PERMANENT_AI_TOKEN</pre><button type="button" classNa
           <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-save?access=YOUR_10_MINUTE_ACCESS_TOKEN
 Content-Type: application/json
 
-{
+&#123;
   "leads": [
     {
       "name": "Full name",
@@ -128,7 +128,7 @@ Content-Type: application/json
       "linkedin": "https://www.linkedin.com/in/profile-slug/"
     }
   ]
-}</pre>
+&#125;</pre>
           <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-save?access=YOUR_10_MINUTE_ACCESS_TOKEN")}>Copy POST URL</button><small className="muted">POST only. Send the same token in the Authorization: Bearer header if you prefer. Accepts 1–50 leads.</small>
         </label>
         <label className="wide">5. Example permanent-token exchange response
