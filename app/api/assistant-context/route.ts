@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { resolveAssistantAuth } from "@/lib/assistant-auth";
 
 export const runtime = "nodejs";
 const noStore = {
@@ -9,28 +9,10 @@ const noStore = {
   "Referrer-Policy": "no-referrer"
 };
 
-async function resolveUser(request: NextRequest) {
-  const authorization = request.headers.get("authorization") || "";
-  const permanentToken = authorization.match(/^Bearer\s+([A-Za-z0-9_-]{40,60})$/i)?.[1] || request.nextUrl.searchParams.get("ai") || "";
-  const legacyTemporaryToken = request.nextUrl.searchParams.get("access") || "";
-  const token = permanentToken || legacyTemporaryToken;
-  if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) return null;
-
-  const sql = db();
-  const hash = createHash("sha256").update(token).digest("hex");
-  if (permanentToken) {
-    const rows: any = await sql`SELECT user_id FROM ai_access_tokens WHERE token_hash=${hash} AND revoked_at IS NULL LIMIT 1`;
-    return rows.length ? String(rows[0].user_id) : null;
-  }
-  // Backward compatibility for previously issued 10-minute temporary links.
-  const rows: any = await sql`SELECT user_id FROM assistant_scoped_tokens WHERE token_hash=${hash} AND scope='context' AND expires_at>now() AND revoked_at IS NULL LIMIT 1`;
-  return rows.length ? String(rows[0].user_id) : null;
-}
-
 export async function GET(request: NextRequest) {
   try {
-    const userId = await resolveUser(request);
-    if (!userId) return NextResponse.json({ error: "Permanent AI Auth Token is missing, invalid or revoked. Send it as Authorization: Bearer or the ai query parameter." }, { status: 401, headers: noStore });
+    const userId = (await resolveAssistantAuth(request))?.userId;
+    if (!userId) return NextResponse.json({ error: "AI token is missing, invalid, expired or revoked. Send it as Authorization: Bearer <token>." }, { status: 401, headers: noStore });
 
     const sql = db();
     const rows: any = await sql`

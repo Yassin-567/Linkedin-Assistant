@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 const headers = {
   "Cache-Control": "no-store, no-cache, must-revalidate",
   "Pragma": "no-cache",
@@ -14,16 +13,14 @@ function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
-// GET is supported because some ChatGPT setups can only open URLs (no POST). It accepts the
-// permanent token as Authorization: Bearer or the ?ai= query parameter; POST accepts the header only.
-export async function GET(request: NextRequest) { return issue(request, true); }
-export async function POST(request: NextRequest) { return issue(request, false); }
+// POST only. Send the permanent AI Auth Token as Authorization: Bearer <token>.
+export async function POST(request: NextRequest) { return issue(request); }
 
-async function issue(request: NextRequest, allowQueryToken: boolean) {
+async function issue(request: NextRequest) {
   const authorization = request.headers.get("authorization") || "";
-  const authToken = authorization.match(/^Bearer\s+([A-Za-z0-9_-]{40,60})$/i)?.[1] || (allowQueryToken ? request.nextUrl.searchParams.get("ai") || "" : "");
+  const authToken = authorization.match(/^Bearer\s+([A-Za-z0-9_-]{40,60})$/i)?.[1] || "";
   if (!/^[A-Za-z0-9_-]{40,60}$/.test(authToken)) {
-    return NextResponse.json({ error: "Send the permanent AI Auth Token in the Authorization: Bearer header" + (allowQueryToken ? " or the ai query parameter." : ".") }, { status: 401, headers });
+    return NextResponse.json({ error: "Send the permanent AI Auth Token in the Authorization: Bearer header." }, { status: 401, headers });
   }
 
   try {

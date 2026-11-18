@@ -31,16 +31,6 @@ export default function SettingsPage() {
   const [message, setMessage] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
   const [verifiedAt, setVerifiedAt] = useState("");
-  const [aiEnabled, setAiEnabled] = useState(false);
-  const [aiCreatedAt, setAiCreatedAt] = useState("");
-  const [aiAuthToken, setAiAuthToken] = useState("");
-  const [aiAccessToken, setAiAccessToken] = useState("");
-  const [contextEndpoint, setContextEndpoint] = useState("");
-  const [saveEndpoint, setSaveEndpoint] = useState("");
-  const [accessExpiresAt, setAccessExpiresAt] = useState("");
-  const [aiEndpoint, setAiEndpoint] = useState("");
-  const [aiBusy, setAiBusy] = useState(false);
-  const [aiMessage, setAiMessage] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -58,112 +48,6 @@ export default function SettingsPage() {
       } else setProfileMessage(profileData.error || "Could not load profile verification.");
     }).catch(() => setMessage("Could not load settings.")).finally(() => setBusy(false));
   }, []);
-
-  useEffect(() => {
-    fetch("/api/assistant-ai-token", { cache: "no-store" })
-      .then(async r => {
-        if (r.status === 401) return;
-        const d = await r.json();
-        if (r.ok) { setAiEnabled(Boolean(d.enabled)); setAiCreatedAt(d.createdAt || ""); }
-      })
-      .catch(() => setAiMessage("Could not check AI connection status."));
-  }, []);
-
-  async function generateAiConnection() {
-    if (aiEnabled && !window.confirm("Regenerate the AI Auth Token? The previous token will stop working immediately.")) return;
-    setAiBusy(true); setAiMessage(""); setAiEndpoint(""); setAiAuthToken("");
-    try {
-      const r = await fetch("/api/assistant-ai-token", { method: "POST" });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Could not generate the connection.");
-      setAiEnabled(true); setAiCreatedAt(d.createdAt || new Date().toISOString()); setAiEndpoint(d.credentialsEndpoint); setAiAuthToken(d.aiAuthToken);
-      setAiMessage("AI Auth Token created. Copy it and save it in your ChatGPT Memory. It is shown only once.");
-    } catch (error) { setAiMessage(error instanceof Error ? error.message : "Could not generate the connection."); }
-    finally { setAiBusy(false); }
-  }
-
-  async function revokeAiConnection() {
-    if (!window.confirm("Revoke this AI connection? ChatGPT will no longer be able to save prospects using it.")) return;
-    setAiBusy(true); setAiMessage("");
-    try {
-      const r = await fetch("/api/assistant-ai-token", { method: "DELETE" });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Could not revoke the connection.");
-      setAiEnabled(false); setAiCreatedAt(""); setAiEndpoint(""); setAiAuthToken("");
-      setAiMessage("AI connection revoked.");
-    } catch (error) { setAiMessage(error instanceof Error ? error.message : "Could not revoke the connection."); }
-    finally { setAiBusy(false); }
-  }
-
-  async function copyAiEndpoint() {
-    try { await navigator.clipboard.writeText(aiEndpoint); setAiMessage("Endpoint copied. Paste it into your ChatGPT instructions."); }
-    catch { setAiMessage("Copy was blocked by your browser. Select and copy the endpoint manually."); }
-  }
-
-  async function copyAiAuthToken() {
-    try { await navigator.clipboard.writeText(aiAuthToken); setAiMessage("AI Auth Token copied. Save it in your ChatGPT Memory; treat it like a password."); }
-    catch { setAiMessage("Copy was blocked by your browser. Select and copy the token manually."); }
-  }
-
-  async function generateTemporaryAccessToken() {
-    if (!aiAuthToken) { setAiMessage("Generate your permanent AI Auth Token first."); return; }
-    setAiBusy(true); setAiMessage("");
-    try {
-      const r = await fetch(aiEndpoint, { method: "POST", headers: { Authorization: "Bearer " + aiAuthToken } });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Could not generate temporary access.");
-      setAiAccessToken(d.accessToken || ""); setContextEndpoint(d.contextEndpoint || "");
-      setSaveEndpoint(d.saveEndpoint || ""); setAccessExpiresAt(d.expiresAt || "");
-      setAiMessage("Temporary AI Access Token generated. Legacy temporary token (not required for the permanent-token workflow).");
-    } catch (error) { setAiMessage(error instanceof Error ? error.message : "Could not generate temporary access."); }
-    finally { setAiBusy(false); }
-  }
-
-  async function copyTemporaryAccessToken() {
-    try { await navigator.clipboard.writeText(aiAccessToken); setAiMessage("Temporary AI Access Token copied."); }
-    catch { setAiMessage("Copy was blocked. Select and copy the token manually."); }
-  }
-
-  async function copyNormalPrompt() {
-    if (!aiAuthToken || !aiEndpoint) { setAiMessage("Generate your permanent AI Auth Token first."); return; }
-    const base = window.location.origin;
-    const prompt = [
-      "You are my LinkedIn prospect research assistant. My Inlinked account is connected using its permanent per-user AI Auth Token.",
-      "Permanent INLINKED_AI_AUTH_TOKEN: " + aiAuthToken,
-      "Context endpoint: " + base + "/api/assistant-context",
-      "Save endpoint: " + base + "/api/assistant-save",
-      "Use the same permanent token for every request. It belongs to my Inlinked account, not to this ChatGPT conversation. Do not request or generate temporary tokens.",
-      "Before every prospect search, GET the Context endpoint using Authorization: Bearer <INLINKED_AI_AUTH_TOKEN>. If your HTTP client cannot send headers, use the ai query parameter as a fallback. Read the returned preferences, profile context, exclusions, uploaded LinkedIn connections and already-saved prospect URLs. Use these as the current source of truth.",
-      "Exclude uploaded connections and existing prospects. Normalize LinkedIn profile URLs by ignoring case and trailing slashes. Do not invent missing details.",
-      "Research and verify each prospect's full name, current role, company, location, relevance and personal LinkedIn URL using current public evidence.",
-      "Save verified prospects in batches of up to 50. Build JSON {\"leads\":[{\"name\":\"Full name\",\"company\":\"Company name\",\"linkedin\":\"https://www.linkedin.com/in/profile-slug/\"}]}, encode it as base64url, then GET Save endpoint with Authorization: Bearer <INLINKED_AI_AUTH_TOKEN> and data=<base64url-json>. If your HTTP client cannot send headers, use the ai query parameter as a fallback.",
-      "Only save personal linkedin.com/in/ URLs. Read the actual API response and report saved, duplicate, invalid and failed counts. Never claim success unless the endpoint confirms it.",
-      "Keep the token private. Do not include it in public messages, research notes or reports."
-    ].join("\n");
-    try { await navigator.clipboard.writeText(prompt); setAiMessage("Normal Research Prompt copied. It uses the permanent token directly."); }
-    catch { setAiMessage("Copy was blocked. Select and copy the prompt manually."); }
-  }
-
-  async function copyAutomaticPrompt() {
-    if (!aiAuthToken || !aiEndpoint) { setAiMessage("Generate your permanent AI Auth Token first."); return; }
-    const base = new URL(aiEndpoint).origin;
-    const prompt = [
-      "You are my automated LinkedIn prospect research assistant connected to my Inlinked account.",
-      "Permanent INLINKED_AI_AUTH_TOKEN: " + aiAuthToken,
-      "Context endpoint: " + base + "/api/assistant-context",
-      "Save endpoint: " + base + "/api/assistant-save",
-      "This permanent token belongs to my Inlinked user account and is shared across my ChatGPT conversations. Use it directly for every Context and Save request. Do not issue, request or use temporary tokens.",
-      "BEFORE scheduling anything, ask me what time or times I want, which timezone to use, and what recurrence I want. Do not assume times, timezone, frequency or defaults. Summarize the proposed schedule and ask me to confirm it. Only after confirmation, create and enable the recurring ChatGPT task. If recurring Tasks are unavailable, say so and do not pretend it was scheduled.",
-      "FOR EVERY RUN: GET Context endpoint with Authorization: Bearer <INLINKED_AI_AUTH_TOKEN> before searching. If headers are unavailable, use the ai query parameter as a fallback. Context is the source of truth for my profile, preferences, exclusions, uploaded connections and already-saved prospects.",
-      "Exclude uploaded connections and all saved prospects. Normalize LinkedIn URLs by ignoring case and trailing slashes. Deduplicate across runs.",
-      "Research up to 50 NEW, VERIFIED, QUALIFIED prospects per run. Fifty is a target, not a reason to lower quality. Verify full name, current role, company, location, relevance and personal LinkedIn URL using current public evidence.",
-      "Save in batches of up to 50 using GET Save endpoint with Authorization: Bearer <INLINKED_AI_AUTH_TOKEN> and data=<base64url-encoded JSON>. If headers are unavailable, use the ai query parameter as a fallback. The JSON shape is {\"leads\":[{\"name\":\"Full name\",\"company\":\"Company name\",\"linkedin\":\"https://www.linkedin.com/in/profile-slug/\"}]}.",
-      "Read the actual API response. Report researched, saved, duplicate, invalid and failed counts, plus saved lead names and evidence links. Never claim success without API confirmation.",
-      "Keep the token private. If it is revoked or rejected, stop and ask me to generate a new permanent AI Auth Token in Inlinked Settings."
-    ].join("\n");
-    try { await navigator.clipboard.writeText(prompt); setAiMessage("Automatic Prospecting Prompt copied. It uses the permanent token directly."); }
-    catch { setAiMessage("Copy was blocked. Select and copy the prompt manually."); }
-  }
 
   function field(key: "countries" | "industries" | "keywords" | "jobTitles" | "excludedKeywords", label: string, hint: string) {
     return <label className="wide">{label}<textarea rows={3} value={p[key].join("\n")} onChange={e => setP(old => ({ ...old, [key]: lines(e.target.value) }))} /><small className="muted">{hint}</small></label>;
@@ -204,25 +88,7 @@ export default function SettingsPage() {
 
   return <main className="workspace">
     <header className="topbar"><div><div className="eyebrow">PERSONALIZE DISCOVERY</div><h1>Search settings</h1><p className="muted">Your settings guide searches by default. You can still narrow or change each search.</p></div><div className="row"><a className="button secondary" href="/intelligence">AI Lead Intelligence</a><a className="button secondary" href="/">Back to workspace</a></div></header>
-    <section className="panel">
-      <div className="eyebrow">CHATGPT AI AUTHENTICATION</div>
-      <h2>Connect your ChatGPT assistant</h2>
-      <p className="muted">Generate one permanent AI Auth Token for this Inlinked account. Give it to your own ChatGPT. The same token works directly for Context and Save across all your ChatGPT conversations. Prefer the Authorization header; the ai query parameter is supported as a fallback for GET-only clients.</p>
-      <div className="row">
-        <span className="muted">{aiEnabled ? "AI Auth Token active" : "No active AI Auth Token"}</span>
-        <button type="button" onClick={() => void generateAiConnection()} disabled={aiBusy}>{aiBusy ? "Creating..." : aiEnabled ? "Regenerate AI Auth Token" : "Generate AI Auth Token"}</button>
-        {aiEnabled && <button type="button" className="secondary" onClick={() => void revokeAiConnection()} disabled={aiBusy}>{aiBusy ? "Please wait..." : "Revoke token"}</button>}
-      </div>
-      {aiCreatedAt && <p className="muted">Active since: {new Date(aiCreatedAt).toLocaleString()}</p>}
-      {aiAuthToken && <label className="wide">Permanent AI Auth Token<textarea rows={2} readOnly value={aiAuthToken} /><button type="button" className="secondary" onClick={() => void copyAiAuthToken()}>Copy AI Auth Token</button><small className="muted">Give this permanent token to your own ChatGPT. It is shown only once; if lost, regenerate it. It directly authorizes Context and Save for this Inlinked account. Never share it publicly.</small></label>}
-      {aiEndpoint && <label className="wide">Credential issuance endpoint<textarea rows={2} readOnly value={aiEndpoint} /><button type="button" className="secondary" onClick={() => void copyAiEndpoint()}>Copy credential endpoint</button><small className="muted">This credential endpoint is retained for older integrations only. New ChatGPT connections should use the permanent token directly with Context and Save.</small></label>}
-      {aiAuthToken && aiEndpoint && <div className="wide"><strong>AI Access Token</strong><p className="muted">Optional legacy feature: temporary access tokens are no longer needed. Your permanent AI Auth Token works directly with both endpoints.</p><button type="button" className="secondary" onClick={() => void generateTemporaryAccessToken()} disabled={aiBusy}>{aiBusy ? "Generating..." : "Generate AI Access Token"}</button></div>}
-      {aiAccessToken && <label className="wide">Temporary AI Access Token<textarea rows={2} readOnly value={aiAccessToken} /><button type="button" className="secondary" onClick={() => void copyTemporaryAccessToken()}>Copy AI Access Token</button><small className="muted">Expires: {accessExpiresAt ? new Date(accessExpiresAt).toLocaleString() : "10 minutes after generation"}</small></label>}
-      {aiAuthToken && <div className="wide"><button type="button" onClick={() => void copyNormalPrompt()}>Copy Normal Research Prompt</button><small className="muted">Uses your permanent AI Auth Token directly.</small></div>}
-      {aiAuthToken && aiEndpoint && <div className="wide"><button type="button" onClick={() => void copyAutomaticPrompt()}>Copy Automatic Prospecting Prompt</button><small className="muted">Uses your permanent AI Auth Token directly. ChatGPT will ask you for the time, timezone and recurrence before scheduling. Each run targets up to 50 new leads.</small></div>}
-      <p className="footnote">Treat the AI Auth Token as a password. It directly authorizes reading your search context and saving prospects to your account. Revoke or regenerate it immediately if exposed.</p>
-      <p className="muted">{aiMessage}</p>
-    </section>
+    <section className="panel"><div className="section-heading"><div><div className="eyebrow">CHATGPT</div><h2>Connect your ChatGPT assistant</h2><p className="muted">Create a ready-to-paste prompt so ChatGPT can research and save prospects for you.</p></div><a className="button" href="/chatgpt">Open ChatGPT connection</a></div></section>
 
     <section className="panel"><form className="lead-form" onSubmit={save}>
       <label className="wide">Your LinkedIn profile URL<input type="url" value={p.linkedinProfileUrl} onChange={e => setP(old => ({ ...old, linkedinProfileUrl: e.target.value }))} placeholder="https://www.linkedin.com/in/your-profile/" /><small className="muted">The app checks public search results for this exact profile. A URL does not grant access to private LinkedIn content.</small></label>
