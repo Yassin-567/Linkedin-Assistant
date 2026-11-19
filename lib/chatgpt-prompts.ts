@@ -1,21 +1,26 @@
 // Prompts pasted into ChatGPT. Research-now and recurring prompts use the same long-lived Access Token.
 export type PromptKind = "research" | "scheduled";
-export type ScheduleFrequency = "daily" | "weekdays" | "weekly";
+export type ScheduleFrequency = "daily" | "weekdays" | "weekly" | "monthly";
+export type ScheduleTimeChoice = "morning" | "afternoon" | "evening" | "night" | "specific";
 type Options = {
   kind: PromptKind;
   token: string;
   origin: string;
   prospectCount: number;
   scheduleFrequency?: ScheduleFrequency;
+  scheduleTimeChoice?: ScheduleTimeChoice;
   scheduleTime?: string;
   scheduleTimezone?: string;
+  scheduleEndEnabled?: boolean;
+  scheduleEndDate?: string;
 };
 
 const LEAD_EXAMPLE = '{"leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug/"}]}';
 
 export function buildChatGptPrompt({
   kind, token, origin, prospectCount,
-  scheduleFrequency = "daily", scheduleTime = "09:00", scheduleTimezone = "Africa/Cairo"
+  scheduleFrequency = "daily", scheduleTimeChoice = "morning", scheduleTime = "09:00",
+  scheduleTimezone = "Africa/Cairo", scheduleEndEnabled = false, scheduleEndDate = ""
 }: Options): string {
   const base = origin.replace(/\/$/, "");
   const context = `${base}/api/assistant-context?access=${encodeURIComponent(token)}`;
@@ -25,7 +30,15 @@ export function buildChatGptPrompt({
     ? "Every weekday (Monday to Friday)"
     : scheduleFrequency === "weekly"
       ? "Once every week"
-      : "Every day";
+      : scheduleFrequency === "monthly"
+        ? "Once every month"
+        : "Every day";
+  const timeDescription = scheduleTimeChoice === "specific"
+    ? `Specific time: ${scheduleTime} (request this exact local time; do not silently replace it with a flexible period).`
+    : `Time of day: ${scheduleTimeChoice[0].toUpperCase() + scheduleTimeChoice.slice(1)} (flexible timing within this period; no exact minute is requested).`;
+  const endDescription = scheduleEndEnabled
+    ? `ON\\nEnd date: ${scheduleEndDate}\\nStop the recurring task after this date.`
+    : "OFF (no end date)";
 
   const lines = [
     "You are my LinkedIn prospect research assistant, connected to my Inlinked account.",
@@ -85,12 +98,15 @@ export function buildChatGptPrompt({
   const schedule = [
     "Schedule:",
     `Repeat: ${recurrence}`,
-    `Time: ${scheduleTime}`,
+    timeDescription,
     `Timezone: ${scheduleTimezone}`,
+    `End repeat: ${endDescription}`,
     "",
-    "Schedule the following prompt as above date and time.",
-    "Create one recurring ChatGPT task using this exact repeat frequency, time and timezone. The complete text under Prompt below is the task's instruction and must run automatically at every occurrence.",
-    "Do not treat this as a request to explain how scheduling works, and do not run this as an unscheduled one-time research session instead of creating the task. I have supplied the schedule and do not need to be asked to choose it again. If ChatGPT requires an interactive confirmation to create the task, present that confirmation. If task creation is unavailable, say clearly that the task was not scheduled; never claim success unless ChatGPT confirms the task was created.",
+    "Schedule the following prompt using the settings above.",
+    "Create one recurring ChatGPT task. The complete text under Prompt below is the task's instruction and must run automatically at every occurrence. Interpret the selected time or time-of-day in the supplied timezone.",
+    "For weekly repetition, repeat weekly from the first scheduled run. For monthly repetition, repeat on the same calendar day as the first scheduled run; if a month does not contain that day, use that month's final day.",
+    "Preserve the selected repeat pattern, time preference, timezone and end condition. If ChatGPT Tasks cannot apply any selected option, especially a specific exact time or an end date, explain the limitation and ask before substituting or omitting it. Do not silently change the schedule. Never claim success unless ChatGPT confirms the task was created with the supported settings.",
+    "Do not run this as an unscheduled one-time research session instead of creating the recurring task.",
     "",
     "Prompt:"
   ];
