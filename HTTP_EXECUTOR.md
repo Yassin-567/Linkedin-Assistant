@@ -1,27 +1,23 @@
 # Isolated HTTP Executor
 
-This is an optional, standalone HTTP utility. It does not modify or call Inlinked's prospect research, Firecrawl, authentication, database, or saving logic.
+This is an optional, standalone HTTP utility. It does not modify Inlinked's prospect research, Firecrawl, database, or saving logic. It reuses the existing per-user Inlinked assistant token only to authorize requests.
 
-## Enable it
+## Access
 
-Set a strong random secret in Vercel:
+No new API key, database table, ChatGPT API, or environment variable is required. Send the same Inlinked assistant token already used by your ChatGPT prompt:
 
-- `HTTP_EXECUTOR_API_KEY`
+```http
+Authorization: Bearer YOUR_INLINKED_ASSISTANT_TOKEN
+Content-Type: application/json
+```
 
-Redeploy after adding the environment variable. Keep the key private.
+The token remains user-scoped and revocable under Inlinked's existing authentication rules.
 
 ## Endpoint
 
 `POST /api/http-executor`
 
-Send the executor key in the authorization header:
-
-```http
-Authorization: Bearer YOUR_HTTP_EXECUTOR_API_KEY
-Content-Type: application/json
-```
-
-Example request:
+Example GET request:
 
 ```json
 {
@@ -33,7 +29,7 @@ Example request:
 }
 ```
 
-For a JSON POST:
+Example JSON POST:
 
 ```json
 {
@@ -61,11 +57,10 @@ This utility uses ordinary HTTP requests, not a full browser. To maintain a cook
 
 The executor returns the upstream HTTP status, selected response headers, response body, and any `Set-Cookie` values. Redirects are returned as 3xx responses with a `location` header; the caller decides whether and how to follow them.
 
-## Limits and safety
+## Limits
 
 - HTTPS destinations only; local hostnames and IP-literal destinations are blocked.
 - GET, HEAD, POST, PUT, PATCH, DELETE and OPTIONS are supported.
 - Request and response bodies are limited to 1 MB.
 - Each upstream request has a 20-second timeout.
 - No JavaScript rendering, CAPTCHA solving, browser automation, or proxy rotation.
-- The API key protects access to this executor; upstream credentials should be sent only to the intended upstream host.
