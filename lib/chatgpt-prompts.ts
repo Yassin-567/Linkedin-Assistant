@@ -78,18 +78,22 @@ export function buildChatGptPrompt({
     "- Do not call any Inlinked endpoint other than the Context endpoint and Save endpoint."
   ];
 
-  if (scheduled) {
-    lines.push(
-      "",
-      "## Recurring ChatGPT task — editable schedule",
-      `Selected recurrence: ${recurrence}.`,
-      `Selected execution time: ${scheduleTime}.`,
-      `Selected timezone: ${scheduleTimezone}.`,
-      "These schedule values are the current editable settings selected in Inlinked. If I explicitly change the frequency, time, timezone or target number in chat, use my latest settings for future runs.",
-      "Create a recurring ChatGPT task using exactly the selected recurrence, execution time and timezone. If the recurrence is weekly, ask me which day of the week before creating it. Before creating the task, show me the complete proposed schedule and ask for my confirmation. Do not create or claim to have created a task before I confirm. If ChatGPT Tasks are unavailable in this account, say so clearly and do not claim it was scheduled.",
-      "At every scheduled run, use the same long-lived Access Token directly: initialize a fresh Firecrawl session on the Context endpoint, GET the latest context, research, exclude existing connections and saved prospects, POST qualified prospects to the Save endpoint, verify the actual API response, and stop the session. The Access Token remains valid until I revoke or regenerate it; no credentials exchange is required."
-    );
-  }
+  if (!scheduled) return lines.join("\n");
 
-  return lines.join("\n");
+  // Put the scheduling directive before the research prompt so ChatGPT
+  // interprets this as a task-creation request, not merely prompt content.
+  const schedule = [
+    "Schedule:",
+    `Repeat: ${recurrence}`,
+    `Time: ${scheduleTime}`,
+    `Timezone: ${scheduleTimezone}`,
+    "",
+    "Schedule the following prompt as above date and time.",
+    "Create one recurring ChatGPT task using this exact repeat frequency, time and timezone. The complete text under Prompt below is the task's instruction and must run automatically at every occurrence.",
+    "Do not treat this as a request to explain how scheduling works, and do not run this as an unscheduled one-time research session instead of creating the task. I have supplied the schedule and do not need to be asked to choose it again. If ChatGPT requires an interactive confirmation to create the task, present that confirmation. If task creation is unavailable, say clearly that the task was not scheduled; never claim success unless ChatGPT confirms the task was created.",
+    "",
+    "Prompt:"
+  ];
+
+  return [...schedule, ...lines].join("\\n");
 }
