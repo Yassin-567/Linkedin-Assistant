@@ -39,25 +39,39 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: noStore });
 
   try {
     const sql = db();
-
-    // Invalidate previous long-lived tokens and any older 10-minute session tokens.
-    await sql`UPDATE ai_access_tokens SET revoked_at = now() WHERE user_id = ${user.userId} AND revoked_at IS NULL`;
-    await sql`UPDATE assistant_scoped_tokens SET revoked_at = now() WHERE user_id = ${user.userId} AND revoked_at IS NULL`;
-
     const accessToken = randomBytes(32).toString("base64url");
+    const tokenHash = hashToken(accessToken);
+
+    // Rotate the token atomically: revoke previous tokens and issue the new one
+    // in one database statement, so a failed insert cannot leave the account disconnected.
     const rows: any = await sql`
-      INSERT INTO ai_access_tokens(token_hash, user_id)
-      VALUES (${hashToken(accessToken)}, ${user.userId})
-      RETURNING created_at
+      WITH revoked_access AS (
+        UPDATE ai_access_tokens
+        SET revoked_at = now()
+        WHERE user_id = ${user.userId} AND revoked_at IS NULL
+        RETURNING token_hash
+      ),
+      revoked_sessions AS (
+        UPDATE assistant_scoped_tokens
+        SET revoked_at = now()
+        WHERE user_id = ${user.userId} AND revoked_at IS NULL
+        RETURNING token_hash
+      ),
+      issued AS (
+        INSERT INTO ai_access_tokens(token_hash, user_id)
+        VALUES (${tokenHash}, ${user.userId})
+        RETURNING created_at
+      )
+      SELECT created_at FROM issued
     `;
 
-    const base = process.env.APP_URL || new URL("https://inlinked.vercel.app");
+    const base = process.env.APP_URL || new URL(request.url).origin;
     return NextResponse.json({
       accessToken,
       createdAt: rows[0]?.created_at || new Date().toISOString(),
