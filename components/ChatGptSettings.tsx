@@ -1,14 +1,13 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { buildChatGptPrompt, type PromptKind, type PromptMode, type ScheduleFrequency } from "@/lib/chatgpt-prompts";
+import { buildChatGptPrompt, type PromptKind, type ScheduleFrequency } from "@/lib/chatgpt-prompts";
 
 type Status = { enabled: boolean; createdAt: string };
-type Session = { token: string; expiresAt: string; origin: string };
-type Permanent = { token: string; origin: string };
+type AccessToken = { token: string; origin: string };
 
 const KINDS: { id: PromptKind; title: string; hint: string }[] = [
   { id: "research", title: "Research now", hint: "ChatGPT finds and saves the number of prospects you choose below, then reports back." },
-  { id: "scheduled", title: "Recurring (scheduled)", hint: "Uses your permanent token and repeats the same prospect research workflow on the schedule you choose." }
+  { id: "scheduled", title: "Recurring (scheduled)", hint: "Uses the same long-lived Access Token for every scheduled run." }
 ];
 
 function mask(prompt: string, token: string) {
@@ -21,148 +20,196 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
   const [scheduleFrequency, setScheduleFrequency] = useState<ScheduleFrequency>("daily");
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [scheduleTimezone, setScheduleTimezone] = useState("Africa/Cairo");
-  const [mode, setMode] = useState<PromptMode>("session");
-  const [session, setSession] = useState<Session | null>(null);
-  const [permanent, setPermanent] = useState<Permanent | null>(null);
+  const [access, setAccess] = useState<AccessToken | null>(null);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
-  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("inlinked_permanent_token");
-    if (savedToken) setPermanent({ token: savedToken, origin: window.location.origin });
-    try { const saved = JSON.parse(localStorage.getItem("inlinked_quick_session") || "null"); if (saved?.token && saved?.expiresAt && new Date(saved.expiresAt).getTime() > Date.now()) setSession(saved); } catch { localStorage.removeItem("inlinked_quick_session"); }
-    fetch("/api/assistant-ai-token", { cache: "no-store" })
+    // Reuse the previous permanent token where available: it is already a
+    // non-expiring token in ai_access_tokens and can directly access Context/Save.
+    const savedToken = localStorage.getItem("inlinked_access_token")
+      || localStorage.getItem("inlinked_permanent_token");
+    if (savedToken) {
+      setAccess({ token: savedToken, origin: window.location.origin });
+      localStorage.setItem("inlinked_access_token", savedToken);
+    }
+    localStorage.removeItem("inlinked_quick_session");
+    localStorage.removeItem("inlinked_permanent_token");
+
+    fetch("/api/assistant-access", { cache: "no-store" })
       .then(async r => {
-        if (r.status === 401) { setMessage("Please sign in to manage your ChatGPT connection."); return; }
+        if (r.status === 401) {
+          setMessage("Please sign in to manage your Inlinked Access Token.");
+          return;
+        }
         const d = await r.json();
-        if (r.ok) setStatus({ enabled: Boolean(d.enabled), createdAt: d.createdAt || "" });
-        else setMessage(d.error || "Could not check the connection status.");
+        if (!r.ok) throw new Error(d.error || "Could not check the Access Token.");
+        setStatus({ enabled: Boolean(d.enabled), createdAt: d.createdAt || "" });
+        if (!d.enabled) {
+          setAccess(null);
+          localStorage.removeItem("inlinked_access_token");
+        }
       })
-      .catch(() => setMessage("Could not check the connection status."));
+      .catch(error => setMessage(error instanceof Error ? error.message : "Could not check the Access Token."));
   }, []);
 
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const secondsLeft = session ? Math.max(0, Math.floor((new Date(session.expiresAt).getTime() - now) / 1000)) : 0;
-  const sessionLive = Boolean(session) && secondsLeft > 0;
-  const activeToken = mode === "session" ? (sessionLive ? session!.token : "") : permanent?.token || "";
-  const activeOrigin = mode === "session" ? session?.origin || "" : permanent?.origin || "";
-
+  const activeToken = access?.token || "";
+  const activeOrigin = access?.origin || "";
   const prompt = useMemo(
-    () => (activeToken && activeOrigin ? buildChatGptPrompt({ mode, kind, token: activeToken, origin: activeOrigin, prospectCount, scheduleFrequency, scheduleTime, scheduleTimezone }) : ""),
-    [mode, kind, activeToken, activeOrigin, prospectCount, scheduleFrequency, scheduleTime, scheduleTimezone]
+    () => (activeToken && activeOrigin
+      ? buildChatGptPrompt({
+          kind, token: activeToken, origin: activeOrigin, prospectCount,
+          scheduleFrequency, scheduleTime, scheduleTimezone
+        })
+      : ""),
+    [kind, activeToken, activeOrigin, prospectCount, scheduleFrequency, scheduleTime, scheduleTimezone]
   );
 
-  async function createSession() {
-    setBusy("session"); setMessage(""); setMode("session");
+  async function generateAccessToken() {
+    if (status.enabled && !window.confirm("Regenerate the Access Token? The current token will stop working immediately, including in previously copied prompts.")) return;
+    setBusy("generate");
+    setMessage("");
     try {
       const r = await fetch("/api/assistant-access", { method: "POST" });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Could not create the prompt.");
-      setSession({ token: d.accessToken, expiresAt: d.expiresAt, origin: d.origin });
-      localStorage.setItem("inlinked_quick_session", JSON.stringify({ token: d.accessToken, expiresAt: d.expiresAt, origin: d.origin }));
-      setNow(Date.now());
-      setMessage("Prompt ready. Copy it and paste it into ChatGPT within 10 minutes.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not create the prompt."); }
-    finally { setBusy(""); }
-  }
-
-  async function createPermanent() {
-    if (status.enabled && !window.confirm("Generate a new token? The old one stops working immediately.")) return;
-    setBusy("permanent"); setMessage(""); setMode("permanent");
-    try {
-      const r = await fetch("/api/assistant-ai-token", { method: "POST" });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Could not generate the token.");
-      setPermanent({ token: d.aiAuthToken, origin: new URL(d.credentialsEndpoint).origin });
-      localStorage.setItem("inlinked_permanent_token", d.aiAuthToken);
+      if (!r.ok) throw new Error(d.error || "Could not generate the Access Token.");
+      const next = { token: d.accessToken, origin: d.origin || window.location.origin };
+      setAccess(next);
+      localStorage.setItem("inlinked_access_token", d.accessToken);
+      localStorage.removeItem("inlinked_permanent_token");
+      localStorage.removeItem("inlinked_quick_session");
       setStatus({ enabled: true, createdAt: d.createdAt || new Date().toISOString() });
-      setMessage("Token created and displayed below. Keep it private.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not generate the token."); }
-    finally { setBusy(""); }
+      setMessage("Access Token generated. It does not expire automatically. Copy a new prompt for ChatGPT and keep the token private.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not generate the Access Token.");
+    } finally {
+      setBusy("");
+    }
   }
 
-  async function revoke() {
-    if (!window.confirm("Revoke the permanent token? ChatGPT will stop working until you create a new one.")) return;
-    setBusy("revoke"); setMessage("");
+  async function revokeAccessToken() {
+    if (!window.confirm("Revoke the Access Token? ChatGPT prompts using it will stop working immediately.")) return;
+    setBusy("revoke");
+    setMessage("");
     try {
-      const r = await fetch("/api/assistant-ai-token", { method: "DELETE" });
+      const r = await fetch("/api/assistant-access", { method: "DELETE" });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Could not revoke the token.");
-      setStatus({ enabled: false, createdAt: "" }); setPermanent(null); setSession(null);
-      localStorage.removeItem("inlinked_permanent_token"); localStorage.removeItem("inlinked_quick_session");
-      setMessage("Token revoked. Any active 10-minute tokens were revoked too.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not revoke the token."); }
-    finally { setBusy(""); }
+      if (!r.ok) throw new Error(d.error || "Could not revoke the Access Token.");
+      setStatus({ enabled: false, createdAt: "" });
+      setAccess(null);
+      localStorage.removeItem("inlinked_access_token");
+      localStorage.removeItem("inlinked_permanent_token");
+      localStorage.removeItem("inlinked_quick_session");
+      setMessage("Access Token revoked. Previously copied prompts can no longer access your Inlinked account.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not revoke the Access Token.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function copyAccessToken() {
+    if (!activeToken) return;
+    try {
+      await navigator.clipboard.writeText(activeToken);
+      setMessage("Access Token copied. Treat it like a password.");
+    } catch {
+      setMessage("Your browser blocked copying. Select the token and copy it manually.");
+    }
   }
 
   async function copyPrompt() {
     if (!prompt) return;
-    try { await navigator.clipboard.writeText(prompt); setMessage("Copied. Paste it into a new ChatGPT chat. Treat it like a password."); }
-    catch { setMessage("Your browser blocked copying. Select the prompt text below and copy it manually."); }
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setMessage("Prompt copied. Paste it into ChatGPT. The prompt contains your long-lived Access Token, so keep it private.");
+    } catch {
+      setMessage("Your browser blocked copying. Select the prompt text below and copy it manually.");
+    }
   }
 
-  const mm = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
-  const ss = String(secondsLeft % 60).padStart(2, "0");
-
   return <>
-
     <section className="panel">
       <h2>1. What should ChatGPT do?</h2>
       <div className="method-grid">
-        {KINDS.map(k => <button key={k.id} type="button" className={"method-card" + (kind === k.id ? " active" : "")} onClick={() => { setKind(k.id); if (k.id === "scheduled") setMode("permanent"); }} aria-pressed={kind === k.id}><strong>{k.title}</strong><span className="muted">{k.hint}</span></button>)}
+        {KINDS.map(k => (
+          <button
+            key={k.id}
+            type="button"
+            className={"method-card" + (kind === k.id ? " active" : "")}
+            onClick={() => setKind(k.id)}
+            aria-pressed={kind === k.id}
+          >
+            <strong>{k.title}</strong>
+            <span className="muted">{k.hint}</span>
+          </button>
+        ))}
       </div>
-      </section>
+    </section>
 
     {kind === "scheduled" && <section className="panel">
       <h2>Recurring schedule</h2>
       <p className="muted">Choose when ChatGPT should run the prospect research. These settings will be included in the generated prompt.</p>
       <div className="lead-form">
         <label>Repeat<select value={scheduleFrequency} onChange={e => setScheduleFrequency(e.target.value as ScheduleFrequency)}>
-          <option value="daily">Every day</option><option value="weekdays">Weekdays (Monday–Friday)</option><option value="weekly">Once every week</option>
+          <option value="daily">Every day</option>
+          <option value="weekdays">Weekdays (Monday–Friday)</option>
+          <option value="weekly">Once every week</option>
         </select></label>
         <label>Time<input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} /></label>
         <label className="wide">Timezone<select value={scheduleTimezone} onChange={e => setScheduleTimezone(e.target.value)}>
-          <option value="Africa/Cairo">Egypt (Africa/Cairo)</option><option value="Europe/London">United Kingdom (Europe/London)</option><option value="UTC">UTC</option><option value="America/New_York">US Eastern (America/New_York)</option>
+          <option value="Africa/Cairo">Egypt (Africa/Cairo)</option>
+          <option value="Europe/London">United Kingdom (Europe/London)</option>
+          <option value="UTC">UTC</option>
+          <option value="America/New_York">US Eastern (America/New_York)</option>
         </select></label>
       </div>
-      <p className="muted">The prompt asks ChatGPT to confirm this schedule before creating a task. For weekly schedules, ChatGPT will ask which day you prefer.</p>
+      <p className="muted">The prompt asks ChatGPT to confirm the schedule before creating a task. For weekly schedules, ChatGPT will ask which day you prefer.</p>
     </section>}
 
     <section className="panel">
-      <h2>2. Choose how to connect</h2>
-      <div className="method-grid">
-        <div className={"method-card" + (mode === "session" ? " active" : "")}>
-          <strong>Quick session <span className="pill">Recommended</span></strong>
-          <span className="muted">One prompt that works for 10 minutes. Nothing permanent is stored in ChatGPT.</span>
-          {kind === "scheduled" && <small className="expired">Quick Session is unavailable for recurring tasks because its token expires after 10 minutes. Select Permanent Token instead.</small>}
-          <button type="button" onClick={() => void createSession()} disabled={Boolean(busy) || kind === "scheduled"}>{busy === "session" ? "Creating..." : sessionLive ? "Create a new prompt" : "Create 10-minute prompt"}</button>
-          {session && <><small className={sessionLive ? "muted" : "expired"}>{sessionLive ? `Expires in ${mm}:${ss}` : "Expired. Create a new prompt."}</small>{sessionLive && <label className="wide">Quick Session token<input type="text" readOnly value={session.token} /><button type="button" className="secondary" onClick={() => void navigator.clipboard.writeText(session.token)}>Copy session token</button></label>}</>}
-        </div>
-        <div className={"method-card" + (mode === "permanent" ? " active" : "")}>
-          <strong>Permanent token</strong>
-          <span className="muted">Save once in ChatGPT. It requests its own 10-minute access each run, which suits recurring tasks.</span>
-          <div className="row" style={{ justifyContent: "flex-start" }}>
-            <button type="button" className={status.enabled ? "secondary" : ""} onClick={() => void createPermanent()} disabled={Boolean(busy)}>{busy === "permanent" ? "Creating..." : status.enabled ? "Generate a new token" : "Generate token"}</button>
-            {status.enabled && <button type="button" className="secondary" onClick={() => void revoke()} disabled={Boolean(busy)}>Revoke</button>}
-          </div>
-          <small className="muted">{status.enabled ? `Active since ${new Date(status.createdAt).toLocaleString()}` : "No active token."}</small>
-          {permanent?.token && <label className="wide">Permanent token<input type="text" readOnly value={permanent.token} autoComplete="off" spellCheck={false} /><button type="button" className="secondary" onClick={() => void navigator.clipboard.writeText(permanent.token)}>Copy token</button></label>}
+      <div className="section-heading">
+        <div>
+          <h2>2. Inlinked Access Token</h2>
+          <p className="muted">One token works directly with both Context and Save. It has no automatic expiry and remains valid until you revoke or regenerate it.</p>
         </div>
       </div>
+      <div className="row" style={{ justifyContent: "flex-start", flexWrap: "wrap" }}>
+        <button type="button" onClick={() => void generateAccessToken()} disabled={Boolean(busy)}>
+          {busy === "generate" ? "Generating..." : status.enabled ? "Regenerate Access Token" : "Generate Access Token"}
+        </button>
+        {status.enabled && <button type="button" className="secondary" onClick={() => void revokeAccessToken()} disabled={Boolean(busy)}>
+          {busy === "revoke" ? "Revoking..." : "Revoke"}
+        </button>}
+      </div>
+      <p className="muted" role="status">
+        {status.enabled
+          ? "An Access Token is active" + (status.createdAt ? " since " + new Date(status.createdAt).toLocaleString() : "") + "."
+          : "No active Access Token."}
+      </p>
+      {activeToken
+        ? <label className="wide">Your Access Token
+            <input type="text" readOnly value={activeToken} autoComplete="off" spellCheck={false} />
+            <button type="button" className="secondary" onClick={() => void copyAccessToken()}>Copy Access Token</button>
+          </label>
+        : status.enabled
+          ? <p className="footnote">A previously generated token is active, but its value is not available in this browser. Regenerate it to display a new token. The old token will stop working.</p>
+          : <p className="footnote">Generate a token to build either prompt below. The token is shown only once and is not recoverable from the database.</p>}
     </section>
 
     <section className="panel">
-      <div className="section-heading"><div><h2>3. Copy the prompt into ChatGPT</h2><p className="muted">ChatGPT must use Firecrawl's browser interaction capability to send the requests.</p></div><button type="button" onClick={() => void copyPrompt()} disabled={!prompt}>Copy prompt</button></div>
+      <div className="section-heading">
+        <div>
+          <h2>3. Copy the prompt into ChatGPT</h2>
+          <p className="muted">Both Research now and Recurring prompts use the same Access Token. ChatGPT uses Firecrawl's browser interaction capability for Inlinked requests.</p>
+        </div>
+        <button type="button" onClick={() => void copyPrompt()} disabled={!prompt || Boolean(busy)}>Copy prompt</button>
+      </div>
       {prompt
         ? <pre className="prompt-box" aria-label="Prompt preview">{mask(prompt, activeToken)}</pre>
-        : <div className="empty"><strong>No prompt yet</strong><p>{mode === "session" ? "Create a 10-minute prompt above." : "Generate a token above to build the prompt."}</p></div>}
+        : <div className="empty"><strong>No prompt yet</strong><p>Generate an Access Token above to build your prompt.</p></div>}
       <p className="muted" role="status">{message}</p>
-      <p className="footnote">The preview hides your token; the copied prompt contains it. Anyone with the prompt can read your search context and save prospects to your account until it expires or you revoke it. Never paste it anywhere public.</p>
+      <p className="footnote">Anyone with the copied prompt can read your search context and save prospects to your account until you revoke or regenerate the token. Never paste the prompt anywhere public.</p>
     </section>
   </>;
 }
