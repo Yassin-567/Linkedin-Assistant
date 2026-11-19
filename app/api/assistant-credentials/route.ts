@@ -14,14 +14,16 @@ function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
-// POST only. Send the permanent AI Auth Token as Authorization: Bearer <token>.
+// POST only. Send the permanent AI Auth Token as Authorization: Bearer <token> or ?access=<token>.
 export async function POST(request: NextRequest) { return issue(request); }
 
 async function issue(request: NextRequest) {
   const authorization = request.headers.get("authorization") || "";
-  const authToken = authorization.match(/^Bearer\s+([A-Za-z0-9_-]{40,60})$/i)?.[1] || "";
+  const bearerToken = authorization.match(/^Bearer\s+([A-Za-z0-9_-]{40,60})$/i)?.[1] || "";
+  const queryToken = request.nextUrl.searchParams.get("access") || request.nextUrl.searchParams.get("ai") || "";
+  const authToken = bearerToken || queryToken;
   if (!/^[A-Za-z0-9_-]{40,60}$/.test(authToken)) {
-    return NextResponse.json({ error: "Send the permanent AI Auth Token in the Authorization: Bearer header." }, { status: 401, headers });
+    return NextResponse.json({ error: "Send the permanent AI Auth Token as Authorization: Bearer <token> or ?access=<token>." }, { status: 401, headers });
   }
 
   try {
@@ -62,5 +64,5 @@ async function issue(request: NextRequest) {
   }
 }
 
-// CORS preflight for browser-based HTTP tools. Access still requires a valid Bearer token.
+// CORS preflight for browser-based HTTP tools. Access still requires a valid permanent AI Auth Token.
 export function OPTIONS() { return new Response(null, { status: 204, headers: headers }); }
