@@ -109,38 +109,26 @@ export default function SettingsPage() {
       <div className="section-heading"><div><div className="eyebrow">CHATGPT INTEGRATION</div><h2>ChatGPT connection and prompt builder</h2><p className="muted">Manage tokens, generate research prompts, choose a prospect target, and configure recurring schedules here.</p></div></div>
       <label className="wide">Prospects to target per prompt
         <input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setProspectCount(n); localStorage.setItem("inlinked_prospect_count", String(n)); } }} />
-        <small className="muted">Choose 1–50. This count is included in both Quick Session and Permanent Token prompts, for one-time or recurring research. ChatGPT may save fewer if fewer qualified prospects are found.</small>
+        <small className="muted">Choose 1–50. This count is included in both Research now and Recurring prompts. ChatGPT may save fewer if fewer qualified prospects are found.</small>
       </label>
       <ChatGptSettings prospectCount={prospectCount} />
     </section>
 
     <section className="panel">
-      <div className="section-heading"><div><div className="eyebrow">API REFERENCE</div><h2>Endpoints and request examples</h2><p className="muted">Copy these examples into your HTTP client. Replace the placeholder token with your own token. Use the permanent token exchange to obtain temporary URLs for the context and save requests.</p></div></div>
+      <div className="section-heading"><div><div className="eyebrow">API REFERENCE</div><h2>Context and Save endpoints</h2><p className="muted">Use the same long-lived Access Token for both endpoints. It does not expire automatically and remains valid until revoked or regenerated.</p></div></div>
       <div className="lead-form">
-        <label className="wide">1. Exchange your permanent token for temporary access
-          <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-credentials
-Authorization: Bearer YOUR_PERMANENT_AI_TOKEN</pre><button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-credentials")}>Copy POST URL</button>
-          <small className="muted">POST only. Returns contextEndpoint and saveEndpoint URLs containing a 10-minute access token.</small>
+        <label className="wide">1. Read your search context
+          <pre className="prompt-box">GET https://inlinked.vercel.app/api/assistant-context?access=YOUR_ACCESS_TOKEN</pre>
+          <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-context?access=YOUR_ACCESS_TOKEN")}>Copy GET URL</button>
+          <small className="muted">GET only. Alternatively send the same token in the Authorization: Bearer YOUR_ACCESS_TOKEN header.</small>
         </label>
-        <label className="wide">2. Read your search context
-          <pre className="prompt-box">GET https://inlinked.vercel.app/api/assistant-context?access=YOUR_10_MINUTE_ACCESS_TOKEN</pre><button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-context?access=YOUR_10_MINUTE_ACCESS_TOKEN")}>Copy GET URL</button>
-          <small className="muted">GET only. Alternatively send the token in the Authorization: Bearer YOUR_10_MINUTE_ACCESS_TOKEN header.</small>
-        </label>
-        <label className="wide">3. Save prospects
-          <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-save?access=YOUR_10_MINUTE_ACCESS_TOKEN
+        <label className="wide">2. Save prospects
+          <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-save?access=YOUR_ACCESS_TOKEN
 Content-Type: application/json
 
 {assistantSaveExample}</pre>
-          <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-save?access=YOUR_10_MINUTE_ACCESS_TOKEN")}>Copy POST URL</button><small className="muted">POST only. Send the same token in the Authorization: Bearer header if you prefer. Accepts 1–50 leads.</small>
-        </label>
-        <label className="wide">4. Example permanent-token exchange response
-          <pre className="prompt-box">&#123;
-  "ok": true,
-  "contextEndpoint": "https://inlinked.vercel.app/api/assistant-context?access=TEMPORARY_TOKEN",
-  "saveEndpoint": "https://inlinked.vercel.app/api/assistant-save?access=TEMPORARY_TOKEN",
-  "expiresInSeconds": 600
-&#125;</pre>
-          <small className="muted">The temporary token expires after 10 minutes. Never share a real token or paste it into a public URL.</small>
+          <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-save?access=YOUR_ACCESS_TOKEN")}>Copy POST URL</button>
+          <small className="muted">POST only. Send the same token in the Authorization: Bearer header if you prefer. Accepts 1–50 leads.</small>
         </label>
       </div>
       {message && <p className="muted" role="status">{message}</p>}
