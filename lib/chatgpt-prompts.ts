@@ -37,7 +37,7 @@ export function buildChatGptPrompt({
     ? `Specific time: ${scheduleTime} (request this exact local time; do not silently replace it with a flexible period).`
     : `Time of day: ${scheduleTimeChoice[0].toUpperCase() + scheduleTimeChoice.slice(1)} (flexible timing within this period; no exact minute is requested).`;
   const endDescription = scheduleEndEnabled
-    ? `ON\\nEnd date: ${scheduleEndDate}\\nStop the recurring task after this date.`
+    ? `ON\nEnd date: ${scheduleEndDate}\nStop the recurring task after this date.`
     : "OFF (no end date)";
 
   const lines = [
