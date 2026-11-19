@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { buildChatGptPrompt, type PromptKind, type ScheduleFrequency } from "@/lib/chatgpt-prompts";
+import { buildChatGptPrompt, type PromptKind, type ScheduleFrequency, type ScheduleTimeChoice } from "@/lib/chatgpt-prompts";
 
 type Status = { enabled: boolean; createdAt: string };
 type AccessToken = { token: string; origin: string };
@@ -14,12 +14,22 @@ function mask(prompt: string, token: string) {
   return token ? prompt.split(token).join("••••••••••••••••") : prompt;
 }
 
+function localDateValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function ChatGptSettings({ prospectCount }: { prospectCount: number }) {
   const [status, setStatus] = useState<Status>({ enabled: false, createdAt: "" });
   const [kind, setKind] = useState<PromptKind>("research");
   const [scheduleFrequency, setScheduleFrequency] = useState<ScheduleFrequency>("daily");
+  const [scheduleTimeChoice, setScheduleTimeChoice] = useState<ScheduleTimeChoice>("morning");
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [scheduleTimezone, setScheduleTimezone] = useState("Africa/Cairo");
+  const [scheduleEndEnabled, setScheduleEndEnabled] = useState(false);
+  const [scheduleEndDate, setScheduleEndDate] = useState("");
   const [access, setAccess] = useState<AccessToken | null>(null);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
@@ -55,14 +65,17 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
 
   const activeToken = access?.token || "";
   const activeOrigin = access?.origin || "";
+  const scheduleReady = !scheduleEndEnabled || Boolean(scheduleEndDate);
   const prompt = useMemo(
-    () => (activeToken && activeOrigin
+    () => (activeToken && activeOrigin && scheduleReady
       ? buildChatGptPrompt({
           kind, token: activeToken, origin: activeOrigin, prospectCount,
-          scheduleFrequency, scheduleTime, scheduleTimezone
+          scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
+          scheduleEndEnabled, scheduleEndDate
         })
       : ""),
-    [kind, activeToken, activeOrigin, prospectCount, scheduleFrequency, scheduleTime, scheduleTimezone]
+    [kind, activeToken, activeOrigin, prospectCount, scheduleFrequency, scheduleTimeChoice,
+      scheduleTime, scheduleTimezone, scheduleEndEnabled, scheduleEndDate, scheduleReady]
   );
 
   async function generateAccessToken() {
@@ -149,22 +162,39 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
 
     {kind === "scheduled" && <section className="panel">
       <h2>Recurring schedule</h2>
-      <p className="muted">Choose when ChatGPT should run the prospect research. These settings will be included in the generated prompt.</p>
+      <p className="muted">Choose the repeat pattern, preferred time and optional end date. These settings will be included in the generated prompt.</p>
       <div className="lead-form">
         <label>Repeat<select value={scheduleFrequency} onChange={e => setScheduleFrequency(e.target.value as ScheduleFrequency)}>
-          <option value="daily">Every day</option>
+          <option value="daily">Daily</option>
           <option value="weekdays">Weekdays (Monday–Friday)</option>
-          <option value="weekly">Once every week</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
         </select></label>
-        <label>Time<input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} /></label>
+        <label>Time<select value={scheduleTimeChoice} onChange={e => setScheduleTimeChoice(e.target.value as ScheduleTimeChoice)}>
+          <option value="morning">Morning (flexible)</option>
+          <option value="afternoon">Afternoon (flexible)</option>
+          <option value="evening">Evening (flexible)</option>
+          <option value="night">Night (flexible)</option>
+          <option value="specific">Specific time</option>
+        </select></label>
+        {scheduleTimeChoice === "specific" && <label>Specific time<input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} /></label>}
         <label className="wide">Timezone<select value={scheduleTimezone} onChange={e => setScheduleTimezone(e.target.value)}>
           <option value="Africa/Cairo">Egypt (Africa/Cairo)</option>
           <option value="Europe/London">United Kingdom (Europe/London)</option>
           <option value="UTC">UTC</option>
           <option value="America/New_York">US Eastern (America/New_York)</option>
         </select></label>
+        <label>End repeat<select value={scheduleEndEnabled ? "on" : "off"} onChange={e => setScheduleEndEnabled(e.target.value === "on")}>
+          <option value="off">Off (no end date)</option>
+          <option value="on">On (end on a date)</option>
+        </select></label>
+        {scheduleEndEnabled && <label>End date<input type="date" value={scheduleEndDate} min={localDateValue()} onChange={e => setScheduleEndDate(e.target.value)} required /></label>}
       </div>
-      <p className="muted">The prompt asks ChatGPT to confirm the schedule before creating a task. For weekly schedules, ChatGPT will ask which day you prefer.</p>
+      {scheduleTimeChoice === "specific"
+        ? <p className="muted">Specific-time scheduling requests the exact selected time in the selected timezone. ChatGPT may only support flexible timing; the prompt tells it not to silently change your choice.</p>
+        : <p className="muted">The selected time of day is a flexible window in the selected timezone, not a guaranteed exact minute.</p>}
+      {scheduleEndEnabled && !scheduleEndDate && <p className="footnote" role="alert">Choose an end date before copying the scheduled prompt.</p>}
+      <p className="footnote">ChatGPT must tell you when it cannot apply a selected repeat option or end date. It should not silently change your schedule or claim the task was created unless confirmed.</p>
     </section>}
 
     <section className="panel">
