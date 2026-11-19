@@ -7,48 +7,28 @@ export const dynamic = "force-dynamic";
 
 const MAX_BODY_BYTES = 1_000_000;
 const TIMEOUT_MS = 20_000;
-const BLOCKED_HOSTS = new Set([
-  "localhost",
-  "metadata.google.internal",
-  "metadata",
-]);
+const BLOCKED_HOSTS = new Set(["localhost", "metadata.google.internal", "metadata"]);
 
 function validateTarget(raw: unknown): URL {
-  if (typeof raw !== "string" || raw.length > 4_096) {
-    throw new Error("A valid target URL is required.");
-  }
-
+  if (typeof raw !== "string" || raw.length > 4_096) throw new Error("A valid target URL is required.");
   const url = new URL(raw);
-  if (url.protocol !== "https:") {
-    throw new Error("Only HTTPS destinations are allowed.");
-  }
-  if (url.username || url.password) {
-    throw new Error("URLs containing embedded credentials are not allowed.");
-  }
-
+  if (url.protocol !== "https:") throw new Error("Only HTTPS destinations are allowed.");
+  if (url.username || url.password) throw new Error("URLs containing embedded credentials are not allowed.");
   const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (BLOCKED_HOSTS.has(host) || host.endsWith(".localhost") || host.endsWith(".local")) {
     throw new Error("Local and internal destinations are blocked.");
   }
-  if (isIP(host)) {
-    throw new Error("IP-literal destinations are not allowed.");
-  }
+  if (isIP(host)) throw new Error("IP-literal destinations are not allowed.");
   return url;
 }
 
 function safeRequestHeaders(input: unknown): Headers {
   const result = new Headers();
   if (input == null) return result;
-  if (typeof input !== "object" || Array.isArray(input)) {
-    throw new Error("headers must be a JSON object.");
-  }
-
+  if (typeof input !== "object" || Array.isArray(input)) throw new Error("headers must be a JSON object.");
   for (const [name, value] of Object.entries(input as Record<string, unknown>)) {
     if (typeof value !== "string") throw new Error(`Header "${name}" must have a string value.`);
-    const key = name.toLowerCase();
-    if (["host", "content-length", "connection", "transfer-encoding", "accept-encoding"].includes(key)) {
-      continue;
-    }
+    if (["host", "content-length", "connection", "transfer-encoding", "accept-encoding"].includes(name.toLowerCase())) continue;
     result.set(name, value);
   }
   return result;
@@ -56,8 +36,6 @@ function safeRequestHeaders(input: unknown): Headers {
 
 export async function POST(request: NextRequest) {
   try {
-    // Reuse the caller's existing, per-user Inlinked assistant token.
-    // No new token table, environment variable, or shared executor key is needed.
     const auth = await resolveAssistantAuth(request);
     if (!auth) {
       return NextResponse.json({ error: "Unauthorized. Send your Inlinked assistant token as Authorization: Bearer <token>." }, { status: 401 });
@@ -80,26 +58,21 @@ export async function POST(request: NextRequest) {
     let body: string | undefined;
     if (input?.body !== undefined && input?.body !== null && method !== "GET" && method !== "HEAD") {
       body = typeof input.body === "string" ? input.body : JSON.stringify(input.body);
-      if (Buffer.byteLength(body, "utf8") > MAX_BODY_BYTES) {
+      if (body !== undefined && Buffer.byteLength(body, "utf8") > MAX_BODY_BYTES) {
         return NextResponse.json({ error: "Request body exceeds the 1 MB limit." }, { status: 413 });
       }
       if (!headers.has("content-type")) headers.set("content-type", "application/json");
     }
 
     const response = await fetch(target, {
-      method,
-      headers,
-      body,
-      redirect: "manual",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-      cache: "no-store",
+      method, headers, body, redirect: "manual",
+      signal: AbortSignal.timeout(TIMEOUT_MS), cache: "no-store",
     });
 
     const responseBody = method === "HEAD" ? "" : await response.text();
     if (Buffer.byteLength(responseBody, "utf8") > MAX_BODY_BYTES) {
       return NextResponse.json({
-        status: response.status,
-        statusText: response.statusText,
+        status: response.status, statusText: response.statusText,
         headers: Object.fromEntries(response.headers.entries()),
         setCookies: response.headers.getSetCookie?.() || [],
         error: "Response body exceeded the 1 MB limit and was not returned.",
@@ -113,16 +86,11 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      headers: responseHeaders,
-      setCookies: response.headers.getSetCookie?.() || [],
-      body: responseBody,
+      status: response.status, statusText: response.statusText, ok: response.ok,
+      headers: responseHeaders, setCookies: response.headers.getSetCookie?.() || [], body: responseBody,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "HTTP request failed.";
-    const timeout = message.toLowerCase().includes("timeout");
-    return NextResponse.json({ error: message }, { status: timeout ? 504 : 400 });
+    return NextResponse.json({ error: message }, { status: message.toLowerCase().includes("timeout") ? 504 : 400 });
   }
 }
