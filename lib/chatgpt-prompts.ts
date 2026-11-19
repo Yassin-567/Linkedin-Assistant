@@ -21,9 +21,12 @@ export function buildChatGptPrompt({
   const recurrence = scheduleFrequency === "weekdays" ? "Every weekday (Monday to Friday)" : scheduleFrequency === "weekly" ? "Once every week" : "Every day";
   const scheduleHeader = scheduled
     ? [
-        "SCHEDULED TASK",
-        `Execution time: ${scheduleTime} (${scheduleTimezone})`,
-        `Recurrence: ${recurrence}`
+        "Schedule :",
+        `Repeat: ${recurrence}`,
+        `Time: ${scheduleTime}`,
+        `Timezone: ${scheduleTimezone}`,
+        "Schedule the following prompt as above date and time.",
+        'Prompt: "'
       ]
     : [];
   const connection = mode === "session"
@@ -93,5 +96,7 @@ export function buildChatGptPrompt({
     "- Do not call any Inlinked endpoint other than the Credentials endpoint (Permanent Token mode only), Context endpoint and Save endpoint."
   ];
 
-  return [...scheduleHeader, ...lines].join("\n");
+  return scheduled
+    ? [...scheduleHeader, ...lines, '"'].join("\n")
+    : lines.join("\n");
 }
