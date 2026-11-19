@@ -65,7 +65,7 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
 
   const activeToken = access?.token || "";
   const activeOrigin = access?.origin || "";
-  const scheduleReady = !scheduleEndEnabled || Boolean(scheduleEndDate);
+  const scheduleReady = kind !== "scheduled" || !scheduleEndEnabled || Boolean(scheduleEndDate);
   const prompt = useMemo(
     () => (activeToken && activeOrigin && scheduleReady
       ? buildChatGptPrompt({
