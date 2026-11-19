@@ -9,11 +9,11 @@ ChatGPT researches prospects and saves them to your Prospects list. ChatGPT must
 4. Click **Copy prompt** and paste it into a new ChatGPT chat.
 
 ## Endpoints
-Context and Save accept the token as `?access=<token>` in the URL (what the generated prompt uses, so ChatGPT sends no custom headers) or as `Authorization: Bearer <token>`. The credentials endpoint needs the permanent token as a Bearer header.
+Context and Save accept the token as `?access=<token>` or `?ai=<token>` in the URL, or as `Authorization: Bearer <token>`. Credentials accepts the **permanent** token as `?access=<token>` (the generated prompt uses this, so no custom header is needed) or as `Authorization: Bearer <token>`. Credentials never accepts a temporary token.
 
 | Purpose | Request | Token |
 |---|---|---|
-| Get a 10-minute access token | `POST /api/assistant-credentials` (no body) | permanent token |
+| Get a 10-minute access token | `POST /api/assistant-credentials?access=<permanent-token>` (no body; Bearer header also supported) | permanent token |
 | Read profile, preferences, exclusions | `GET /api/assistant-context` | access or permanent |
 | Save prospects | `POST /api/assistant-save` | access or permanent |
 
