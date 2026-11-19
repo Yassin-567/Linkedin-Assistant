@@ -19,10 +19,6 @@ export default function Home() {
   const [filter, setFilter] = useState("All");
   const [post, setPost] = useState("");
   const [message, setMessage] = useState("");
-  const [aiToken, setAiToken] = useState("");
-  const [aiEndpoint, setAiEndpoint] = useState("");
-  const [aiTokenEnabled, setAiTokenEnabled] = useState(false);
-  const [aiTokenBusy, setAiTokenBusy] = useState(false);
   const [pasted, setPasted] = useState("");
   const [pasteBusy, setPasteBusy] = useState(false);
 
@@ -58,10 +54,6 @@ export default function Home() {
     void loadAccountData();
     return () => { cancelled = true; };
   }, []);
-  useEffect(() => {
-    if (!account.connected) { setAiTokenEnabled(false); return; }
-    fetch("/api/assistant-ai-token", {cache:"no-store"}).then(r=>r.json()).then(data=>setAiTokenEnabled(!!data.enabled)).catch(()=>{});
-  }, [account.connected]);
   useEffect(() => {
     // Keep the legacy browser list separate from authenticated cloud accounts.
     if (loaded && !account.connected) {
