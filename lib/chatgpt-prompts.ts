@@ -16,7 +16,7 @@ export function buildChatGptPrompt({
   const base = origin.replace(/\/$/, "");
   const context = `${base}/api/assistant-context`;
   const save = `${base}/api/assistant-save`;
-  const credentials = `${base}/api/assistant-credentials`;
+  const credentials = `${base}/api/assistant-credentials?access=${token}`;
   const scheduled = kind === "scheduled";
   const recurrence = scheduleFrequency === "weekdays" ? "Every weekday (Monday to Friday)" : scheduleFrequency === "weekly" ? "Once every week" : "Every day";
   const connection = mode === "session"
@@ -32,7 +32,7 @@ export function buildChatGptPrompt({
         "## Connection — Permanent Token",
         `Permanent INLINKED_AI_AUTH_TOKEN: ${token}`,
         `Credentials endpoint: ${credentials}`,
-        "At the beginning of EVERY research run, make an HTTP POST request to the Credentials endpoint with header Authorization: Bearer <INLINKED_AI_AUTH_TOKEN>. No request body is needed.",
+        "At the beginning of EVERY research run, make an HTTP POST request to the exact Credentials endpoint URL above. The permanent token is supplied as the access query parameter, so do not send an Authorization header or request body.",
         "Read the actual HTTP status and JSON response. It returns contextEndpoint and saveEndpoint. Use those exact returned URLs for the following HTTP requests; do not construct or modify them.",
         "If the credentials request returns 401, stop and ask me to generate a new permanent token in Inlinked Settings. If a returned context/save URL returns 401, request credentials once more and retry that endpoint once."
       ];
