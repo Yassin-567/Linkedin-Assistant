@@ -21,7 +21,7 @@ export function buildChatGptPrompt({
   const recurrence = scheduleFrequency === "weekdays" ? "Every weekday (Monday to Friday)" : scheduleFrequency === "weekly" ? "Once every week" : "Every day";
   const scheduleHeader = scheduled
     ? [
-        "Schedule :",
+        "(Schedule :",
         `Repeat: ${recurrence}`,
         `Time: ${scheduleTime}`,
         `Timezone: ${scheduleTimezone}`,
@@ -97,6 +97,6 @@ export function buildChatGptPrompt({
   ];
 
   return scheduled
-    ? [...scheduleHeader, ...lines, '"'].join("\n")
+    ? [...scheduleHeader, ...lines, '\")'].join("\n")
     : lines.join("\n");
 }
