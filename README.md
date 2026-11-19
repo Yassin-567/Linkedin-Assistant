@@ -9,7 +9,7 @@ A global, individual-account prospecting workspace. Every Google-authenticated u
 - Per-user LinkedIn profile URL, countries, industries, keywords, decision-maker titles, exclusions, language and optional profile context.
 - Per-user prospects and imported LinkedIn connections.
 - Database uniqueness on `(user_id, normalized_linkedin_url)` prevents duplicate profile saves, including concurrent writes.
-- ChatGPT handoff using per-user, revocable tokens (10-minute access tokens or a permanent token). Each token can read context and create prospects only for its owner. Bulk saves support up to 50 prospects per request and database uniqueness prevents duplicate LinkedIn profiles.
+- ChatGPT handoff using one per-user, long-lived, revocable Access Token. It is stored as a SHA-256 hash and can directly read context and save prospects only for its owner. Bulk saves support up to 50 prospects per request and database uniqueness prevents duplicate LinkedIn profiles.
 - Public search via Serper. Search requests use plain-text queries (without exact-phrase quotes or Google search operators) and request up to 10 results per page; the app then filters results to public LinkedIn personal profiles. Search defaults come from each user's preferences; one-off industry or location inputs can narrow a search. Publicly indexed profile snippets may be used as optional context when a user supplies their own LinkedIn URL.
 
 ## Phase 3: personalized discovery
@@ -68,13 +68,14 @@ A global, individual-account prospecting workspace. Every Google-authenticated u
 
 ## ChatGPT connection
 
-Open **ChatGPT** in the app menu (`/chatgpt`). Pick what ChatGPT should do (research now or recurring), pick a connection method, and copy the generated prompt into ChatGPT. See `CHATGPT_GUIDE.md` for the full flow.
+Open **Settings → ChatGPT connection**. Choose **Research now** or **Recurring (scheduled)**, generate one Access Token, and copy the generated prompt into ChatGPT. See `CHATGPT_GUIDE.md` for the full flow.
 
-- **Quick session:** the app issues a 10-minute access token (`POST /api/assistant-access`, signed-in users only). The prompt carries that token.
-- **Permanent token:** a revocable per-user `INLINKED_AI_AUTH_TOKEN`, shown once. ChatGPT exchanges it for a 10-minute access token with `POST /api/assistant-credentials`.
-- **Endpoints:** `POST /api/assistant-credentials?access=<permanent-token>` exchanges a permanent token for a 10-minute access token (the existing `Authorization: Bearer <token>` method remains supported). The returned Context and Save URLs carry the temporary token in `?access=`. `GET /api/assistant-context` reads profile, preferences and exclusions; `POST /api/assistant-save` saves 1-50 leads of `{name, company, linkedin}`. Context and Save also accept Bearer tokens. Credentials validates permanent tokens only; temporary tokens cannot be exchanged again. Every token resolves to exactly one user; URLs are normalised and duplicates are skipped by database uniqueness.
-- ChatGPT needs a tool that can send HTTP requests with headers and a JSON body (for example Firecrawl). Without one, ask ChatGPT for `Name | Company | LinkedIn URL` lines and use **Prospects → Paste from ChatGPT**.
-- Regenerating or revoking the permanent token revokes all active access tokens. Treat tokens like passwords and never commit them.
+- **One Access Token:** `POST /api/assistant-access` generates a per-user token. `GET` checks its status and `DELETE` revokes it. Regenerating the token revokes previous tokens immediately.
+- **No expiry or exchange:** the Access Token does not expire automatically. ChatGPT uses it directly; there is no separate permanent-token concept or Credentials endpoint.
+- **Endpoints:** `GET /api/assistant-context` reads profile, preferences and exclusions; `POST /api/assistant-save` saves 1-50 leads of `{name, company, linkedin}`. Both use the same Access Token via `?access=<token>` or `Authorization: Bearer <token>`.
+- Each Access Token resolves to exactly one user. URLs are normalised and duplicates are skipped by database uniqueness.
+- ChatGPT needs a tool that can send HTTP requests (for example Firecrawl). Without one, ask ChatGPT for `Name | Company | LinkedIn URL` lines and use **Prospects → Paste from ChatGPT**.
+- Treat the Access Token like a password. The raw token is shown only once; only its SHA-256 hash is stored. Regenerating or revoking it immediately stops previously copied prompts from working.
 
 The app's bulk-save flow does not require a paid LinkedIn Assistant plan or a LinkedIn OAuth connection. ChatGPT plan/feature availability is controlled by ChatGPT itself. Search-provider and AI-model usage may have their own limits or charges.
 
