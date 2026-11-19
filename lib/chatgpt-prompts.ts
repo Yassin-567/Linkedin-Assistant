@@ -95,5 +95,5 @@ export function buildChatGptPrompt({
     "Prompt:"
   ];
 
-  return [...schedule, ...lines].join("\\n");
+  return [...schedule, ...lines].join("\n");
 }
