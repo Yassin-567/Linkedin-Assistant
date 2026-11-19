@@ -72,7 +72,7 @@ Open **ChatGPT** in the app menu (`/chatgpt`). Pick what ChatGPT should do (rese
 
 - **Quick session:** the app issues a 10-minute access token (`POST /api/assistant-access`, signed-in users only). The prompt carries that token.
 - **Permanent token:** a revocable per-user `INLINKED_AI_AUTH_TOKEN`, shown once. ChatGPT exchanges it for a 10-minute access token with `POST /api/assistant-credentials`.
-- **Endpoints:** `GET /api/assistant-context` (profile, preferences, exclusions) and `POST /api/assistant-save` (1-50 leads of `{name, company, linkedin}`), both with `Authorization: Bearer <token>`. Every token resolves to exactly one user; URLs are normalised and duplicates are skipped by database uniqueness.
+- **Endpoints:** `POST /api/assistant-credentials?access=<permanent-token>` exchanges a permanent token for a 10-minute access token (the existing `Authorization: Bearer <token>` method remains supported). The returned Context and Save URLs carry the temporary token in `?access=`. `GET /api/assistant-context` reads profile, preferences and exclusions; `POST /api/assistant-save` saves 1-50 leads of `{name, company, linkedin}`. Context and Save also accept Bearer tokens. Credentials validates permanent tokens only; temporary tokens cannot be exchanged again. Every token resolves to exactly one user; URLs are normalised and duplicates are skipped by database uniqueness.
 - ChatGPT needs a tool that can send HTTP requests with headers and a JSON body (for example Firecrawl). Without one, ask ChatGPT for `Name | Company | LinkedIn URL` lines and use **Prospects → Paste from ChatGPT**.
 - Regenerating or revoking the permanent token revokes all active access tokens. Treat tokens like passwords and never commit them.
 
