@@ -1,6 +1,6 @@
-import { timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 import { NextRequest, NextResponse } from "next/server";
+import { resolveAssistantAuth } from "@/lib/assistant-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,15 +12,6 @@ const BLOCKED_HOSTS = new Set([
   "metadata.google.internal",
   "metadata",
 ]);
-
-function authorized(request: NextRequest) {
-  const expected = process.env.HTTP_EXECUTOR_API_KEY || "";
-  const supplied = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-  if (!expected || !supplied) return false;
-  const a = Buffer.from(expected);
-  const b = Buffer.from(supplied);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 function validateTarget(raw: unknown): URL {
   if (typeof raw !== "string" || raw.length > 4_096) {
@@ -39,7 +30,6 @@ function validateTarget(raw: unknown): URL {
   if (BLOCKED_HOSTS.has(host) || host.endsWith(".localhost") || host.endsWith(".local")) {
     throw new Error("Local and internal destinations are blocked.");
   }
-  // Avoid direct requests to IP literals. Use a public hostname instead.
   if (isIP(host)) {
     throw new Error("IP-literal destinations are not allowed.");
   }
@@ -65,18 +55,21 @@ function safeRequestHeaders(input: unknown): Headers {
 }
 
 export async function POST(request: NextRequest) {
-  if (!authorized(request)) {
-    return NextResponse.json({ error: "Unauthorized. Configure HTTP_EXECUTOR_API_KEY and send it as a Bearer token." }, { status: 401 });
-  }
-
-  let input: any;
   try {
-    input = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
-  }
+    // Reuse the caller's existing, per-user Inlinked assistant token.
+    // No new token table, environment variable, or shared executor key is needed.
+    const auth = await resolveAssistantAuth(request);
+    if (!auth) {
+      return NextResponse.json({ error: "Unauthorized. Send your Inlinked assistant token as Authorization: Bearer <token>." }, { status: 401 });
+    }
 
-  try {
+    let input: any;
+    try {
+      input = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
+    }
+
     const target = validateTarget(input?.url);
     const method = String(input?.method || "GET").toUpperCase();
     if (!["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"].includes(method)) {
