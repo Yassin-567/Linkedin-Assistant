@@ -67,7 +67,7 @@ export default function Home() {
     const payload={name:name.trim(),company:company.trim(),url,status,followUp,notes,discoverySource:"Manual",savedVia:"Manual entry"};
     if(cloudStorage){
       const r=await fetch("/api/prospects",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-      const d=await r.json();if(!r.ok){setMessage(d.error||"Could not save prospect.");return;}setLeads(old=>[d.lead,...old]);
+      const d=await r.json();if(!r.ok){setMessage(d.error||"Could not save LinkedIn connection.");return;}setLeads(old=>[d.lead,...old]);
     } else setLeads(old=>[{id:crypto.randomUUID(),...payload},...old]);
     setName("");setCompany("");setUrl("");setStatus(statuses[0]);setFollowUp("");setNotes("");
   }
@@ -91,7 +91,7 @@ export default function Home() {
   }
   async function updateLead(id:string, changes:Partial<Lead>) {
     const current=leads.find(x=>x.id===id);if(!current)return;const next={...current,...changes};
-    if(cloudStorage){const r=await fetch("/api/prospects",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(next)});const d=await r.json();if(!r.ok){setMessage(d.error||"Could not update prospect.");return;}setLeads(old=>old.map(x=>x.id===id?d.lead:x));}
+    if(cloudStorage){const r=await fetch("/api/prospects",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(next)});const d=await r.json();if(!r.ok){setMessage(d.error||"Could not update LinkedIn connection.");return;}setLeads(old=>old.map(x=>x.id===id?d.lead:x));}
     else setLeads(old=>old.map(x=>x.id===id?next:x));
   }
   async function removeLead(id:string) {
@@ -135,7 +135,7 @@ export default function Home() {
       <p className="storage-note">{cloudStorage ? "Synced to your private cloud storage and mirrored in this browser." : "Saved in this browser until you sign in to enable private database sync."} Export CSV regularly for backup.</p>
     </section>
     {account.connected&&<section className="panel"><h2>Paste from ChatGPT</h2><p className="muted">Ask ChatGPT to list LinkedIn connections one per line as <code>Name | Company | LinkedIn profile URL</code>, then paste them here (up to 50). Duplicates are skipped.</p><textarea rows={5} value={pasted} onChange={e=>setPasted(e.target.value)} placeholder={"Jane Smith | ABC Appliance Repairs | https://www.linkedin.com/in/jane-smith"}/><div className="row"><button onClick={()=>void importPasted()} disabled={pasteBusy||!pasted.trim()}>{pasteBusy?"Importing...":"Import pasted connections"}</button></div></section>}
-    <section className="panel"><h2>Your account</h2>{account.connected?<><p className="muted">Signed in as <strong>{account.profile?.name || "Google user"}</strong> {account.profile?.email || ""}</p><div className="row"><a className="button secondary" href="/settings">Edit search preferences</a><button className="text-button" onClick={async()=>{await fetch("/api/auth/logout",{method:"POST"});setAccount({connected:false});window.location.href="/login";}}>Sign out</button></div></>:<><p className="muted">Sign in to save prospects privately, configure your target markets and connect ChatGPT.</p><a className="button" href="/api/auth/google">Continue with Google</a></>}{message && <p className="status">{message}</p>}</section>
+    <section className="panel"><h2>Your account</h2>{account.connected?<><p className="muted">Signed in as <strong>{account.profile?.name || "Google user"}</strong> {account.profile?.email || ""}</p><div className="row"><a className="button secondary" href="/settings">Edit search preferences</a><button className="text-button" onClick={async()=>{await fetch("/api/auth/logout",{method:"POST"});setAccount({connected:false});window.location.href="/login";}}>Sign out</button></div></>:<><p className="muted">Sign in to save LinkedIn connections privately, configure your target markets and connect ChatGPT.</p><a className="button" href="/api/auth/google">Continue with Google</a></>}{message && <p className="status">{message}</p>}</section>
     <footer>Inlinked · LinkedIn Connections</footer>
   </main>;
 }
