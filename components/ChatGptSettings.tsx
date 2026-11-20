@@ -32,6 +32,7 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
   const [scheduleEndEnabled, setScheduleEndEnabled] = useState(false);
   const [scheduleEndDate, setScheduleEndDate] = useState("");
   const [access, setAccess] = useState<AccessToken | null>(null);
+  const [tokenDraft, setTokenDraft] = useState("");
   const [deploymentShareToken, setDeploymentShareToken] = useState("");
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
@@ -87,6 +88,17 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
       scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
       scheduleEndEnabled, scheduleEndDate, scheduleReady, deploymentShareToken]
   );
+
+  function useExistingAccessToken() {
+    const value = tokenDraft.trim();
+    if (!value) return;
+    setAccess({ token: value, origin: window.location.origin });
+    localStorage.setItem("inlinked_access_token", value);
+    localStorage.removeItem("inlinked_permanent_token");
+    localStorage.removeItem("inlinked_quick_session");
+    setTokenDraft("");
+    setMessage("Existing Access Token loaded in this preview browser. It was not regenerated or changed in your Inlinked account.");
+  }
 
   async function generateAccessToken() {
     if (status.enabled && !window.confirm("Regenerate the Access Token? The current token will stop working immediately, including in previously copied prompts.")) return;
@@ -146,7 +158,7 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
     if (!prompt) return;
     try {
       await navigator.clipboard.writeText(prompt);
-      setMessage("Prompt copied. Paste it into ChatGPT. The prompt contains your long-lived Access Token, so keep it private.");
+      setMessage("Prompt copied. It contains your Inlinked Access Token and preview access link. Keep it private.");
     } catch {
       setMessage("Your browser blocked copying. Select the prompt text below and copy it manually.");
     }
@@ -238,7 +250,13 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
             <button type="button" className="secondary" onClick={() => void copyAccessToken()}>Copy Access Token</button>
           </label>
         : status.enabled
-          ? <p className="footnote">A previously generated token is active, but its value is not available in this browser. Regenerate it to display a new token. The old token will stop working.</p>
+          ? <div className="wide token-import">
+              <label>Use your existing long-lived Access Token
+                <input type="password" value={tokenDraft} onChange={e => setTokenDraft(e.target.value)} autoComplete="off" spellCheck={false} placeholder="Paste the token from your current Inlinked session or saved prompt" />
+              </label>
+              <button type="button" className="secondary" onClick={useExistingAccessToken} disabled={!tokenDraft.trim()}>Use existing Access Token</button>
+              <p className="footnote">This only loads the existing token into this preview browser. It does not create, regenerate or revoke any token in your Inlinked account.</p>
+            </div>
           : <p className="footnote">Generate a token to build either prompt below. The token is shown only once and is not recoverable from the database.</p>}
     </section>
 

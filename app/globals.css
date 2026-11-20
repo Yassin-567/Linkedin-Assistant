@@ -282,3 +282,9 @@ button.method-card:hover:not(:disabled) { background: #f7fbf9; transform: none; 
   .jobs-toolbar { flex-direction: column; }
   .jobs-toolbar input, .jobs-toolbar select { width: 100%; }
 }
+
+
+.token-import { display: grid; gap: 10px; }
+.token-import label { display: grid; gap: 7px; color: #30463b; font-size: 11px; font-weight: 700; }
+.token-import input { width: 100%; }
+.token-import .footnote { margin: 0; }
