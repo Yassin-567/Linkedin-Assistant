@@ -58,16 +58,6 @@ const sources = [
   { id: "forums", label: "Forums and communities" }, { id: "business_sites", label: "Business websites" },
   { id: "project_sites", label: "Project websites" }, { id: "other_public", label: "Other public sources" }
 ];
-const listKeys = [
-  ["services", "Services and products", "One service per line, e.g. Monthly bookkeeping, website redesign"],
-  ["customerTypes", "Customer types", "e.g. Small businesses, landlords, restaurants"],
-  ["industries", "Target industries", "e.g. Appliance repair, hospitality, property maintenance"],
-  ["decisionMakerRoles", "Decision-maker roles", "e.g. Owner, Operations Director, Practice Manager"],
-  ["countries", "Target countries", "e.g. United Kingdom, United States"],
-  ["locations", "Target cities and regions", "Optional. e.g. London, Manchester, Greater Cairo"],
-  ["buyingSignals", "Buying signals to look for", "e.g. explicit_request, recommendation, outsourcing, provider_replacement"],
-  ["excludedKeywords", "Excluded keywords", "Do not show leads whose public text contains these terms"]
-] as const;
 const splitLines = (value: string) => value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
 const label = (value: string) => value.replace(/_/g, " ").replace(/\b\w/g, x => x.toUpperCase());
 
