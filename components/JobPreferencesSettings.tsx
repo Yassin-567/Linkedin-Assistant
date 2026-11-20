@@ -35,7 +35,6 @@ export default function JobPreferencesSettings() {
   const [p, setP] = useState<Preferences>(defaults);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [copying, setCopying] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -78,33 +77,11 @@ export default function JobPreferencesSettings() {
     finally { setSaving(false); }
   }
 
-  async function copyFromLeads() {
-    setCopying(true); setMessage("");
-    try {
-      const r = await fetch("/api/preferences", { cache: "no-store" });
-      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Could not read lead preferences.");
-      const lead = d.preferences;
-      setP(old => ({
-        ...old,
-        targetRoles: Array.from(new Set([...cleanLines(lead.jobTitles || []), ...cleanLines(old.targetRoles || [])])),
-        keywords: Array.from(new Set([...cleanLines(lead.keywords || []), ...cleanLines(lead.industries || []), ...cleanLines(old.keywords || [])])),
-        countries: Array.from(new Set([...cleanLines(lead.countries || []), ...cleanLines(old.countries || [])])),
-        excludedKeywords: Array.from(new Set([...cleanLines(lead.excludedKeywords || []), ...cleanLines(old.excludedKeywords || [])])),
-        language: lead.language || old.language
-      }));
-      setMessage("Copied lead preferences into the job form. Review and save them; existing job preferences were kept too.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not copy lead preferences."); }
-    finally { setCopying(false); }
-  }
-
   return <section className="panel">
     <div className="section-heading">
       <div><div className="eyebrow">JOB DISCOVERY</div><h2>Job-search preferences</h2>
         <p className="muted">These are independent from your lead preferences. Leave fields empty to keep that dimension broad.</p>
       </div>
-      <button type="button" className="secondary" onClick={() => void copyFromLeads()} disabled={copying || loading}>
-        {copying ? "Copying..." : "Copy from lead preferences"}
-      </button>
     </div>
     <form className="lead-form" onSubmit={save}>
       {listField("targetRoles", "Roles and job titles", "Add as many different roles as you are open to. Do not enter only one profession unless you intend to narrow the search.")}
