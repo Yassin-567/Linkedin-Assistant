@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 type Preferences = {
   services: string[];
   serviceDescription: string;
+  idealCustomerDescription: string;
   problemsSolved: string;
   customerTypes: string[];
   industries: string[];
@@ -37,7 +38,7 @@ type Lead = {
   nextFollowUp: string | null; wonValue: number | null; wonCurrency: string;
 };
 const defaultPreferences: Preferences = {
-  services: [], serviceDescription: "", problemsSolved: "", customerTypes: [], industries: [],
+  services: [], serviceDescription: "", idealCustomerDescription: "", problemsSolved: "", customerTypes: [], industries: [],
   decisionMakerRoles: [], countries: [], locations: [],
   buyingSignals: ["explicit_request", "recommendation", "outsourcing"],
   sourceCategories: ["linkedin_public", "reddit", "facebook_public", "x_public", "forums", "business_sites", "project_sites"],
@@ -157,7 +158,15 @@ export default function LeadsPage() {
   }
 
   function updateList(key: keyof Preferences, value: string) {
-    setPreferences(old => ({ ...old, [key]: splitLines(value) }));
+    setPreferences(old => {
+      const next = { ...old };
+      if (key === "serviceDescription" || key === "idealCustomerDescription" || key === "problemsSolved") {
+        (next as any)[key] = value;
+      } else {
+        (next as any)[key] = splitLines(value);
+      }
+      return next;
+    });
   }
 
   function togglePreference(key: "discoveryEngines" | "sourceCategories", value: string) {
@@ -330,6 +339,7 @@ export default function LeadsPage() {
           {textareaField("serviceDescription", "What do you offer?", "Describe your services, strengths and the value customers receive.")}
           {textareaField("problemsSolved", "Problems you solve", "Manual invoicing, poor scheduling, outdated websites, admin backlog…")}
           <div className="form-section-title wide"><strong>Ideal customer profile</strong><small>Describe who is most likely to buy.</small></div>
+          {textareaField("idealCustomerDescription", "Describe your ideal customer", "Describe the type of organisation or person most likely to buy, including size, needs and circumstances.")}
           {textareaField("customerTypes", "Customer types", "Small businesses, property managers, restaurants…")}
           {textareaField("industries", "Target industries", "Appliance repair, hospitality, property maintenance…")}
           {textareaField("decisionMakerRoles", "Decision-maker roles", "Owner, Founder, Operations Manager, Finance Director…")}
