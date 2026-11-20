@@ -22,6 +22,7 @@ function sourceCategory(value: string) {
   if (host === "reddit.com" || host.endsWith(".reddit.com")) return "reddit";
   if (host === "facebook.com" || host.endsWith(".facebook.com") || host === "fb.com") return "facebook_public";
   if (host === "x.com" || host === "twitter.com" || host.endsWith(".twitter.com")) return "x_public";
+  if (["fiverr.com", "freelancer.com", "peopleperhour.com", "contra.com", "guru.com"].some(domain => host === domain || host.endsWith("." + domain))) return "project_sites";
   if (host.includes("forum") || host.includes("community")) return "forums";
   return "business_sites";
 }
@@ -39,7 +40,10 @@ function scoreResult(title: string, snippet: string, engine: Engine, prefs: any)
   const text = (title + " " + snippet).toLowerCase();
   const services = list(prefs.services);
   const industries = list(prefs.industries);
-  const terms = [...new Set([...services, ...industries, ...list(prefs.customerTypes), ...list(prefs.decisionMakerRoles)])];
+  const descriptiveTerms = [prefs.serviceDescription, prefs.idealCustomerDescription, prefs.problemsSolved]
+    .filter((value: unknown) => typeof value === "string").join(" ")
+    .toLowerCase().match(/[a-z][a-z0-9+#.-]{3,}/g) || [];
+  const terms = [...new Set([...services, ...industries, ...list(prefs.customerTypes), ...list(prefs.decisionMakerRoles), ...descriptiveTerms])];
   const matched = terms.filter(term => term.length > 2 && text.includes(term.toLowerCase()));
   const serviceMatch = terms.length ? Math.min(100, Math.round(matched.length / Math.min(terms.length, 6) * 100)) : 35;
   const explicit = /looking for|need (?:a|an|someone|help|support)|seeking|recommend(?:ation)?|hire(?:ing)?|searching for|want to find|request for proposal|rfp|service provider/.test(text);
@@ -68,14 +72,16 @@ function queryFor(engine: Engine, prefs: any, locationOverride: string, extra: s
   const industries = list(prefs.industries).slice(0, 4).join(" ");
   const customers = list(prefs.customerTypes).slice(0, 3).join(" ");
   const problems = clean(prefs.problemsSolved, 300);
+  const serviceDescription = clean(prefs.serviceDescription, 260);
+  const idealCustomer = clean(prefs.idealCustomerDescription, 260);
   const countries = locationOverride || list(prefs.locations).slice(0, 3).concat(list(prefs.countries).slice(0, 3)).join(" ");
   const signals = list(prefs.buyingSignals).slice(0, 5).map(x => x.replace(/_/g, " ")).join(" ");
   const project = prefs.projectType === "recurring" ? "monthly ongoing retainer recurring"
     : prefs.projectType === "one_time" ? "project one-time service" : "project ongoing service";
   const tail = [countries, extra].filter(Boolean).join(" ");
-  if (engine === "direct_demand") return [services, industries, customers, signals, project, "looking for need someone recommend service provider", tail].filter(Boolean).join(" ").slice(0, 420);
-  if (engine === "opportunity_signal") return [services, industries, customers, problems, "business problem expansion outsourcing looking for support", tail].filter(Boolean).join(" ").slice(0, 420);
-  return [industries, customers, services, "businesses companies potential customers", tail].filter(Boolean).join(" ").slice(0, 420);
+  if (engine === "direct_demand") return [services, serviceDescription, industries, customers, signals, project, "looking for need someone recommend service provider", tail].filter(Boolean).join(" ").slice(0, 420);
+  if (engine === "opportunity_signal") return [services, serviceDescription, industries, customers, problems, "business problem expansion outsourcing looking for support", tail].filter(Boolean).join(" ").slice(0, 420);
+  return [industries, customers, services, idealCustomer, "businesses companies potential customers", tail].filter(Boolean).join(" ").slice(0, 420);
 }
 
 function parseDate(value: unknown): string | null {
@@ -125,7 +131,7 @@ export async function POST(request: NextRequest) {
       const category = sourceCategory(url);
       return {
         title, company: "", url, description: snippet, discoveryEngine: batch.engine,
-        sourcePlatform: platform(url), sourceType: category === "linkedin_public" || category.endsWith("_public") ? "social_post" : "public_web",
+        sourcePlatform: platform(url), sourceType: category === "business_sites" ? "business_website" : category === "project_sites" ? "project_site" : "social_post",
         publishedAt: parseDate(item.date), sourceCategory: category, ...score
       };
     })).filter((item: any) => {
