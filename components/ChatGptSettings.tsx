@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { buildChatGptPrompt, type PromptKind, type ScheduleFrequency, type ScheduleTimeChoice } from "@/lib/chatgpt-prompts";
+import { buildChatGptPrompt, buildJobChatGptPrompt, type PromptKind, type ScheduleFrequency, type ScheduleTimeChoice } from "@/lib/chatgpt-prompts";
 
 type Status = { enabled: boolean; createdAt: string };
 type AccessToken = { token: string; origin: string };
@@ -21,7 +21,8 @@ function localDateValue(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-export default function ChatGptSettings({ prospectCount }: { prospectCount: number }) {
+export default function ChatGptSettings({ prospectCount, jobCount }: { prospectCount: number; jobCount: number }) {
+  const [researchArea, setResearchArea] = useState<"leads" | "jobs">("jobs");
   const [status, setStatus] = useState<Status>({ enabled: false, createdAt: "" });
   const [kind, setKind] = useState<PromptKind>("research");
   const [scheduleFrequency, setScheduleFrequency] = useState<ScheduleFrequency>("daily");
@@ -68,14 +69,21 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
   const scheduleReady = kind !== "scheduled" || !scheduleEndEnabled || Boolean(scheduleEndDate);
   const prompt = useMemo(
     () => (activeToken && activeOrigin && scheduleReady
-      ? buildChatGptPrompt({
-          kind, token: activeToken, origin: activeOrigin, prospectCount,
-          scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
-          scheduleEndEnabled, scheduleEndDate
-        })
+      ? researchArea === "jobs"
+        ? buildJobChatGptPrompt({
+            kind, token: activeToken, origin: activeOrigin, jobCount,
+            scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
+            scheduleEndEnabled, scheduleEndDate
+          })
+        : buildChatGptPrompt({
+            kind, token: activeToken, origin: activeOrigin, prospectCount,
+            scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
+            scheduleEndEnabled, scheduleEndDate
+          })
       : ""),
-    [kind, activeToken, activeOrigin, prospectCount, scheduleFrequency, scheduleTimeChoice,
-      scheduleTime, scheduleTimezone, scheduleEndEnabled, scheduleEndDate, scheduleReady]
+    [researchArea, kind, activeToken, activeOrigin, prospectCount, jobCount,
+      scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
+      scheduleEndEnabled, scheduleEndDate, scheduleReady]
   );
 
   async function generateAccessToken() {
@@ -143,7 +151,11 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
 
   return <>
     <section className="panel">
-      <h2>1. What should ChatGPT do?</h2>
+      <h2>1. What should ChatGPT research?</h2>
+      <div className="method-grid">
+        <button type="button" className={"method-card" + (researchArea === "jobs" ? " active" : "")} onClick={() => setResearchArea("jobs")} aria-pressed={researchArea === "jobs"}><strong>Find jobs</strong><span className="muted">Search vacancies across job boards, employers, LinkedIn and public social posts.</span></button>
+        <button type="button" className={"method-card" + (researchArea === "leads" ? " active" : "")} onClick={() => setResearchArea("leads")} aria-pressed={researchArea === "leads"}><strong>Find leads</strong><span className="muted">Discover relevant people and decision-makers using your lead preferences.</span></button>
+      </div>
       <div className="method-grid">
         {KINDS.map(k => (
           <button
@@ -231,7 +243,7 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
       <div className="section-heading">
         <div>
           <h2>3. Copy the prompt into ChatGPT</h2>
-          <p className="muted">Both Research now and Recurring prompts use the same Access Token. ChatGPT uses Firecrawl's browser interaction capability for Inlinked requests.</p>
+          <p className="muted">Both prompts use the same Access Token. Job discovery uses ChatGPT web search first; Firecrawl is optional. Inlinked only provides context and receives saved results.</p>
         </div>
         <button type="button" onClick={() => void copyPrompt()} disabled={!prompt || Boolean(busy)}>Copy prompt</button>
       </div>
@@ -239,7 +251,7 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
         ? <pre className="prompt-box" aria-label="Prompt preview">{mask(prompt, activeToken)}</pre>
         : <div className="empty"><strong>No prompt yet</strong><p>Generate an Access Token above to build your prompt.</p></div>}
       <p className="muted" role="status">{message}</p>
-      <p className="footnote">Anyone with the copied prompt can read your search context and save prospects to your account until you revoke or regenerate the token. Never paste the prompt anywhere public.</p>
+      <p className="footnote">Anyone with the copied prompt can read the selected research context and save results to your account until you revoke or regenerate the token. Never paste the prompt anywhere public.</p>
     </section>
   </>;
 }

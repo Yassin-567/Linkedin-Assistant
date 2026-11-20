@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import ChatGptSettings from "@/components/ChatGptSettings";
+import JobPreferencesSettings from "@/components/JobPreferencesSettings";
 
 type Prefs = {
   linkedinProfileUrl: string; countries: string[]; industries: string[]; keywords: string[];
@@ -33,11 +34,14 @@ export default function SettingsPage() {
   const [message, setMessage] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
   const [verifiedAt, setVerifiedAt] = useState("");
-  const [activeTab, setActiveTab] = useState<"preferences" | "chatgpt">("preferences");
+  const [activeTab, setActiveTab] = useState<"preferences" | "jobs" | "chatgpt">("preferences");
   const [prospectCount, setProspectCount] = useState(50);
+  const [jobCount, setJobCount] = useState(30);
 
   useEffect(() => {
     const savedCount = Number(localStorage.getItem("inlinked_prospect_count"));
+    const savedJobCount = Number(localStorage.getItem("inlinked_job_count"));
+    if (Number.isInteger(savedJobCount) && savedJobCount >= 1 && savedJobCount <= 50) setJobCount(savedJobCount);
     if (Number.isInteger(savedCount) && savedCount >= 1 && savedCount <= 50) setProspectCount(savedCount);
     Promise.all([
       fetch("/api/preferences", { cache: "no-store" }),
@@ -99,19 +103,24 @@ export default function SettingsPage() {
   }
 
   return <main className="workspace">
-    <header className="topbar"><div><div className="eyebrow">WORKSPACE CONFIGURATION</div><h1>Settings</h1><p className="muted">Manage your prospecting preferences separately from your ChatGPT connection and API tools.</p></div><div className="row"><a className="button secondary" href="/intelligence">AI Lead Intelligence</a><a className="button secondary" href="/">Back to workspace</a></div></header>
+    <header className="topbar"><div><div className="eyebrow">WORKSPACE CONFIGURATION</div><h1>Settings</h1><p className="muted">Manage separate lead and job preferences, and your ChatGPT connection and prompt tools.</p></div><div className="row"><a className="button secondary" href="/intelligence">AI Lead Intelligence</a><a className="button secondary" href="/">Back to workspace</a></div></header>
     <nav aria-label="Settings sections" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20, padding: 5, border: "1px solid #e1e8e9", borderRadius: 12, background: "#fff" }}>
       <button type="button" onClick={() => setActiveTab("preferences")} aria-selected={activeTab === "preferences"} style={{ flex: 1, minWidth: 150, background: activeTab === "preferences" ? "#087b5b" : "transparent", color: activeTab === "preferences" ? "#fff" : "#52635b" }}>Preferences</button>
+      <button type="button" onClick={() => setActiveTab("jobs")} aria-selected={activeTab === "jobs"} style={{ flex: 1, minWidth: 150, background: activeTab === "jobs" ? "#087b5b" : "transparent", color: activeTab === "jobs" ? "#fff" : "#52635b" }}>Job preferences</button>
       <button type="button" onClick={() => setActiveTab("chatgpt")} aria-selected={activeTab === "chatgpt"} style={{ flex: 1, minWidth: 150, background: activeTab === "chatgpt" ? "#087b5b" : "transparent", color: activeTab === "chatgpt" ? "#fff" : "#52635b" }}>ChatGPT connection</button>
     </nav>
     {activeTab === "chatgpt" && <>
     <section className="panel">
-      <div className="section-heading"><div><div className="eyebrow">CHATGPT INTEGRATION</div><h2>ChatGPT connection and prompt builder</h2><p className="muted">Manage tokens, generate research prompts, choose a prospect target, and configure recurring schedules here.</p></div></div>
+      <div className="section-heading"><div><div className="eyebrow">CHATGPT INTEGRATION</div><h2>ChatGPT connection and prompt builder</h2><p className="muted">Manage one Access Token and generate separate job-discovery and lead-research prompts. ChatGPT performs the research; Inlinked supplies preferences and stores confirmed results.</p></div></div>
       <label className="wide">Prospects to target per prompt
         <input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setProspectCount(n); localStorage.setItem("inlinked_prospect_count", String(n)); } }} />
-        <small className="muted">Choose 1–50. This count is included in both Research now and Recurring prompts. ChatGPT may save fewer if fewer qualified prospects are found.</small>
+        <small className="muted">Choose 1–50 for lead research. The prompt will never invent or pad prospects.</small>
       </label>
-      <ChatGptSettings prospectCount={prospectCount} />
+      <label className="wide">Jobs to target per prompt
+        <input type="number" min={1} max={50} step={1} value={jobCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setJobCount(n); localStorage.setItem("inlinked_job_count", String(n)); } }} />
+        <small className="muted">Choose 1–50 for job discovery. ChatGPT searches publicly available web sources; it never pads the result list.</small>
+      </label>
+      <ChatGptSettings prospectCount={prospectCount} jobCount={jobCount} />
     </section>
 
     <section className="panel">
@@ -130,10 +139,25 @@ Content-Type: application/json
           <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-save?access=YOUR_ACCESS_TOKEN")}>Copy POST URL</button>
           <small className="muted">POST only. Send the same token in the Authorization: Bearer header if you prefer. Accepts 1–50 leads.</small>
         </label>
+        <label className="wide">3. Read job-search context
+          <pre className="prompt-box">GET https://inlinked.vercel.app/api/assistant-context?scope=jobs&access=YOUR_ACCESS_TOKEN</pre>
+          <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-context?scope=jobs&access=YOUR_ACCESS_TOKEN")}>Copy job context URL</button>
+          <small className="muted">Returns independent job preferences and source URLs already saved in Jobs.</small>
+        </label>
+        <label className="wide">4. Save jobs
+          <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-jobs-save?access=YOUR_ACCESS_TOKEN
+Content-Type: application/json
+
+{"jobs":[{"title":"Job title","company":"Employer","sourcePlatform":"Company careers page","sourceType":"company_careers","sourceUrl":"https://employer.example/jobs/123","workplaceType":"remote","country":"Country"}]}</pre>
+          <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-jobs-save?access=YOUR_ACCESS_TOKEN")}>Copy jobs save URL</button>
+          <small className="muted">POST only. Accepts 1–50 job records. The original source URL is required; duplicates are skipped.</small>
+        </label>
       </div>
       {message && <p className="muted" role="status">{message}</p>}
     </section>
     </>}
+
+    {activeTab === "jobs" && <JobPreferencesSettings />}
 
     {activeTab === "preferences" && <>
     <section className="panel"><form className="lead-form" onSubmit={save}>
