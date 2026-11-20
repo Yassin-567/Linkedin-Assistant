@@ -114,7 +114,7 @@ function prepareJob(value: unknown, index: number): PreparedJob {
     description: textValue(job.description, 20000),
     salaryText: textValue(job.salaryText ?? job.salary, 500),
     salaryMin: numericValue(job.salaryMin),
-    salaryMax: numeribValue(job.salaryMax),
+    salaryMax: numericValue(job.salaryMax),
     salaryCurrency: textValue(job.salaryCurrency ?? job.currency, 10).toUpperCase(),
     workplaceType: workplaceValue(job.workplaceType ?? job.workMode),
     employmentType: textValue(job.employmentType ?? job.type, 80) || "unknown",
