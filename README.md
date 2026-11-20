@@ -106,4 +106,21 @@ The job prompt searches public job boards, employer career pages, public LinkedI
 
 Job records keep the original source URL, application URL, title, employer, description, salary, workplace type, employment type, location, country, seniority, posting date, source platform, match reason and evidence links when these facts are available. Missing details stay blank rather than being invented. Source URLs are normalized for de-duplication.
 
-Apply `db/phase_8_jobs_discovery.sql` to an existing database before enabling the Jobs feature. For local development, `db/schema.sql` includes the complete schema.
+Apply `db/phase_8_jobs_discovery.sql` to an existing database before enabling the Jobs feature, then apply `db/phase_9_leads_workspace.sql` to enable the independent commercial Leads workspace. For local development, run `db/schema.sql` and then Phase 9 until the canonical schema is updated.
+
+## Commercial Leads workspace (Phase 9)
+
+The navigation separates **LinkedIn Connections** from **Leads**. The existing `/prospects` and `/search` routes remain the LinkedIn professional discovery and relationship-management workflow; their existing records and APIs are preserved. The `/connections` route remains the imported LinkedIn connections list.
+
+The new `/leads` workspace is an independent business opportunity and customer-discovery module for freelancers and businesses. Users can create multiple private Lead Profiles, each with editable service, ideal-customer, geographic, commercial, source, discovery-engine and exclusion preferences.
+
+- **Direct Demand Discovery** searches for public requests and recommendation-seeking posts.
+- **Opportunity Signal Discovery** searches for public indications of operational problems, expansion or outsourcing needs. These are hypotheses, not confirmed purchase requests.
+- **Ideal Customer Discovery** finds businesses matching a profile even when they have not publicly expressed buying intent.
+- `GET/POST/PATCH/DELETE /api/lead-profiles`: manage private profile preferences.
+- `POST /api/lead-search`: search public web snippets through the existing Serper integration. Requires `SERPER_API_KEY`.
+- `GET/POST/PATCH/DELETE /api/leads`: save and manage commercial opportunities, evidence, scoring, pipeline stages and confirmed won value.
+
+Lead profiles and opportunities use separate PostgreSQL tables (`lead_profiles`, `business_leads`, `lead_activities`) and are isolated by authenticated user. Search results retain their original public source URL and separate explicit demand from inferred signals and ideal-customer matches. Scores are heuristic prioritisation estimates based on public search snippets; they are not verified buying intent, budget or revenue. Review the original source before contacting a prospect.
+
+**Existing database upgrade:** run `db/phase_9_leads_workspace.sql` once after the Phase 8 migration. This does not alter or migrate existing LinkedIn prospects or imported connections. Existing individual accounts remain the initial ownership model; agency multi-client workspaces and permissions are a later phase.

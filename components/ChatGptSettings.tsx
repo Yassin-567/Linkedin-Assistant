@@ -6,7 +6,7 @@ type Status = { enabled: boolean; createdAt: string };
 type AccessToken = { token: string; origin: string };
 
 const KINDS: { id: PromptKind; title: string; hint: string }[] = [
-  { id: "research", title: "Research now", hint: "ChatGPT researches public sources and saves qualified jobs or prospects, depending on the selected research type." },
+  { id: "research", title: "Research now", hint: "ChatGPT researches public sources and saves qualified jobs or LinkedIn connection candidates, depending on the selected research type." },
   { id: "scheduled", title: "Recurring (scheduled)", hint: "Uses the same long-lived Access Token for every scheduled run." }
 ];
 
@@ -22,7 +22,7 @@ function localDateValue(date = new Date()) {
 }
 
 export default function ChatGptSettings({ prospectCount, jobCount }: { prospectCount: number; jobCount: number }) {
-  const [researchArea, setResearchArea] = useState<"leads" | "jobs">("jobs");
+  const [researchArea, setResearchArea] = useState<"connections" | "jobs">("jobs");
   const [status, setStatus] = useState<Status>({ enabled: false, createdAt: "" });
   const [kind, setKind] = useState<PromptKind>("research");
   const [jobSearchDepth, setJobSearchDepth] = useState<JobSearchDepth>("standard");
@@ -170,7 +170,7 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
       <h2>1. What should ChatGPT research?</h2>
       <div className="method-grid">
         <button type="button" className={"method-card" + (researchArea === "jobs" ? " active" : "")} onClick={() => setResearchArea("jobs")} aria-pressed={researchArea === "jobs"}><strong>Find jobs</strong><span className="muted">Search vacancies across job boards, employers, LinkedIn and public social posts.</span></button>
-        <button type="button" className={"method-card" + (researchArea === "leads" ? " active" : "")} onClick={() => setResearchArea("leads")} aria-pressed={researchArea === "leads"}><strong>Find leads</strong><span className="muted">Discover relevant people and decision-makers using your lead preferences.</span></button>
+        <button type="button" className={"method-card" + (researchArea === "connections" ? " active" : "")} onClick={() => setResearchArea("connections")} aria-pressed={researchArea === "connections"}><strong>Find LinkedIn connections</strong><span className="muted">Discover relevant professionals and decision-makers using your LinkedIn search preferences.</span></button>
       </div>
       {researchArea === "jobs" && <div className="search-depth-section">
         <h3>Job search mode</h3>
