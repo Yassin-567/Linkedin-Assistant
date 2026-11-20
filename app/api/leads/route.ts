@@ -28,18 +28,6 @@ function sourceUrl(value: unknown): { raw: string; normalized: string } {
   }
 }
 
-const selectSql = `SELECT id::text, profile_id::text AS "profileId", title, company,
-  contact_name AS "contactName", contact_role AS "contactRole", website, profile_url AS "profileUrl",
-  email, phone, location, country, opportunity_summary AS "opportunitySummary",
-  service_requested AS "serviceRequested", discovery_engine AS "discoveryEngine",
-  buying_intent AS "buyingIntent", confidence, project_type AS "projectType", budget_text AS "budgetText",
-  estimated_value_min AS "estimatedValueMin", estimated_value_max AS "estimatedValueMax",
-  value_currency AS "valueCurrency", source_platform AS "sourcePlatform", source_type AS "sourceType",
-  source_url AS "sourceUrl", published_at AS "publishedAt", evidence, scores,
-  source_metadata AS "sourceMetadata", status, notes, next_follow_up AS "nextFollowUp",
-  won_value AS "wonValue", won_currency AS "wonCurrency", discovered_at AS "discoveredAt",
-  created_at AS "createdAt", updated_at AS "updatedAt"`;
-
 async function fetchLead(userId: string, id: string) {
   const sql = db();
   const rows: any = await sql`SELECT id::text, profile_id::text AS "profileId", title, company,
