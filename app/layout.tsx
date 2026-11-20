@@ -3,8 +3,8 @@ import "./globals.css";
 import AppShell from "../components/AppShell";
 
 export const metadata: Metadata = {
-  title: "LinkedIn Assistant",
-  description: "A personal workspace for LinkedIn prospecting and approved account actions."
+  title: "Inlinked",
+  description: "A business development workspace for finding customers, managing LinkedIn connections and tracking opportunities."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
