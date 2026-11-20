@@ -7,12 +7,22 @@ type Job = {
   workplaceType: string; employmentType: string; location: string; country: string;
   seniority: string; postedAt: string | null; postedAtText: string;
   sourcePlatform: string; sourceType: string; sourceUrl: string; applicationUrl: string;
-  matchReason: string; evidenceUrls: string[]; status: string; notes: string;
+  matchReason: string; evidenceUrls: string[]; sourceMetadata: Record<string, unknown> | null; status: string; notes: string;
   discoveredAt: string; createdAt: string;
 };
 const statuses = ["Saved", "Applied", "Interviewing", "Offer", "Rejected", "Closed", "Not interested"];
 const label = (value: string) => value ? value.replace(/[_-]+/g, " ").replace(/\b\w/g, x => x.toUpperCase()) : "Not specified";
 const safeDate = (value?: string | null) => value && !Number.isNaN(Date.parse(value)) ? new Date(value).toLocaleDateString() : "";
+const metaList = (metadata: Record<string, unknown> | null, key: string) => {
+  const value = metadata?.[key];
+  if (Array.isArray(value)) return value.filter(item => typeof item === "string" && item.trim()).map(String);
+  return typeof value === "string" && value.trim() ? [value] : [];
+};
+const metaLabel: Record<string, string> = {
+  matchingSkills: "Matching skills", transferableSkills: "Transferable skills", equivalentTools: "Equivalent tools",
+  missingRequirements: "Missing requirements", experienceGaps: "Experience gaps", scheduleConflicts: "Schedule conflicts",
+  preferenceWarnings: "Preference warnings", inclusionReasons: "Reasons for inclusion"
+};
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -129,8 +139,21 @@ export default function JobsPage() {
             {job.discoveredAt && <span className="job-chip">Found: {safeDate(job.discoveredAt)}</span>}
           </div>
           {job.matchReason && <p className="job-match">{job.matchReason}</p>}
+          {job.sourceMetadata?.searchMode === "loose" && <div className="job-chip-row">
+            <span className="job-chip">Loose Mode</span>
+            {typeof job.sourceMetadata.skillMatchScore === "number" && <span className="job-chip">{job.sourceMetadata.skillMatchScore}% skill match</span>}
+            {typeof job.sourceMetadata.practicalEligibility === "string" && <span className="job-chip">{job.sourceMetadata.practicalEligibility}</span>}
+          </div>}
           {expanded.includes(job.id) && <div className="job-expanded">
             {job.description && <div><strong>Job description</strong><p>{job.description}</p></div>}
+            {job.sourceMetadata?.searchMode === "loose" && <div>
+              <strong>Loose Mode assessment</strong>
+              {(["matchingSkills", "transferableSkills", "equivalentTools", "missingRequirements", "experienceGaps", "scheduleConflicts", "preferenceWarnings", "inclusionReasons"] as const).map(key => {
+                const items = metaList(job.sourceMetadata, key);
+                return items.length ? <div key={key}><strong>{metaLabel[key]}</strong><ul>{items.map((item, index) => <li key={key + index}>{item}</li>)}</ul></div> : null;
+              })}
+              {typeof job.sourceMetadata.countryEligibility === "string" && <p><strong>Country eligibility:</strong> {job.sourceMetadata.countryEligibility}</p>}
+            </div>}
             {job.notes && <div><strong>Your notes</strong><p>{job.notes}</p></div>}
             {job.evidenceUrls?.length > 0 && <div><strong>Other evidence</strong><ul>{job.evidenceUrls.map(url => <li key={url}><a href={url} target="_blank" rel="noreferrer">{url}</a></li>)}</ul></div>}
             <label>Notes<textarea rows={2} value={job.notes || ""} onChange={e => setJobs(old => old.map(item => item.id === job.id ? { ...item, notes: e.target.value } : item))} onBlur={e => void update(job, { notes: e.target.value })} placeholder="Add your notes..." /></label>

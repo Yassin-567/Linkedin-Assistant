@@ -73,3 +73,11 @@ Body (1–50 jobs per request):
 Job discovery searches public web sources broadly: job boards, employer career pages, public LinkedIn job listings, and public social-media/recruiter hiring posts. ChatGPT native web search is primary; Firecrawl is optional. Inlinked does not call a paid job provider. Private, deleted, unindexed or login-restricted posts may not be discoverable. Do not bypass platform controls or scrape protected LinkedIn content.
 
 If ChatGPT cannot send the POST request, it should return a JSON object for manual import at **Jobs → Import from ChatGPT**. A successful HTTP response reports `total`, `saved`, `duplicates` and `invalid`.
+
+### Job search modes
+
+- **Standard search** is the default and keeps the saved eligibility preferences.
+- **Deep & Broad Search** performs additional structured research passes and explores alternative relevant role wording without relaxing populated eligibility preferences.
+- **Loose Mode** expands matching to adjacent titles, transferable responsibilities and equivalent software (for example, Xero/Sage workflows compared with QuickBooks Online). It can retain relevant vacancies with experience gaps, schedule conflicts or other soft-preference mismatches, but must show those warnings clearly. It must not claim the candidate has used unfamiliar software or has unconfirmed qualifications.
+
+Loose Mode still rejects closed vacancies, scams, duplicates, excluded keywords and explicit country/residency restrictions that make the candidate ineligible. Unknown country eligibility is flagged for review. For each Loose Mode result, the prompt requests a skill-match score and a separate practical-eligibility classification. Matching details and warnings are stored in the existing `sourceMetadata` field; no new database columns or migration are required. Standard remains the default.
