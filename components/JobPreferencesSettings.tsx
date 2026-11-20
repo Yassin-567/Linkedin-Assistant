@@ -28,7 +28,8 @@ const defaults: Preferences = {
   includeSocialMedia: true, includeCompanySites: true, includeJobBoards: true,
   targetCount: 30
 };
-const splitLines = (value: string) => value.split("\n").map(x => x.trim()).filter(Boolean);
+const splitLines = (value: string) => value.split("\n");
+const cleanLines = (values: string[]) => values.map(value => value.trim()).filter(Boolean);
 
 export default function JobPreferencesSettings() {
   const [p, setP] = useState<Preferences>(defaults);
@@ -61,7 +62,16 @@ export default function JobPreferencesSettings() {
   async function save(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setMessage("");
     try {
-      const r = await fetch("/api/job-preferences", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) });
+      const r = await fetch("/api/job-preferences", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        ...p,
+        targetRoles: cleanLines(p.targetRoles),
+        keywords: cleanLines(p.keywords),
+        countries: cleanLines(p.countries),
+        locations: cleanLines(p.locations),
+        employmentTypes: cleanLines(p.employmentTypes),
+        seniorityLevels: cleanLines(p.seniorityLevels),
+        excludedKeywords: cleanLines(p.excludedKeywords)
+      }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Could not save preferences.");
       setMessage("Job-search preferences saved.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Save failed."); }
@@ -76,10 +86,10 @@ export default function JobPreferencesSettings() {
       const lead = d.preferences;
       setP(old => ({
         ...old,
-        targetRoles: Array.from(new Set([...(lead.jobTitles || []), ...(old.targetRoles || [])])),
-        keywords: Array.from(new Set([...(lead.keywords || []), ...(lead.industries || []), ...(old.keywords || [])])),
-        countries: Array.from(new Set([...(lead.countries || []), ...(old.countries || [])])),
-        excludedKeywords: Array.from(new Set([...(lead.excludedKeywords || []), ...(old.excludedKeywords || [])])),
+        targetRoles: Array.from(new Set([...cleanLines(lead.jobTitles || []), ...cleanLines(old.targetRoles || [])])),
+        keywords: Array.from(new Set([...cleanLines(lead.keywords || []), ...cleanLines(lead.industries || []), ...cleanLines(old.keywords || [])])),
+        countries: Array.from(new Set([...cleanLines(lead.countries || []), ...cleanLines(old.countries || [])])),
+        excludedKeywords: Array.from(new Set([...cleanLines(lead.excludedKeywords || []), ...cleanLines(old.excludedKeywords || [])])),
         language: lead.language || old.language
       }));
       setMessage("Copied lead preferences into the job form. Review and save them; existing job preferences were kept too.");
