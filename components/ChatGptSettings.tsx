@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { buildChatGptPrompt, type PromptKind, type ScheduleFrequency, type ScheduleTimeChoice } from "@/lib/chatgpt-prompts";
+import { buildChatGptPrompt, buildJobChatGptPrompt, type PromptKind, type ScheduleFrequency, type ScheduleTimeChoice } from "@/lib/chatgpt-prompts";
 
 type Status = { enabled: boolean; createdAt: string };
 type AccessToken = { token: string; origin: string };
 
 const KINDS: { id: PromptKind; title: string; hint: string }[] = [
-  { id: "research", title: "Research now", hint: "ChatGPT finds and saves the number of prospects you choose below, then reports back." },
+  { id: "research", title: "Research now", hint: "ChatGPT researches public sources and saves qualified jobs or prospects, depending on the selected research type." },
   { id: "scheduled", title: "Recurring (scheduled)", hint: "Uses the same long-lived Access Token for every scheduled run." }
 ];
 
@@ -21,7 +21,8 @@ function localDateValue(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-export default function ChatGptSettings({ prospectCount }: { prospectCount: number }) {
+export default function ChatGptSettings({ prospectCount, jobCount }: { prospectCount: number; jobCount: number }) {
+  const [researchArea, setResearchArea] = useState<"leads" | "jobs">("jobs");
   const [status, setStatus] = useState<Status>({ enabled: false, createdAt: "" });
   const [kind, setKind] = useState<PromptKind>("research");
   const [scheduleFrequency, setScheduleFrequency] = useState<ScheduleFrequency>("daily");
@@ -31,6 +32,8 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
   const [scheduleEndEnabled, setScheduleEndEnabled] = useState(false);
   const [scheduleEndDate, setScheduleEndDate] = useState("");
   const [access, setAccess] = useState<AccessToken | null>(null);
+  const [tokenDraft, setTokenDraft] = useState("");
+  const [deploymentShareToken, setDeploymentShareToken] = useState("");
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
 
@@ -55,6 +58,7 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || "Could not check the Access Token.");
         setStatus({ enabled: Boolean(d.enabled), createdAt: d.createdAt || "" });
+        setDeploymentShareToken(typeof d.vercelShareToken === "string" ? d.vercelShareToken : "");
         if (!d.enabled) {
           setAccess(null);
           localStorage.removeItem("inlinked_access_token");
@@ -68,15 +72,33 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
   const scheduleReady = kind !== "scheduled" || !scheduleEndEnabled || Boolean(scheduleEndDate);
   const prompt = useMemo(
     () => (activeToken && activeOrigin && scheduleReady
-      ? buildChatGptPrompt({
-          kind, token: activeToken, origin: activeOrigin, prospectCount,
-          scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
-          scheduleEndEnabled, scheduleEndDate
-        })
+      ? researchArea === "jobs"
+        ? buildJobChatGptPrompt({
+            kind, token: activeToken, origin: activeOrigin, jobCount, deploymentShareToken,
+            scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
+            scheduleEndEnabled, scheduleEndDate
+          })
+        : buildChatGptPrompt({
+            kind, token: activeToken, origin: activeOrigin, prospectCount, deploymentShareToken,
+            scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
+            scheduleEndEnabled, scheduleEndDate
+          })
       : ""),
-    [kind, activeToken, activeOrigin, prospectCount, scheduleFrequency, scheduleTimeChoice,
-      scheduleTime, scheduleTimezone, scheduleEndEnabled, scheduleEndDate, scheduleReady]
+    [researchArea, kind, activeToken, activeOrigin, prospectCount, jobCount,
+      scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
+      scheduleEndEnabled, scheduleEndDate, scheduleReady, deploymentShareToken]
   );
+
+  function useExistingAccessToken() {
+    const value = tokenDraft.trim();
+    if (!value) return;
+    setAccess({ token: value, origin: window.location.origin });
+    localStorage.setItem("inlinked_access_token", value);
+    localStorage.removeItem("inlinked_permanent_token");
+    localStorage.removeItem("inlinked_quick_session");
+    setTokenDraft("");
+    setMessage("Existing Access Token loaded in this preview browser. It was not regenerated or changed in your Inlinked account.");
+  }
 
   async function generateAccessToken() {
     if (status.enabled && !window.confirm("Regenerate the Access Token? The current token will stop working immediately, including in previously copied prompts.")) return;
@@ -88,6 +110,7 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
       if (!r.ok) throw new Error(d.error || "Could not generate the Access Token.");
       const next = { token: d.accessToken, origin: d.origin || window.location.origin };
       setAccess(next);
+      setDeploymentShareToken(typeof d.vercelShareToken === "string" ? d.vercelShareToken : "");
       localStorage.setItem("inlinked_access_token", d.accessToken);
       localStorage.removeItem("inlinked_permanent_token");
       localStorage.removeItem("inlinked_quick_session");
@@ -135,7 +158,7 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
     if (!prompt) return;
     try {
       await navigator.clipboard.writeText(prompt);
-      setMessage("Prompt copied. Paste it into ChatGPT. The prompt contains your long-lived Access Token, so keep it private.");
+      setMessage("Prompt copied. It contains your Inlinked Access Token and preview access link. Keep it private.");
     } catch {
       setMessage("Your browser blocked copying. Select the prompt text below and copy it manually.");
     }
@@ -143,7 +166,11 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
 
   return <>
     <section className="panel">
-      <h2>1. What should ChatGPT do?</h2>
+      <h2>1. What should ChatGPT research?</h2>
+      <div className="method-grid">
+        <button type="button" className={"method-card" + (researchArea === "jobs" ? " active" : "")} onClick={() => setResearchArea("jobs")} aria-pressed={researchArea === "jobs"}><strong>Find jobs</strong><span className="muted">Search vacancies across job boards, employers, LinkedIn and public social posts.</span></button>
+        <button type="button" className={"method-card" + (researchArea === "leads" ? " active" : "")} onClick={() => setResearchArea("leads")} aria-pressed={researchArea === "leads"}><strong>Find leads</strong><span className="muted">Discover relevant people and decision-makers using your lead preferences.</span></button>
+      </div>
       <div className="method-grid">
         {KINDS.map(k => (
           <button
@@ -223,7 +250,13 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
             <button type="button" className="secondary" onClick={() => void copyAccessToken()}>Copy Access Token</button>
           </label>
         : status.enabled
-          ? <p className="footnote">A previously generated token is active, but its value is not available in this browser. Regenerate it to display a new token. The old token will stop working.</p>
+          ? <div className="wide token-import">
+              <label>Use your existing long-lived Access Token
+                <input type="password" value={tokenDraft} onChange={e => setTokenDraft(e.target.value)} autoComplete="off" spellCheck={false} placeholder="Paste the token from your current Inlinked session or saved prompt" />
+              </label>
+              <button type="button" className="secondary" onClick={useExistingAccessToken} disabled={!tokenDraft.trim()}>Use existing Access Token</button>
+              <p className="footnote">This only loads the existing token into this preview browser. It does not create, regenerate or revoke any token in your Inlinked account.</p>
+            </div>
           : <p className="footnote">Generate a token to build either prompt below. The token is shown only once and is not recoverable from the database.</p>}
     </section>
 
@@ -231,15 +264,15 @@ export default function ChatGptSettings({ prospectCount }: { prospectCount: numb
       <div className="section-heading">
         <div>
           <h2>3. Copy the prompt into ChatGPT</h2>
-          <p className="muted">Both Research now and Recurring prompts use the same Access Token. ChatGPT uses Firecrawl's browser interaction capability for Inlinked requests.</p>
+          <p className="muted">Both prompts use the same Access Token. Job discovery uses ChatGPT web search first; Firecrawl is optional. Inlinked only provides context and receives saved results.</p>
         </div>
         <button type="button" onClick={() => void copyPrompt()} disabled={!prompt || Boolean(busy)}>Copy prompt</button>
       </div>
       {prompt
-        ? <pre className="prompt-box" aria-label="Prompt preview">{mask(prompt, activeToken)}</pre>
+        ? <pre className="prompt-box" aria-label="Prompt preview">{mask(mask(prompt, activeToken), deploymentShareToken)}</pre>
         : <div className="empty"><strong>No prompt yet</strong><p>Generate an Access Token above to build your prompt.</p></div>}
       <p className="muted" role="status">{message}</p>
-      <p className="footnote">Anyone with the copied prompt can read your search context and save prospects to your account until you revoke or regenerate the token. Never paste the prompt anywhere public.</p>
+      <p className="footnote">Anyone with the copied prompt can read the selected research context and save results to your account. The prompt also contains the preview's Vercel access link when needed. Keep it private; never paste it anywhere public.</p>
     </section>
   </>;
 }

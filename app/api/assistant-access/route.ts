@@ -31,7 +31,8 @@ export async function GET() {
     `;
     return NextResponse.json({
       enabled: rows.length > 0,
-      createdAt: rows[0]?.created_at || null
+      createdAt: rows[0]?.created_at || null,
+      vercelShareToken: process.env.INLINKLED_VERCEL_SHARE_TOKEN || ""
     }, { headers: noStore });
   } catch (error) {
     console.error("Access Token status failed", error);
@@ -76,6 +77,7 @@ export async function POST(request: Request) {
       accessToken,
       createdAt: rows[0]?.created_at || new Date().toISOString(),
       origin: new URL(base).origin,
+      vercelShareToken: process.env.INLINKLED_VERCEL_SHARE_TOKEN || "",
       expiresAt: null,
       message: "Your Access Token does not expire automatically. It works directly with the Context and Save endpoints until you revoke or regenerate it. Keep it private; it is shown only once."
     }, { headers: noStore });

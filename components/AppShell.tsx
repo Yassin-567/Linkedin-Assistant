@@ -8,6 +8,7 @@ type Account = { connected: boolean; profile?: { name?: string; email?: string }
 const items = [
   { label: "Dashboard", href: "/", icon: "⌂" },
   { label: "Prospects", href: "/prospects", icon: "◎" },
+  { label: "Jobs", href: "/jobs", icon: "▤" },
   { label: "Find Leads", href: "/search", icon: "⌕" },
   { label: "Outreach", href: "/outreach", icon: "✉" },
   { label: "Analytics", href: "/analytics", icon: "▥" },
@@ -40,7 +41,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <button className={menuOpen ? "sidebar-backdrop visible" : "sidebar-backdrop"} aria-label="Close navigation" onClick={() => setMenuOpen(false)} tabIndex={menuOpen ? 0 : -1} />
       <aside className={menuOpen ? "app-sidebar open" : "app-sidebar"}>
         <Link className="brand" href="/" onClick={() => setMenuOpen(false)}>
-          <span className="brand-mark">in</span><span><strong>LinkedIn Assistant</strong><small>Prospecting workspace</small></span>
+          <span className="brand-mark">in</span><span><strong>LinkedIn Assistant</strong><small>Jobs & prospecting workspace</small></span>
         </Link>
         <div className="sidebar-label">WORKSPACE</div>
         <nav className="sidebar-nav" aria-label="Main navigation">
@@ -62,7 +63,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <div className="app-main">
         <header className="mobile-header">
           <button className="menu-toggle" onClick={() => setMenuOpen(true)} aria-label="Open navigation">☰</button>
-          <span className="mobile-brand">LinkedIn Assistant</span>
+          <span className="mobile-brand">Inlinked</span>
           <span className={account.connected ? "mobile-account connected" : "mobile-account"} aria-label={account.connected ? "Account connected" : "Not signed in"} />
         </header>
         <div className="app-page">{children}</div>

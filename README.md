@@ -91,3 +91,19 @@ npm run dev
 ```
 
 Run `db/schema.sql` before signing in. Never commit real environment variables or tokens.
+
+
+## Job discovery and tracking
+
+Jobs are a separate workspace from Leads. Job-search preferences live in `job_search_preferences`; saved vacancies live in `jobs`. The app generates a ChatGPT prompt rather than performing its own job search. ChatGPT uses its native web search first and may optionally use Firecrawl when available. No paid job API or mandatory Firecrawl credential is required by Inlinked.
+
+The job prompt searches public job boards, employer career pages, public LinkedIn job listings, and publicly discoverable social-media and recruiter hiring posts. Search coverage is not exhaustive: unindexed, private, deleted or login-restricted content may not be discoverable. It instructs ChatGPT not to bypass access controls or scrape protected LinkedIn content.
+
+- `GET/PUT /api/job-preferences`: authenticated per-user job preferences.
+- `GET/POST/PATCH/DELETE /api/jobs`: signed-in user's saved jobs and application status.
+- `POST /api/assistant-jobs-save`: saves 1–50 vacancies using the same long-lived Access Token as lead research.
+- `GET /api/assistant-context?scope=jobs`: returns job preferences and already-saved source URLs to ChatGPT.
+
+Job records keep the original source URL, application URL, title, employer, description, salary, workplace type, employment type, location, country, seniority, posting date, source platform, match reason and evidence links when these facts are available. Missing details stay blank rather than being invented. Source URLs are normalized for de-duplication.
+
+Apply `db/phase_8_jobs_discovery.sql` to an existing database before enabling the Jobs feature. For local development, `db/schema.sql` includes the complete schema.

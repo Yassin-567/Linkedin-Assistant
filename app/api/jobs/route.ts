@@ -1,0 +1,81 @@
+import { NextRequest, NextResponse } from "next/server";
+import { currentUser } from "@/lib/app-auth";
+import { db } from "@/lib/db";
+import { saveJobBatch } from "@/lib/job-store";
+
+export const runtime = "nodejs";
+const statuses = ["Saved", "Applied", "Interviewing", "Offer", "Rejected", "Closed", "Not interested"];
+const fail = (error: string, status: number) => NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store" } });
+const validId = (v: unknown) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+
+export async function GET() {
+  const user = await currentUser();
+  if (!user) return fail("Sign in required.", 401);
+  try {
+    const sql = db();
+    const jobs = await sql`
+      SELECT id::text, title, company, description, salary_text AS "salaryText",
+        salary_min AS "salaryMin", salary_max AS "salaryMax", salary_currency AS "salaryCurrency",
+        workplace_type AS "workplaceType", employment_type AS "employmentType",
+        location, country, seniority, posted_at AS "postedAt", posted_at_text AS "postedAtText",
+        source_platform AS "sourcePlatform", source_type AS "sourceType",
+        source_url AS "sourceUrl", application_url AS "applicationUrl",
+        match_reason AS "matchReason", evidence_urls AS "evidenceUrls",
+        status, notes, discovered_at AS "discoveredAt", created_at AS "createdAt"
+      FROM jobs WHERE user_id = ${user.userId}
+      ORDER BY created_at DESC LIMIT 1000
+    `;
+    return NextResponse.json({ jobs }, { headers: { "Cache-Control": "private, no-store" } });
+  } catch (error) {
+    console.error("Jobs read failed", error);
+    return fail("Could not load saved jobs.", 503);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const user = await currentUser();
+  if (!user) return fail("Sign in required.", 401);
+  const body = await request.json().catch(() => null);
+  if (!body || !Array.isArray(body.jobs) || body.jobs.length < 1 || body.jobs.length > 50) return fail("Provide between 1 and 50 jobs.", 400);
+  try {
+    return NextResponse.json({ ok: true, ...(await saveJobBatch(db(), user.userId, body.jobs)) }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    console.error("Manual job import failed", error);
+    return fail("Could not import this batch.", 503);
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  const user = await currentUser();
+  if (!user) return fail("Sign in required.", 401);
+  const body = await request.json().catch(() => null);
+  if (!validId(body?.id)) return fail("A valid job ID is required.", 400);
+  const status = typeof body.status === "string" && statuses.includes(body.status) ? body.status : "Saved";
+  const notes = typeof body.notes === "string" ? body.notes.trim().slice(0, 5000) : "";
+  try {
+    const sql = db();
+    const rows: any = await sql`UPDATE jobs SET status=${status}, notes=${notes}, updated_at=now()
+      WHERE id=${body.id}::uuid AND user_id=${user.userId} RETURNING id`;
+    if (!rows.length) return fail("Job not found in your account.", 404);
+    return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    console.error("Job update failed", error);
+    return fail("Could not update this job.", 503);
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const user = await currentUser();
+  if (!user) return fail("Sign in required.", 401);
+  const id = request.nextUrl.searchParams.get("id") || "";
+  if (!validId(id)) return fail("A valid job ID is required.", 400);
+  try {
+    const sql = db();
+    const rows: any = await sql`DELETE FROM jobs WHERE id=${id}::uuid AND user_id=${user.userId} RETURNING id`;
+    if (!rows.length) return fail("Job not found in your account.", 404);
+    return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    console.error("Job delete failed", error);
+    return fail("Could not delete this job.", 503);
+  }
+}

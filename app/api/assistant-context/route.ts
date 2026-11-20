@@ -15,6 +15,53 @@ export async function GET(request: NextRequest) {
     const userId = (await resolveAssistantAuth(request))?.userId;
     if (!userId) return NextResponse.json({ error: "AI token is missing, invalid, expired or revoked. Send it as Authorization: Bearer <token>." }, { status: 401, headers: noStore });
 
+    if (request.nextUrl.searchParams.get("scope") === "jobs") {
+      const sql = db();
+      await sql`INSERT INTO job_search_preferences(user_id) VALUES(${userId}) ON CONFLICT(user_id) DO NOTHING`;
+      const [preferenceRows, savedJobRows]: any = await Promise.all([
+        sql`SELECT target_roles, keywords, countries, locations, work_modes, employment_types,
+          seniority_levels, excluded_keywords, salary_currency, minimum_salary, language,
+          include_linkedin, include_social_media, include_company_sites, include_job_boards, target_count
+          FROM job_search_preferences WHERE user_id = ${userId} LIMIT 1`,
+        sql`SELECT normalized_source_url AS url FROM jobs WHERE user_id = ${userId}
+          ORDER BY created_at DESC LIMIT 5000`
+      ]);
+      const p = preferenceRows[0] || {};
+      return NextResponse.json({
+        ok: true,
+        contextVersion: 1,
+        scope: "jobs",
+        retrievedAt: new Date().toISOString(),
+        instructions: {
+          useAsDefaultSearchContext: true,
+          preserveUserPreferencesUnlessTheUserOverridesThem: true,
+          discoverJobsAcrossThePublicWeb: true,
+          nativeChatGptWebSearchIsPrimary: true,
+          firecrawlIsOptional: true,
+          doNotInventMissingJobDetails: true
+        },
+        jobSearchPreferences: {
+          targetRoles: p.target_roles || [],
+          keywords: p.keywords || [],
+          countries: p.countries || [],
+          locations: p.locations || [],
+          workModes: p.work_modes || ["remote", "hybrid", "on-site"],
+          employmentTypes: p.employment_types || [],
+          seniorityLevels: p.seniority_levels || [],
+          excludedKeywords: p.excluded_keywords || [],
+          salaryCurrency: p.salary_currency || "",
+          minimumSalary: p.minimum_salary === null || p.minimum_salary === undefined ? null : Number(p.minimum_salary),
+          language: p.language || "English",
+          includeLinkedIn: p.include_linkedin !== false,
+          includeSocialMedia: p.include_social_media !== false,
+          includeCompanySites: p.include_company_sites !== false,
+          includeJobBoards: p.include_job_boards !== false,
+          targetCount: Number(p.target_count || 30)
+        },
+        exclusions: { savedJobUrls: savedJobRows.map((x: any) => x.url) }
+      }, { headers: noStore });
+    }
+
     const sql = db();
     const rows: any = await sql`
       SELECT

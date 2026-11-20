@@ -52,3 +52,24 @@ Response: `total`, `saved`, `duplicates`, `invalid` and a per-lead `results` arr
 ## Without an HTTP tool
 
 Ask ChatGPT to list prospects as `Name | Company | LinkedIn profile URL`, one per line, then paste them into **Prospects → Paste from ChatGPT**. Duplicates are skipped.
+
+
+## Jobs: public-web job discovery
+
+Use the same long-lived Access Token used for lead research. The generated job prompt first calls:
+
+`GET /api/assistant-context?scope=jobs&access=<ACCESS_TOKEN>`
+
+Then, after research, it saves records with:
+
+`POST /api/assistant-jobs-save?access=<ACCESS_TOKEN>`
+
+Body (1–50 jobs per request):
+
+```json
+{"jobs":[{"title":"Job title","company":"Employer","description":"Publicly available description","salaryText":"Salary as advertised","workplaceType":"remote","employmentType":"Full-time","location":"Location","country":"Country","postedAt":null,"postedAtText":"Posted 3 days ago","sourcePlatform":"Company careers page","sourceType":"company_careers","sourceUrl":"https://employer.example/jobs/123","applicationUrl":"https://employer.example/apply/123","matchReason":"Why it matches","evidenceUrls":[]}]}
+```
+
+Job discovery searches public web sources broadly: job boards, employer career pages, public LinkedIn job listings, and public social-media/recruiter hiring posts. ChatGPT native web search is primary; Firecrawl is optional. Inlinked does not call a paid job provider. Private, deleted, unindexed or login-restricted posts may not be discoverable. Do not bypass platform controls or scrape protected LinkedIn content.
+
+If ChatGPT cannot send the POST request, it should return a JSON object for manual import at **Jobs → Import from ChatGPT**. A successful HTTP response reports `total`, `saved`, `duplicates` and `invalid`.
