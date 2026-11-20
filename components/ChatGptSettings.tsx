@@ -6,7 +6,7 @@ type Status = { enabled: boolean; createdAt: string };
 type AccessToken = { token: string; origin: string };
 
 const KINDS: { id: PromptKind; title: string; hint: string }[] = [
-  { id: "research", title: "Research now", hint: "ChatGPT finds and saves the number of prospects you choose below, then reports back." },
+  { id: "research", title: "Research now", hint: "ChatGPT researches public sources and saves qualified jobs or prospects, depending on the selected research type." },
   { id: "scheduled", title: "Recurring (scheduled)", hint: "Uses the same long-lived Access Token for every scheduled run." }
 ];
 
