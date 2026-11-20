@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
       const category = sourceCategory(url);
       return {
         title, company: "", url, description: snippet, discoveryEngine: batch.engine,
-        sourcePlatform: platform(url), sourceType: category === "business_sites" ? "business_website" : category === "project_sites" ? "project_site" : "social_post",
+        sourcePlatform: platform(url), sourceType: category === "business_sites" ? "business_website" : category === "project_sites" ? "project_site" : ["linkedin_public", "reddit", "facebook_public", "x_public"].includes(category) ? "social_post" : category === "forums" ? "forum_post" : "public_web",
         publishedAt: parseDate(item.date), sourceCategory: category, ...score
       };
     })).filter((item: any) => {
