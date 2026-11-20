@@ -97,7 +97,7 @@ Run `db/schema.sql` before signing in. Never commit real environment variables o
 
 Jobs are a separate workspace from Leads. Job-search preferences live in `job_search_preferences`; saved vacancies live in `jobs`. The app generates a ChatGPT prompt rather than performing its own job search. ChatGPT uses its native web search first and may optionally use Firecrawl when available. No paid job API or mandatory Firecrawl credential is required by Inlinked.
 
-The job prompt searches public job boards, employer career pages, public LinkedIn job listings, and publicly discoverable social-media and recruiter hiring posts. Search coverage is not exhaustive: unindexed, private, deleted or login-restricted content may not be discoverable. It instructs ChatGPT not to bypass access controls or scrape protected LinkedIn content.
+The job prompt searches public job boards, employer career pages, public LinkedIn job listings, and publicly discoverable social-media and recruiter hiring posts. The prompt builder offers **Standard search** (the existing default) and **Deep & Broad Search** (additional structured research passes, alternative relevant role-title wording and wider source exploration). Both modes use the same per-user saved job preferences and saved-job context; Deep & Broad Search does not relax populated eligibility filters. Search coverage is not exhaustive: unindexed, private, deleted or login-restricted content may not be discoverable. It instructs ChatGPT not to bypass access controls or scrape protected LinkedIn content.
 
 - `GET/PUT /api/job-preferences`: authenticated per-user job preferences.
 - `GET/POST/PATCH/DELETE /api/jobs`: signed-in user's saved jobs and application status.
