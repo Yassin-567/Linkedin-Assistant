@@ -104,7 +104,8 @@ export async function POST(request: NextRequest) {
     if (!rows.length) return fail("Lead profile not found in your account.", 404);
     const profile = rows[0];
     const prefs = profile.preferences && typeof profile.preferences === "object" ? profile.preferences : {};
-    const selected = Array.isArray(body.engines) ? body.engines.filter((x: string) => engines.includes(x)) : list(prefs.discoveryEngines).filter((x: string) => engines.includes(x));
+    const isEngine = (value: unknown): value is Engine => typeof value === "string" && (engines as readonly string[]).includes(value);
+    const selected: Engine[] = Array.isArray(body.engines) ? body.engines.filter(isEngine) : list(prefs.discoveryEngines).filter(isEngine);
     const activeEngines = (selected.length ? selected : ["direct_demand"]) as Engine[];
     const locationOverride = clean(body.location, 180);
     const extra = clean(body.query, 200);
