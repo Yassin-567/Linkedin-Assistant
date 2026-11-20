@@ -48,6 +48,7 @@ function cleanPreferences(value: unknown) {
     discoveryEngines: array(input.discoveryEngines, 3).filter(item => allowedEngines.includes(item)),
     excludedKeywords: array(input.excludedKeywords, 100),
     serviceDescription: clean(input.serviceDescription, 3000),
+    idealCustomerDescription: clean(input.idealCustomerDescription, 3000),
     problemsSolved: clean(input.problemsSolved, 2000),
     projectType,
     minimumBudget: clean(input.minimumBudget, 40),
