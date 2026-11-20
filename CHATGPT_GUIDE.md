@@ -81,3 +81,23 @@ If ChatGPT cannot send the POST request, it should return a JSON object for manu
 - **Loose Mode** expands matching to adjacent titles, transferable responsibilities and equivalent software (for example, Xero/Sage workflows compared with QuickBooks Online). It can retain relevant vacancies with experience gaps, schedule conflicts or other soft-preference mismatches, but must show those warnings clearly. It must not claim the candidate has used unfamiliar software or has unconfirmed qualifications.
 
 Loose Mode still rejects closed vacancies, scams, duplicates, excluded keywords and explicit country/residency restrictions that make the candidate ineligible. Unknown country eligibility is flagged for review. For each Loose Mode result, the prompt requests a skill-match score and a separate practical-eligibility classification. Matching details and warnings are stored in the existing `sourceMetadata` field; no new database columns or migration are required. Standard remains the default.
+
+
+## Commercial Leads: ChatGPT-powered customer discovery
+
+Commercial Leads uses a separate prompt generated inside the /leads workspace. Select a Lead Profile, choose one or more discovery engines, optionally add a location or query override, choose a target count, and copy the prompt into ChatGPT.
+
+ChatGPT uses its own native web search and browsing to research public sources. It does not use Serper, Google Search API or another external discovery provider for this workflow. Firecrawl is used only to execute the authenticated Inlinked context and save API requests.
+
+The prompt first calls GET /api/assistant-leads-context?profileId=PROFILE_ID&access=ACCESS_TOKEN. It then researches and saves the qualified batch through POST /api/assistant-leads-save?access=ACCESS_TOKEN.
+
+The save body contains a top-level profileId and a leads array (1–50 records). Every record must contain a title or company, an original public sourceUrl, and a recognized discoveryEngine. Optional fields include contact details, website, location, public evidence URLs, opportunity summary, source metadata, conservative confidence and prioritisation scores. Unknown information should be blank or null, never invented.
+
+The context response includes the selected profile's preferences and previously saved company, website and source URL exclusions. The save endpoint verifies token ownership and profile ownership, validates public HTTP(S) source URLs, sanitizes scores, and skips duplicates. A successful response reports total, saved, duplicates, invalid and per-record statuses.
+
+The discovery engines must remain distinct:
+- Direct Demand: public requests, recommendations or explicit searches for a service.
+- Opportunity Signals: observable business conditions that suggest a possible need; these are hypotheses, not confirmed buying requests.
+- Ideal Customers: businesses matching the customer profile even without evidence they are currently buying.
+
+Do not access private messages, closed groups, private profiles or login-restricted pages. Do not message prospects. ChatGPT must report the actual API result and must never say a lead was saved unless Inlinked confirms it.
