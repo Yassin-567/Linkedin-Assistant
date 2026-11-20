@@ -2,6 +2,7 @@
 export type PromptKind = "research" | "scheduled";
 export type ScheduleFrequency = "daily" | "weekdays" | "weekly" | "monthly";
 export type ScheduleTimeChoice = "morning" | "afternoon" | "evening" | "night" | "specific";
+export type JobSearchDepth = "standard" | "deep";
 type Options = {
   kind: PromptKind;
   token: string;
@@ -123,6 +124,7 @@ type JobPromptOptions = {
   token: string;
   origin: string;
   jobCount: number;
+  searchDepth?: JobSearchDepth;
   deploymentShareToken?: string;
   scheduleFrequency?: ScheduleFrequency;
   scheduleTimeChoice?: ScheduleTimeChoice;
@@ -135,7 +137,7 @@ type JobPromptOptions = {
 const JOB_EXAMPLE = `{"jobs":[{"title":"Job title","company":"Employer","description":"Full description when publicly available","salaryText":"Salary as advertised, if available","salaryMin":null,"salaryMax":null,"salaryCurrency":"GBP","workplaceType":"remote","employmentType":"Full-time","location":"Location","country":"United Kingdom","seniority":"Mid-level","postedAt":null,"postedAtText":"Posted 3 days ago","sourcePlatform":"Company careers page","sourceType":"company_careers","sourceUrl":"https://employer.example/jobs/123","applicationUrl":"https://employer.example/apply/123","matchReason":"Why this matches my preferences","evidenceUrls":["https://employer.example/jobs/123"],"sourceMetadata":{}}]}`;
 
 export function buildJobChatGptPrompt({
-  kind, token, origin, jobCount, deploymentShareToken,
+  kind, token, origin, jobCount, searchDepth = "standard", deploymentShareToken,
   scheduleFrequency = "daily", scheduleTimeChoice = "morning", scheduleTime = "09:00",
   scheduleTimezone = "Africa/Cairo", scheduleEndEnabled = false, scheduleEndDate = ""
 }: JobPromptOptions): string {
@@ -144,6 +146,7 @@ export function buildJobChatGptPrompt({
   const context = base + "/api/assistant-context?scope=jobs&" + accessQuery;
   const save = base + "/api/assistant-jobs-save?" + accessQuery;
   const scheduled = kind === "scheduled";
+  const deepSearch = searchDepth === "deep";
   const recurrence = scheduleFrequency === "weekdays" ? "Every weekday (Monday to Friday)"
     : scheduleFrequency === "weekly" ? "Once every week"
       : scheduleFrequency === "monthly" ? "Once every month" : "Every day";
@@ -176,6 +179,19 @@ export function buildJobChatGptPrompt({
     "Use multiple distinct search passes: broad web queries, job-board-specific searches, employer career page searches, LinkedIn public job searches, and platform-specific social searches. Search combinations of roles, skills, locations, remote terms, hiring phrases and posting recency. Search different wording and synonyms to avoid a narrow or repetitive result set.",
     "A public social-media hiring post counts as a job lead even if it is not formatted as a conventional job advert. Record who posted it, the employer/recruiter if identifiable, the post URL, date if available, and a separate application URL if one is supplied.",
     "Public search does not cover every page or social post. Some posts are not indexed, private, deleted, or login-restricted. Be transparent about these coverage limits. Do not claim exhaustive internet coverage.",
+    ...(deepSearch ? [
+      "",
+      "## Deep & Broad Search mode — expanded research depth",
+      "This mode changes the depth and structure of discovery, not the user's eligibility requirements. Use the exact same jobSearchPreferences retrieved from Inlinked as the source of truth.",
+      "Run at least six distinct research passes before concluding, unless the requested target is reached earlier: (1) exact saved job titles and close wording variants; (2) relevant adjacent titles and equivalent role names derived from the saved targetRoles; (3) task-, responsibility- and tool-based searches derived from the saved keywords; (4) separate searches focused on each enabled source category; (5) employer career pages and specialist recruiters in the saved countries/locations; and (6) recent public recruiter/employer hiring posts and social searches.",
+      "For each role family, try multiple genuinely different query formulations: title-first, skills/tasks-first, employer/industry-first, and location/work-mode-first. Use synonyms, regional spelling variants and common alternative titles, but keep every result relevant to the saved roles or keywords.",
+      "Search beyond the first small batch of results. Where a source exposes pagination, inspect additional result pages; otherwise run new focused queries with different wording, role variants and source/domain focus. Do not count repeated views of the same listing as new discoveries.",
+      "Use the enabled source categories independently rather than assuming one job board represents the market. Look for smaller employers, specialist recruitment agencies, outsourced finance/accounting providers and direct company vacancy pages when relevant to the saved preferences.",
+      "For remote vacancies, search useful wording variants such as worldwide, global, work from anywhere, EMEA, international and contractor only as discovery terms. These terms are not proof of eligibility: verify the actual hiring country, residency/work-authorisation rules, payroll restrictions or contractor acceptance before treating a vacancy as suitable.",
+      "Treat saved countries, locations, work modes, employment types, seniority, salary floor and excluded keywords as constraints exactly as in Standard search. Never broaden or silently relax a populated preference to increase the result count. When a preference dimension is empty, keep that dimension open.",
+      "Maintain a research log of the distinct query themes and source categories actually checked, plus approximate raw results screened, unique vacancies verified, rejected vacancies and the main rejection reasons. Do not fabricate search counts or claim a pass was completed when it was not.",
+      "Continue until the target is reached or the useful public sources and query variations have been reasonably exhausted. If fewer qualified vacancies exist, return fewer and explain which additional passes were completed and what limited the result set."
+    ] : []),
     "",
     "## Apply my preferences",
     "Use jobSearchPreferences from the retrieved context as my default filters. Apply target roles, keywords, countries, locations, work modes, employment types, seniority levels, salary floor and exclusions. My latest instructions in this chat override saved preferences.",
