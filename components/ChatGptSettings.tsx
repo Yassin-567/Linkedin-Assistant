@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { buildChatGptPrompt, buildJobChatGptPrompt, type PromptKind, type ScheduleFrequency, type ScheduleTimeChoice } from "@/lib/chatgpt-prompts";
+import { buildChatGptPrompt, buildJobChatGptPrompt, type JobSearchDepth, type PromptKind, type ScheduleFrequency, type ScheduleTimeChoice } from "@/lib/chatgpt-prompts";
 
 type Status = { enabled: boolean; createdAt: string };
 type AccessToken = { token: string; origin: string };
@@ -25,6 +25,7 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
   const [researchArea, setResearchArea] = useState<"leads" | "jobs">("jobs");
   const [status, setStatus] = useState<Status>({ enabled: false, createdAt: "" });
   const [kind, setKind] = useState<PromptKind>("research");
+  const [jobSearchDepth, setJobSearchDepth] = useState<JobSearchDepth>("standard");
   const [scheduleFrequency, setScheduleFrequency] = useState<ScheduleFrequency>("daily");
   const [scheduleTimeChoice, setScheduleTimeChoice] = useState<ScheduleTimeChoice>("morning");
   const [scheduleTime, setScheduleTime] = useState("09:00");
@@ -74,7 +75,7 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
     () => (activeToken && activeOrigin && scheduleReady
       ? researchArea === "jobs"
         ? buildJobChatGptPrompt({
-            kind, token: activeToken, origin: activeOrigin, jobCount, deploymentShareToken,
+            kind, token: activeToken, origin: activeOrigin, jobCount, searchDepth: jobSearchDepth, deploymentShareToken,
             scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
             scheduleEndEnabled, scheduleEndDate
           })
@@ -84,7 +85,7 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
             scheduleEndEnabled, scheduleEndDate
           })
       : ""),
-    [researchArea, kind, activeToken, activeOrigin, prospectCount, jobCount,
+    [researchArea, kind, activeToken, activeOrigin, prospectCount, jobCount, jobSearchDepth,
       scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
       scheduleEndEnabled, scheduleEndDate, scheduleReady, deploymentShareToken]
   );
@@ -171,6 +172,30 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
         <button type="button" className={"method-card" + (researchArea === "jobs" ? " active" : "")} onClick={() => setResearchArea("jobs")} aria-pressed={researchArea === "jobs"}><strong>Find jobs</strong><span className="muted">Search vacancies across job boards, employers, LinkedIn and public social posts.</span></button>
         <button type="button" className={"method-card" + (researchArea === "leads" ? " active" : "")} onClick={() => setResearchArea("leads")} aria-pressed={researchArea === "leads"}><strong>Find leads</strong><span className="muted">Discover relevant people and decision-makers using your lead preferences.</span></button>
       </div>
+      {researchArea === "jobs" && <div className="search-depth-section">
+        <h3>Job search depth</h3>
+        <div className="method-grid">
+          <button
+            type="button"
+            className={"method-card" + (jobSearchDepth === "standard" ? " active" : "")}
+            onClick={() => setJobSearchDepth("standard")}
+            aria-pressed={jobSearchDepth === "standard"}
+          >
+            <strong>Standard search</strong>
+            <span className="muted">Use the existing research prompt and search approach.</span>
+          </button>
+          <button
+            type="button"
+            className={"method-card" + (jobSearchDepth === "deep" ? " active" : "")}
+            onClick={() => setJobSearchDepth("deep")}
+            aria-pressed={jobSearchDepth === "deep"}
+          >
+            <strong>Deep &amp; Broad Search</strong>
+            <span className="muted">Run more research passes, explore alternative role titles and search more source types while keeping your saved preferences.</span>
+          </button>
+        </div>
+        <p className="footnote">Both modes use the same Inlinked job preferences and saved-job context. Standard search remains the default.</p>
+      </div>}
       <div className="method-grid">
         {KINDS.map(k => (
           <button
@@ -266,7 +291,7 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
           <h2>3. Copy the prompt into ChatGPT</h2>
           <p className="muted">Both prompts use the same Access Token. Job discovery uses ChatGPT web search first; Firecrawl is optional. Inlinked only provides context and receives saved results.</p>
         </div>
-        <button type="button" onClick={() => void copyPrompt()} disabled={!prompt || Boolean(busy)}>Copy prompt</button>
+        <button type="button" onClick={() => void copyPrompt()} disabled={!prompt || Boolean(busy)}>{researchArea === "jobs" && jobSearchDepth === "deep" ? "Copy deep-search prompt" : "Copy prompt"}</button>
       </div>
       {prompt
         ? <pre className="prompt-box" aria-label="Prompt preview">{mask(mask(prompt, activeToken), deploymentShareToken)}</pre>
