@@ -118,9 +118,12 @@ The new `/leads` workspace is an independent business opportunity and customer-d
 - **Opportunity Signal Discovery** searches for public indications of operational problems, expansion or outsourcing needs. These are hypotheses, not confirmed purchase requests.
 - **Ideal Customer Discovery** finds businesses matching a profile even when they have not publicly expressed buying intent.
 - `GET/POST/PATCH/DELETE /api/lead-profiles`: manage private profile preferences.
-- `POST /api/lead-search`: search public web snippets through the existing Serper integration. Requires `SERPER_API_KEY`.
+- `GET /api/assistant-leads-context?profileId=<PROFILE_ID>`: returns the selected Lead Profile preferences and already-saved company/source exclusions to ChatGPT using the long-lived Access Token.
+- `POST /api/assistant-leads-save`: saves 1–50 researched commercial leads to the selected profile using the same Access Token; duplicate companies and source URLs are skipped.
 - `GET/POST/PATCH/DELETE /api/leads`: save and manage commercial opportunities, evidence, scoring, pipeline stages and confirmed won value.
 
-Lead profiles and opportunities use separate PostgreSQL tables (`lead_profiles`, `business_leads`, `lead_activities`) and are isolated by authenticated user. Search results retain their original public source URL and separate explicit demand from inferred signals and ideal-customer matches. Scores are heuristic prioritisation estimates based on public search snippets; they are not verified buying intent, budget or revenue. Review the original source before contacting a prospect.
+Commercial lead discovery is prompt-driven. Inlinked generates a profile-specific ChatGPT research prompt; ChatGPT uses its own native web search and browsing, then submits qualified records to the authenticated Inlinked save API. The commercial Leads workspace does not call Serper or another search provider. Serper remains in the separate existing LinkedIn prospect-intelligence feature.
+
+Lead profiles and opportunities use separate PostgreSQL tables (`lead_profiles`, `business_leads`, `lead_activities`) and are isolated by authenticated user. Saved opportunities retain original public source URLs, evidence links, contact details when publicly verified, and separate direct demand from inferred signals and ideal-customer matches. ChatGPT-generated priority scores are research estimates, not verified buying intent, budget or revenue. Review original sources before contacting a prospect.
 
 **Existing database upgrade:** run `db/phase_9_leads_workspace.sql` once after the Phase 8 migration. This does not alter or migrate existing LinkedIn prospects or imported connections. Existing individual accounts remain the initial ownership model; agency multi-client workspaces and permissions are a later phase.

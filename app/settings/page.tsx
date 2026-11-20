@@ -121,7 +121,7 @@ export default function SettingsPage() {
     </nav>
     {activeTab === "chatgpt" && <>
     <section className="panel">
-      <div className="section-heading"><div><div className="eyebrow">CHATGPT INTEGRATION</div><h2>ChatGPT connection and prompt builder</h2><p className="muted">Manage one Access Token and generate separate job-discovery and lead-research prompts. ChatGPT performs the research; Inlinked supplies preferences and stores confirmed results.</p></div></div>
+      <div className="section-heading"><div><div className="eyebrow">CHATGPT INTEGRATION</div><h2>ChatGPT connection and prompt builder</h2><p className="muted">Manage one Access Token and generate job-discovery and LinkedIn connection-research prompts. The commercial Leads workspace has its own ChatGPT research prompt and save workflow.</p></div></div>
       <label className="wide">LinkedIn connections to target per prompt
         <input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setProspectCount(n); localStorage.setItem("inlinked_prospect_count", String(n)); } }} />
         <small className="muted">Choose 1–50 for LinkedIn connection discovery. The prompt will never invent or pad connection candidates.</small>

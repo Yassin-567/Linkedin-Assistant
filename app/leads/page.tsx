@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import LeadChatGptPrompt from "@/components/LeadChatGptPrompt";
 
 type Preferences = {
   services: string[];
@@ -25,11 +26,6 @@ type Preferences = {
 
 type Profile = { id: string; name: string; description: string; preferences: Preferences; isActive: boolean };
 type Scores = { serviceMatch?: number; buyingIntent?: number; freshness?: number; commercialPotential?: number; contactability?: number; priority?: number };
-type Discovered = {
-  title: string; company: string; url: string; description: string; discoveryEngine: string;
-  sourcePlatform: string; sourceType: string; publishedAt: string | null; sourceCategory: string;
-  buyingIntent: string; confidence: string; scores: Scores; matchedTerms: string[];
-};
 type Lead = {
   id: string; profileId: string | null; title: string; company: string; contactName: string; contactRole: string;
   location: string; country: string; opportunitySummary: string; serviceRequested: string; discoveryEngine: string;
@@ -76,11 +72,7 @@ export default function LeadsPage() {
   const [engineSelection, setEngineSelection] = useState<string[]>(["direct_demand", "opportunity_signal", "ideal_customer"]);
   const [locationOverride, setLocationOverride] = useState("");
   const [queryOverride, setQueryOverride] = useState("");
-  const [searching, setSearching] = useState(false);
   const [searchMessage, setSearchMessage] = useState("");
-  const [results, setResults] = useState<Discovered[]>([]);
-  const [savingResults, setSavingResults] = useState(false);
-  const [savedUrls, setSavedUrls] = useState<string[]>([]);
   const [pipelineSearch, setPipelineSearch] = useState("");
   const [pipelineStatus, setPipelineStatus] = useState("All");
   const [expandedLead, setExpandedLead] = useState("");
@@ -153,13 +145,13 @@ export default function LeadsPage() {
     setProfileName(profile.name); setProfileDescription(profile.description || "");
     setPreferences({ ...defaultPreferences, ...profile.preferences });
     setEngineSelection(profile.preferences.discoveryEngines?.length ? profile.preferences.discoveryEngines : defaultPreferences.discoveryEngines);
-    setEditing(false); setResults([]); setSearchMessage(""); setProfileMessage("");
+    setEditing(false); setSearchMessage(""); setProfileMessage("");
   }
 
   function newProfile() {
     setSelectedId(""); setProfileName(""); setProfileDescription("");
     setPreferences(defaultPreferences); setEngineSelection([...defaultPreferences.discoveryEngines]);
-    setEditing(true); setResults([]); setLeads([]); setProfileMessage("Create a profile for one business, service or customer segment.");
+    setEditing(true); setLeads([]); setProfileMessage("Create a profile for one business, service or customer segment.");
   }
 
   function updateList(key: keyof Preferences, value: string) {
@@ -202,7 +194,7 @@ export default function LeadsPage() {
       });
       setSelectedId(saved.id); setPreferences({ ...defaultPreferences, ...saved.preferences });
       setEngineSelection(saved.preferences.discoveryEngines || defaultPreferences.discoveryEngines);
-      setEditing(false); setProfileMessage("Profile saved. Your preferences will be used by future searches.");
+      setEditing(false); setProfileMessage("Profile saved. Your preferences will be included in future ChatGPT research prompts.");
     } catch (error) {
       setProfileMessage(error instanceof Error ? error.message : "Could not save profile.");
     } finally { setSavingProfile(false); }
@@ -219,62 +211,6 @@ export default function LeadsPage() {
       if (remaining.length) chooseProfile(remaining[0].id); else newProfile();
       setProfileMessage("Profile deleted. Existing leads were preserved.");
     } catch (error) { setProfileMessage(error instanceof Error ? error.message : "Could not delete profile."); }
-  }
-
-  async function searchLeads(event: React.FormEvent) {
-    event.preventDefault();
-    if (!selectedId) { setSearchMessage("Save a lead profile before searching."); return; }
-    if (!engineSelection.length) { setSearchMessage("Choose at least one discovery engine."); return; }
-    setSearching(true); setSearchMessage(""); setResults([]); setSavedUrls([]);
-    try {
-      const response = await fetch("/api/lead-search", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileId: selectedId, engines: engineSelection, location: locationOverride, query: queryOverride })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Lead discovery failed.");
-      setResults(Array.isArray(data.results) ? data.results : []);
-      setSearchMessage(data.count ? "Found " + data.count + " public opportunities. Review the evidence before saving or contacting." : "No matching public results were returned. Try broader services, locations or discovery engines.");
-    } catch (error) {
-      setSearchMessage(error instanceof Error ? error.message : "Lead discovery failed.");
-    } finally { setSearching(false); }
-  }
-
-  function toLead(result: Discovered) {
-    return {
-      profileId: selectedId, title: result.title, company: result.company || "",
-      opportunitySummary: result.description, serviceRequested: preferences.services.join(", "),
-      discoveryEngine: result.discoveryEngine, buyingIntent: result.buyingIntent, confidence: result.confidence,
-      projectType: preferences.projectType, sourcePlatform: result.sourcePlatform, sourceType: result.sourceType,
-      sourceUrl: result.url, publishedAt: result.publishedAt, evidenceUrls: [result.url],
-      scores: result.scores, sourceMetadata: { sourceCategory: result.sourceCategory, matchedTerms: result.matchedTerms, searchMode: "leads_v1" }
-    };
-  }
-
-  async function saveResult(result: Discovered) {
-    try {
-      const response = await fetch("/api/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lead: toLead(result) }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Could not save lead.");
-      setSavedUrls(old => [...old, result.url]);
-      await loadLeads(selectedId);
-      setSearchMessage(data.saved ? "Lead saved to your pipeline." : "This source is already saved in this profile.");
-    } catch (error) { setSearchMessage(error instanceof Error ? error.message : "Could not save lead."); }
-  }
-
-  async function saveAll() {
-    const fresh = results.filter(x => !savedUrls.includes(x.url));
-    if (!fresh.length) return;
-    setSavingResults(true);
-    try {
-      const response = await fetch("/api/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ leads: fresh.map(toLead) }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Could not save results.");
-      setSavedUrls(old => [...old, ...fresh.map(x => x.url)]);
-      await loadLeads(selectedId);
-      setSearchMessage("Save complete: " + data.saved + " saved, " + data.duplicates + " duplicates, " + data.invalid + " invalid.");
-    } catch (error) { setSearchMessage(error instanceof Error ? error.message : "Could not save results."); }
-    finally { setSavingResults(false); }
   }
 
   async function updateLead(lead: Lead, changes: Partial<Lead>) {
@@ -368,26 +304,40 @@ export default function LeadsPage() {
     </section>
 
     <section className="panel">
-      <div className="section-heading"><div><div className="eyebrow">PUBLIC OPPORTUNITY DISCOVERY</div><h2>Find potential customers</h2><p className="muted">Search for expressed demand, indirect buying signals or businesses matching your ideal customer profile.</p></div></div>
-      <form className="lead-form" onSubmit={searchLeads}>
-        <div className="wide"><strong className="small-heading">Discovery engines for this search</strong><div className="option-grid">{engines.map(engine => <label className="option-card" key={engine.id}><input type="checkbox" checked={engineSelection.includes(engine.id)} onChange={() => setEngineSelection(old => old.includes(engine.id) ? old.filter(x => x !== engine.id) : [...old, engine.id])}/><span><strong>{engine.label}</strong><small>{engine.hint}</small></span></label>)}</div></div>
-        <label>Location override<input value={locationOverride} onChange={event => setLocationOverride(event.target.value)} placeholder="Leave blank to use saved target locations"/></label>
-        <label>Extra search context<input value={queryOverride} onChange={event => setQueryOverride(event.target.value)} placeholder="e.g. small owner-managed businesses, urgent projects"/></label>
-        <div className="wide form-footer"><span className="muted">{selectedId ? "Using profile: " + (profiles.find(x => x.id === selectedId)?.name || profileName) : "Create and save a profile first."}</span><button type="submit" disabled={searching || !selectedId || !engineSelection.length}>{searching ? "Searching public sources…" : "Discover opportunities"}</button></div>
-      </form>
-      {searchMessage && <p className="status" role="status">{searchMessage}</p>}
-      {results.length > 0 && <>
-        <div className="section-heading"><div><h3>{results.length} discovery results</h3><p className="muted">Scores are evidence-based estimates from public snippets, not verified purchase intent.</p></div><button type="button" className="secondary" onClick={() => void saveAll()} disabled={savingResults || results.every(x => savedUrls.includes(x.url))}>{savingResults ? "Saving…" : "Save all results"}</button></div>
-        <div className="lead-list">{results.map((result, index) => <article className="lead lead-result" key={result.url}>
-          <div className="lead-result-main"><div className="result-kicker">{label(result.discoveryEngine)} · {result.sourcePlatform} · {result.confidence} confidence</div><strong>{index + 1}. {result.title}</strong><p>{result.description || "The public search result did not include a descriptive snippet."}</p>
-            <div className="lead-score-row"><span>Priority <strong>{result.scores.priority ?? 0}/100</strong></span><span>Service match <strong>{result.scores.serviceMatch ?? 0}</strong></span><span>Buying intent <strong>{result.scores.buyingIntent ?? 0}</strong></span></div>
-            <small>{result.buyingIntent}{result.matchedTerms.length ? " · Matched: " + result.matchedTerms.join(", ") : ""}</small>
-            <p><a href={result.url} target="_blank" rel="noreferrer">Review original source ↗</a></p>
-          </div>
-          <button type="button" disabled={savedUrls.includes(result.url)} onClick={() => void saveResult(result)}>{savedUrls.includes(result.url) ? "Saved" : "Save lead"}</button>
-        </article>)}</div>
-      </>}
-      <p className="footnote">Search results can be outdated, incomplete or irrelevant. An ideal-customer match is not evidence that a business is currently buying. Always inspect the original source before contacting anyone.</p>
+      <div className="section-heading">
+        <div>
+          <div className="eyebrow">CHATGPT-POWERED PUBLIC RESEARCH</div>
+          <h2>Find potential customers</h2>
+          <p className="muted">Generate a research prompt for ChatGPT. It will search public sources, verify evidence and save qualified commercial leads directly into this pipeline.</p>
+        </div>
+      </div>
+      <div className="lead-form">
+        <div className="wide">
+          <strong className="small-heading">Discovery engines for this research</strong>
+          <div className="option-grid">{engines.map(engine => <label className="option-card" key={engine.id}>
+            <input type="checkbox" checked={engineSelection.includes(engine.id)}
+              onChange={() => setEngineSelection(old => old.includes(engine.id) ? old.filter(x => x !== engine.id) : [...old, engine.id])}/>
+            <span><strong>{engine.label}</strong><small>{engine.hint}</small></span>
+          </label>)}</div>
+        </div>
+        <label>Location override
+          <input value={locationOverride} onChange={event => setLocationOverride(event.target.value)} placeholder="Leave blank to use saved target locations"/>
+        </label>
+        <label>Extra search context
+          <input value={queryOverride} onChange={event => setQueryOverride(event.target.value)} placeholder="e.g. owner-managed firms, urgent projects, small teams"/>
+        </label>
+        <div className="wide form-footer">
+          <span className="muted">{selectedId ? "Using profile: " + (profiles.find(x => x.id === selectedId)?.name || profileName) : "Create and save a profile first."}</span>
+        </div>
+        <LeadChatGptPrompt
+          profileId={selectedId}
+          profileName={profiles.find(x => x.id === selectedId)?.name || profileName}
+          engines={engineSelection}
+          locationOverride={locationOverride}
+          queryOverride={queryOverride}
+        />
+      </div>
+      <p className="footnote">ChatGPT uses its own web research for discovery. It distinguishes direct requests from inferred opportunities and ideal-customer matches. It does not access private profiles or messages, and it must not invent buying intent, contacts or budgets.</p>
     </section>
 
     <section className="panel">
@@ -409,7 +359,7 @@ export default function LeadsPage() {
             {lead.evidence?.length > 0 && <p><strong>Evidence links:</strong> {lead.evidence.length}</p>}
           </div>}
         </article>)}
-      </div> : <div className="empty"><strong>{leads.length ? "No leads match these filters" : "Your opportunity pipeline is ready"}</strong><p>{leads.length ? "Try another search term or pipeline status." : "Create a Lead Profile, discover public opportunities, then save promising results here."}</p></div>}
+      </div> : <div className="empty"><strong>{leads.length ? "No leads match these filters" : "Your opportunity pipeline is ready"}</strong><p>{leads.length ? "Try another search term or pipeline status." : "Create a Lead Profile, generate a ChatGPT research prompt and let ChatGPT save verified opportunities here."}</p></div>}
     </section>
     <footer>Inlinked Leads · Find demand, qualify opportunities and grow revenue.</footer>
   </main>;
