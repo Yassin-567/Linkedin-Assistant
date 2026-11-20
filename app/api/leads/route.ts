@@ -28,20 +28,40 @@ function sourceUrl(value: unknown): { raw: string; normalized: string } {
   }
 }
 
-const selectFields = `id::text, profile_id::text AS "profileId", title, company, contact_name AS "contactName",
-  contact_role AS "contactRole", website, profile_url AS "profileUrl", email, phone, location, country,
-  opportunity_summary AS "opportunitySummary", service_requested AS "serviceRequested",
-  discovery_engine AS "discoveryEngine", buying_intent AS "buyingIntent", confidence, project_type AS "projectType",
-  budget_text AS "budgetText", estimated_value_min AS "estimatedValueMin", estimated_value_max AS "estimatedValueMax",
+const selectSql = `SELECT id::text, profile_id::text AS "profileId", title, company,
+  contact_name AS "contactName", contact_role AS "contactRole", website, profile_url AS "profileUrl",
+  email, phone, location, country, opportunity_summary AS "opportunitySummary",
+  service_requested AS "serviceRequested", discovery_engine AS "discoveryEngine",
+  buying_intent AS "buyingIntent", confidence, project_type AS "projectType", budget_text AS "budgetText",
+  estimated_value_min AS "estimatedValueMin", estimated_value_max AS "estimatedValueMax",
   value_currency AS "valueCurrency", source_platform AS "sourcePlatform", source_type AS "sourceType",
-  source_url AS "sourceUrl", published_at AS "publishedAt", evidence, scores, source_metadata AS "sourceMetadata",
-  status, notes, next_follow_up AS "nextFollowUp", won_value AS "wonValue", won_currency AS "wonCurrency",
-  discovered_at AS "discoveredAt", created_at AS "createdAt", updated_at AS "updatedAt"`;
+  source_url AS "sourceUrl", published_at AS "publishedAt", evidence, scores,
+  source_metadata AS "sourceMetadata", status, notes, next_follow_up AS "nextFollowUp",
+  won_value AS "wonValue", won_currency AS "wonCurrency", discovered_at AS "discoveredAt",
+  created_at AS "createdAt", updated_at AS "updatedAt"`;
+
+async function fetchLead(userId: string, id: string) {
+  const sql = db();
+  const rows: any = await sql`SELECT id::text, profile_id::text AS "profileId", title, company,
+    contact_name AS "contactName", contact_role AS "contactRole", website, profile_url AS "profileUrl",
+    email, phone, location, country, opportunity_summary AS "opportunitySummary",
+    service_requested AS "serviceRequested", discovery_engine AS "discoveryEngine",
+    buying_intent AS "buyingIntent", confidence, project_type AS "projectType", budget_text AS "budgetText",
+    estimated_value_min AS "estimatedValueMin", estimated_value_max AS "estimatedValueMax",
+    value_currency AS "valueCurrency", source_platform AS "sourcePlatform", source_type AS "sourceType",
+    source_url AS "sourceUrl", published_at AS "publishedAt", evidence, scores,
+    source_metadata AS "sourceMetadata", status, notes, next_follow_up AS "nextFollowUp",
+    won_value AS "wonValue", won_currency AS "wonCurrency", discovered_at AS "discoveredAt",
+    created_at AS "createdAt", updated_at AS "updatedAt"
+    FROM business_leads WHERE id = ${id}::uuid AND user_id = ${userId} LIMIT 1`;
+  return rows[0] || null;
+}
 
 async function insertLead(userId: string, input: any) {
   const title = clean(input.title || input.name, 300);
   const company = clean(input.company, 300);
   if (!title && !company) return { status: "invalid" as const };
+  if (input.profileId && !validId(input.profileId)) return { status: "invalid" as const };
   const profileId = validId(input.profileId) ? input.profileId : null;
   const source = sourceUrl(input.sourceUrl);
   if (input.sourceUrl && !source.raw) return { status: "invalid" as const };
@@ -57,6 +77,8 @@ async function insertLead(userId: string, input: any) {
     const owned: any = await sql`SELECT id FROM lead_profiles WHERE id = ${profileId}::uuid AND user_id = ${userId} LIMIT 1`;
     if (!owned.length) return { status: "invalid" as const };
   }
+  const published = input.publishedAt ? new Date(input.publishedAt) : null;
+  const publishedAt = published && !Number.isNaN(published.getTime()) ? published : null;
   const rows: any = await sql`INSERT INTO business_leads(
     user_id, profile_id, title, company, contact_name, contact_role, website, profile_url, email, phone,
     location, country, opportunity_summary, service_requested, discovery_engine, buying_intent, confidence,
@@ -71,11 +93,12 @@ async function insertLead(userId: string, input: any) {
     ${clean(input.confidence,50) || "Unreviewed"}, ${projectType}, ${clean(input.budgetText,300)},
     ${numeric(input.estimatedValueMin)}, ${numeric(input.estimatedValueMax)}, ${clean(input.valueCurrency,12)},
     ${clean(input.sourcePlatform,100) || "Manual"}, ${clean(input.sourceType,80) || "manual"},
-    ${source.raw}, ${source.normalized}, ${input.publishedAt ? new Date(input.publishedAt) : null},
+    ${source.raw}, ${source.normalized}, ${publishedAt},
     ${JSON.stringify(evidence)}::jsonb, ${JSON.stringify(scoreData)}::jsonb, ${JSON.stringify(metadata)}::jsonb,
     ${status}, ${clean(input.notes,5000)}, ${clean(input.nextFollowUp,10) || null}::date
-  ) ON CONFLICT DO NOTHING RETURNING ${sql.unsafe(selectFields)}`;
-  return rows.length ? { status: "saved" as const, lead: rows[0] } : { status: "duplicate" as const };
+  ) ON CONFLICT DO NOTHING RETURNING id::text`;
+  if (!rows.length) return { status: "duplicate" as const };
+  return { status: "saved" as const, lead: await fetchLead(userId, String(rows[0].id)) };
 }
 
 export async function GET(request: NextRequest) {
@@ -84,12 +107,25 @@ export async function GET(request: NextRequest) {
   const profileId = clean(request.nextUrl.searchParams.get("profileId"), 50);
   const status = clean(request.nextUrl.searchParams.get("status"), 40);
   const search = clean(request.nextUrl.searchParams.get("q"), 200);
+  const hasProfile = validId(profileId);
+  const hasStatus = statuses.includes(status);
   try {
     const sql = db();
-    const leads = await sql`SELECT ${sql.unsafe(selectFields)} FROM business_leads
+    const leads = await sql`SELECT id::text, profile_id::text AS "profileId", title, company,
+      contact_name AS "contactName", contact_role AS "contactRole", website, profile_url AS "profileUrl",
+      email, phone, location, country, opportunity_summary AS "opportunitySummary",
+      service_requested AS "serviceRequested", discovery_engine AS "discoveryEngine",
+      buying_intent AS "buyingIntent", confidence, project_type AS "projectType", budget_text AS "budgetText",
+      estimated_value_min AS "estimatedValueMin", estimated_value_max AS "estimatedValueMax",
+      value_currency AS "valueCurrency", source_platform AS "sourcePlatform", source_type AS "sourceType",
+      source_url AS "sourceUrl", published_at AS "publishedAt", evidence, scores,
+      source_metadata AS "sourceMetadata", status, notes, next_follow_up AS "nextFollowUp",
+      won_value AS "wonValue", won_currency AS "wonCurrency", discovered_at AS "discoveredAt",
+      created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM business_leads
       WHERE user_id = ${user.userId}
-        AND (${!validId(profileId)} OR profile_id = ${validId(profileId) ? profileId : "00000000-0000-0000-0000-000000000000"}::uuid)
-        AND (${!statuses.includes(status)} OR status = ${statuses.includes(status) ? status : "New"})
+        AND (${!hasProfile} OR profile_id = ${hasProfile ? profileId : "00000000-0000-0000-0000-000000000000"}::uuid)
+        AND (${!hasStatus} OR status = ${hasStatus ? status : "New"})
         AND (${!search} OR concat_ws(' ', title, company, contact_name, location, country, opportunity_summary, service_requested, notes) ILIKE ${"%" + search + "%"})
       ORDER BY created_at DESC LIMIT 1000`;
     return NextResponse.json({ leads }, { headers: { "Cache-Control": "private, no-store" } });
@@ -137,10 +173,9 @@ export async function PATCH(request: NextRequest) {
     const rows: any = await sql`UPDATE business_leads SET status = ${status}, notes = ${notes},
       next_follow_up = ${followUp || null}::date, won_value = ${wonValue},
       won_currency = ${clean(body.wonCurrency,12)}, updated_at = now()
-      WHERE id = ${body.id}::uuid AND user_id = ${user.userId}
-      RETURNING ${sql.unsafe(selectFields)}`;
+      WHERE id = ${body.id}::uuid AND user_id = ${user.userId} RETURNING id::text`;
     if (!rows.length) return fail("Lead not found in your account.", 404);
-    return NextResponse.json({ ok: true, lead: rows[0] }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ ok: true, lead: await fetchLead(user.userId, String(rows[0].id)) }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Business lead update failed", error);
     return fail("Could not update this lead.", 503);
