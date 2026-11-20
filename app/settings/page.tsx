@@ -112,7 +112,7 @@ export default function SettingsPage() {
   }
 
   return <main className="workspace">
-    <header className="topbar"><div><div className="eyebrow">WORKSPACE CONFIGURATION</div><h1>Settings</h1><p className="muted">Manage LinkedIn search preferences, job preferences, and your ChatGPT connection and prompt tools.</p></div><div className="row"><a className="button secondary" href="/intelligence">AI Lead Intelligence</a><a className="button secondary" href="/">Back to workspace</a></div></header>
+    <header className="topbar"><div><div className="eyebrow">WORKSPACE CONFIGURATION</div><h1>Settings</h1><p className="muted">Manage LinkedIn search preferences, job preferences, and your ChatGPT connection and prompt tools.</p></div><div className="row"><a className="button secondary" href="/intelligence">LinkedIn Connection Intelligence</a><a className="button secondary" href="/">Back to workspace</a></div></header>
     <nav aria-label="Settings sections" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20, padding: 5, border: "1px solid #e1e8e9", borderRadius: 12, background: "#fff" }}>
       <button type="button" onClick={() => setActiveTab("preferences")} aria-selected={activeTab === "preferences"} style={{ flex: 1, minWidth: 150, background: activeTab === "preferences" ? "#087b5b" : "transparent", color: activeTab === "preferences" ? "#fff" : "#52635b" }}>LinkedIn preferences</button>
       <button type="button" onClick={() => setActiveTab("jobs")} aria-selected={activeTab === "jobs"} style={{ flex: 1, minWidth: 150, background: activeTab === "jobs" ? "#087b5b" : "transparent", color: activeTab === "jobs" ? "#fff" : "#52635b" }}>Job preferences</button>
@@ -122,9 +122,9 @@ export default function SettingsPage() {
     {activeTab === "chatgpt" && <>
     <section className="panel">
       <div className="section-heading"><div><div className="eyebrow">CHATGPT INTEGRATION</div><h2>ChatGPT connection and prompt builder</h2><p className="muted">Manage one Access Token and generate separate job-discovery and lead-research prompts. ChatGPT performs the research; Inlinked supplies preferences and stores confirmed results.</p></div></div>
-      <label className="wide">Prospects to target per prompt
+      <label className="wide">LinkedIn connections to target per prompt
         <input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setProspectCount(n); localStorage.setItem("inlinked_prospect_count", String(n)); } }} />
-        <small className="muted">Choose 1–50 for lead research. The prompt will never invent or pad prospects.</small>
+        <small className="muted">Choose 1–50 for LinkedIn connection discovery. The prompt will never invent or pad prospects.</small>
       </label>
       <label className="wide">Jobs to target per prompt
         <input type="number" min={1} max={50} step={1} value={jobCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setJobCount(n); localStorage.setItem("inlinked_job_count", String(n)); } }} />
@@ -176,9 +176,9 @@ Content-Type: application/json
       {field("keywords", "Interests and search keywords", "Skills, services, topics or phrases that should guide discovery.")}
       {field("jobTitles", "People and job titles", "Examples: Founder, Owner, Managing Director, Recruiter, Engineer.")}
       {field("excludedKeywords", "Exclude keywords", "Profiles or companies containing these terms will be filtered out where possible.")}
-      <label className="wide">Prospects to target per research run<input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setProspectCount(n); localStorage.setItem("inlinked_prospect_count", String(n)); } }} /><small className="muted">Choose 1–50. ChatGPT may return fewer when fewer qualified prospects are available. This preference is saved in this browser.</small></label>
+      <label className="wide">LinkedIn connections to target per research run<input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setProspectCount(n); localStorage.setItem("inlinked_prospect_count", String(n)); } }} /><small className="muted">Choose 1–50. ChatGPT may return fewer when fewer qualified prospects are available. This preference is saved in this browser.</small></label>
       <label className="wide">Preferred language<input value={p.language} onChange={e => setP(old => ({ ...old, language: e.target.value }))} /></label>
-      <label className="wide">About me / additional interests<textarea rows={5} value={p.profileSummary} onChange={e => setP(old => ({ ...old, profileSummary: e.target.value }))} placeholder="Add a short description of your background, skills, interests or the people you want to meet." /><small className="muted">This is your editable context for lead matching. Confirmed profile details below can update this summary.</small></label>
+      <label className="wide">About me / additional interests<textarea rows={5} value={p.profileSummary} onChange={e => setP(old => ({ ...old, profileSummary: e.target.value }))} placeholder="Add a short description of your background, skills, interests or the people you want to meet." /><small className="muted">This is your editable context for LinkedIn connection matching. Confirmed profile details below can update this summary.</small></label>
       <div className="wide form-footer"><span className="muted">{busy ? "Loading settings..." : message}</span><button disabled={busy || saving}>{saving ? "Saving..." : "Save preferences"}</button></div>
     </form></section>
 
