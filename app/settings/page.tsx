@@ -124,7 +124,7 @@ export default function SettingsPage() {
       <div className="section-heading"><div><div className="eyebrow">CHATGPT INTEGRATION</div><h2>ChatGPT connection and prompt builder</h2><p className="muted">Manage one Access Token and generate separate job-discovery and lead-research prompts. ChatGPT performs the research; Inlinked supplies preferences and stores confirmed results.</p></div></div>
       <label className="wide">LinkedIn connections to target per prompt
         <input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setProspectCount(n); localStorage.setItem("inlinked_prospect_count", String(n)); } }} />
-        <small className="muted">Choose 1–50 for LinkedIn connection discovery. The prompt will never invent or pad prospects.</small>
+        <small className="muted">Choose 1–50 for LinkedIn connection discovery. The prompt will never invent or pad connection candidates.</small>
       </label>
       <label className="wide">Jobs to target per prompt
         <input type="number" min={1} max={50} step={1} value={jobCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setJobCount(n); localStorage.setItem("inlinked_job_count", String(n)); } }} />
@@ -141,7 +141,7 @@ export default function SettingsPage() {
           <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-context?access=YOUR_ACCESS_TOKEN")}>Copy GET URL</button>
           <small className="muted">GET only. Alternatively send the same token in the Authorization: Bearer YOUR_ACCESS_TOKEN header.</small>
         </label>
-        <label className="wide">2. Save prospects
+        <label className="wide">2. Save LinkedIn connections
           <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-save?access=YOUR_ACCESS_TOKEN
 Content-Type: application/json
 
@@ -176,7 +176,7 @@ Content-Type: application/json
       {field("keywords", "Interests and search keywords", "Skills, services, topics or phrases that should guide discovery.")}
       {field("jobTitles", "People and job titles", "Examples: Founder, Owner, Managing Director, Recruiter, Engineer.")}
       {field("excludedKeywords", "Exclude keywords", "Profiles or companies containing these terms will be filtered out where possible.")}
-      <label className="wide">LinkedIn connections to target per research run<input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setProspectCount(n); localStorage.setItem("inlinked_prospect_count", String(n)); } }} /><small className="muted">Choose 1–50. ChatGPT may return fewer when fewer qualified prospects are available. This preference is saved in this browser.</small></label>
+      <label className="wide">LinkedIn connections to target per research run<input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setProspectCount(n); localStorage.setItem("inlinked_prospect_count", String(n)); } }} /><small className="muted">Choose 1–50. ChatGPT may return fewer when fewer qualified connection candidates are available. This preference is saved in this browser.</small></label>
       <label className="wide">Preferred language<input value={p.language} onChange={e => setP(old => ({ ...old, language: e.target.value }))} /></label>
       <label className="wide">About me / additional interests<textarea rows={5} value={p.profileSummary} onChange={e => setP(old => ({ ...old, profileSummary: e.target.value }))} placeholder="Add a short description of your background, skills, interests or the people you want to meet." /><small className="muted">This is your editable context for LinkedIn connection matching. Confirmed profile details below can update this summary.</small></label>
       <div className="wide form-footer"><span className="muted">{busy ? "Loading settings..." : message}</span><button disabled={busy || saving}>{saving ? "Saving..." : "Save preferences"}</button></div>
