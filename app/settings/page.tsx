@@ -145,7 +145,7 @@ Content-Type: application/json
           <small className="muted">Returns independent job preferences and source URLs already saved in Jobs.</small>
         </label>
         <label className="wide">4. Save jobs
-          <pre className="prompt-box">{"POST https://inlinked.vercel.app/api/assistant-jobs-save?access=YOUR_ACCESS_TOKEN\nContent-Type: application/json\n\n{\\"jobs\\":[{\\"title\\":\\"Job title\\",\\"company\\":\\"Employer\\",\\"sourcePlatform\\":\\"Company careers page\\",\\"sourceType\\":\\"company_careers\\",\\"sourceUrl\\":\\"https://employer.example/jobs/123\\",\\"workplaceType\\":\\"remote\\",\\"country\\":\\"Country\\"}]}"} </pre>
+          <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-jobs-save?access=YOUR_ACCESS_TOKEN<br />Content-Type: application/json<br /><br />Send JSON with a top-level "jobs" array. Each job needs a title and original sourceUrl.</pre>
           <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-jobs-save?access=YOUR_ACCESS_TOKEN")}>Copy jobs save URL</button>
           <small className="muted">POST only. Accepts 1–50 job records. The original source URL is required; duplicates are skipped.</small>
         </label>
