@@ -32,6 +32,7 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
   const [scheduleEndEnabled, setScheduleEndEnabled] = useState(false);
   const [scheduleEndDate, setScheduleEndDate] = useState("");
   const [access, setAccess] = useState<AccessToken | null>(null);
+  const [deploymentShareToken, setDeploymentShareToken] = useState("");
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
 
@@ -56,6 +57,7 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || "Could not check the Access Token.");
         setStatus({ enabled: Boolean(d.enabled), createdAt: d.createdAt || "" });
+        setDeploymentShareToken(typeof d.vercelShareToken === "string" ? d.vercelShareToken : "");
         if (!d.enabled) {
           setAccess(null);
           localStorage.removeItem("inlinked_access_token");
@@ -71,19 +73,19 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
     () => (activeToken && activeOrigin && scheduleReady
       ? researchArea === "jobs"
         ? buildJobChatGptPrompt({
-            kind, token: activeToken, origin: activeOrigin, jobCount,
+            kind, token: activeToken, origin: activeOrigin, jobCount, deploymentShareToken,
             scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
             scheduleEndEnabled, scheduleEndDate
           })
         : buildChatGptPrompt({
-            kind, token: activeToken, origin: activeOrigin, prospectCount,
+            kind, token: activeToken, origin: activeOrigin, prospectCount, deploymentShareToken,
             scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
             scheduleEndEnabled, scheduleEndDate
           })
       : ""),
     [researchArea, kind, activeToken, activeOrigin, prospectCount, jobCount,
       scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
-      scheduleEndEnabled, scheduleEndDate, scheduleReady]
+      scheduleEndEnabled, scheduleEndDate, scheduleReady, deploymentShareToken]
   );
 
   async function generateAccessToken() {
@@ -96,6 +98,7 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
       if (!r.ok) throw new Error(d.error || "Could not generate the Access Token.");
       const next = { token: d.accessToken, origin: d.origin || window.location.origin };
       setAccess(next);
+      setDeploymentShareToken(typeof d.vercelShareToken === "string" ? d.vercelShareToken : "");
       localStorage.setItem("inlinked_access_token", d.accessToken);
       localStorage.removeItem("inlinked_permanent_token");
       localStorage.removeItem("inlinked_quick_session");
@@ -248,10 +251,10 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
         <button type="button" onClick={() => void copyPrompt()} disabled={!prompt || Boolean(busy)}>Copy prompt</button>
       </div>
       {prompt
-        ? <pre className="prompt-box" aria-label="Prompt preview">{mask(prompt, activeToken)}</pre>
+        ? <pre className="prompt-box" aria-label="Prompt preview">{mask(mask(prompt, activeToken), deploymentShareToken)}</pre>
         : <div className="empty"><strong>No prompt yet</strong><p>Generate an Access Token above to build your prompt.</p></div>}
       <p className="muted" role="status">{message}</p>
-      <p className="footnote">Anyone with the copied prompt can read the selected research context and save results to your account until you revoke or regenerate the token. Never paste the prompt anywhere public.</p>
+      <p className="footnote">Anyone with the copied prompt can read the selected research context and save results to your account. The prompt also contains the preview's Vercel access link when needed. Keep it private; never paste it anywhere public.</p>
     </section>
   </>;
 }

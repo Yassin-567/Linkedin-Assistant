@@ -6,6 +6,7 @@ type Options = {
   kind: PromptKind;
   token: string;
   origin: string;
+  deploymentShareToken?: string;
   prospectCount: number;
   scheduleFrequency?: ScheduleFrequency;
   scheduleTimeChoice?: ScheduleTimeChoice;
@@ -18,13 +19,14 @@ type Options = {
 const LEAD_EXAMPLE = '{"leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug/"}]}';
 
 export function buildChatGptPrompt({
-  kind, token, origin, prospectCount,
+  kind, token, origin, deploymentShareToken, prospectCount,
   scheduleFrequency = "daily", scheduleTimeChoice = "morning", scheduleTime = "09:00",
   scheduleTimezone = "Africa/Cairo", scheduleEndEnabled = false, scheduleEndDate = ""
 }: Options): string {
   const base = origin.replace(/\/$/, "");
-  const context = `${base}/api/assistant-context?access=${encodeURIComponent(token)}`;
-  const save = `${base}/api/assistant-save?access=${encodeURIComponent(token)}`;
+  const accessQuery = `access=${encodeURIComponent(token)}${deploymentShareToken ? `&_vercel_share=${encodeURIComponent(deploymentShareToken)}` : ""}`;
+  const context = `${base}/api/assistant-context?${accessQuery}`;
+  const save = `${base}/api/assistant-save?${accessQuery}`;
   const scheduled = kind === "scheduled";
   const recurrence = scheduleFrequency === "weekdays"
     ? "Every weekday (Monday to Friday)"
@@ -48,7 +50,8 @@ export function buildChatGptPrompt({
     `Context endpoint (HTTP GET): ${context}`,
     `Prospect save endpoint (HTTP POST, Content-Type: application/json): ${save}`,
     "Use this same Access Token directly for both endpoints. Do not call a credentials endpoint, exchange the token, or request another token. Use the exact endpoint URLs above. Context and Save accept the token in the access query parameter; they also support Authorization: Bearer if needed.",
-    "The token is private and grants access only to this account's search context and prospect saving. If either endpoint returns 401, stop and tell me the Access Token may have been revoked or regenerated. Do not try another token or another authentication method.",
+    deploymentShareToken ? "The URLs also contain a Vercel share key. It only bypasses Vercel Authentication for this feature-branch Preview so Firecrawl can reach Inlinked's API. It is not a replacement for the Inlinked Access Token. Keep both values private." : "This deployment does not require a Vercel preview share key.",
+    "Distinguish errors carefully: if Vercel returns a Protected Deployment / Vercel Authentication page, the deployment share key is missing or invalid. If the endpoint returns Inlinked's JSON error that the AI token is missing, invalid or revoked, report an Inlinked Access Token problem. Never call the token invalid just because Vercel blocked the request.",
     "",
     "## Mandatory HTTP tool and browser-session procedure",
     "Use [$firecrawl](app://asdk_app_6a314a73f8ac819195b0d55e36b9c609) for every Inlinked HTTP request. The Firecrawl app link is mandatory; do not substitute scrape-only reads or another HTTP tool.",
@@ -85,7 +88,7 @@ export function buildChatGptPrompt({
     "- Finish with the exact save results returned by the API, including HTTP status, total, saved, duplicates, invalid and any errors. Do not rename or infer API response fields.",
     "",
     "## Privacy and safety",
-    "- Keep both Inlinked endpoint URLs and the Access Token private. Never print, publish, expose in the report, or send them to search engines or unrelated services.",
+    "- Keep both Inlinked endpoint URLs, the Inlinked Access Token and any Vercel share key private. Never print, publish, expose in the report, or send them to search engines or unrelated services.",
     "- Only send name, company and linkedin in the save request. Keep location, role, sources and fit notes in the research report; the save API does not store them.",
     "- Do not message anyone on LinkedIn. Do not access private LinkedIn content or bypass access controls.",
     "- Do not call any Inlinked endpoint other than the Context endpoint and Save endpoint."
@@ -120,6 +123,7 @@ type JobPromptOptions = {
   token: string;
   origin: string;
   jobCount: number;
+  deploymentShareToken?: string;
   scheduleFrequency?: ScheduleFrequency;
   scheduleTimeChoice?: ScheduleTimeChoice;
   scheduleTime?: string;
@@ -131,13 +135,14 @@ type JobPromptOptions = {
 const JOB_EXAMPLE = `{"jobs":[{"title":"Job title","company":"Employer","description":"Full description when publicly available","salaryText":"Salary as advertised, if available","salaryMin":null,"salaryMax":null,"salaryCurrency":"GBP","workplaceType":"remote","employmentType":"Full-time","location":"Location","country":"United Kingdom","seniority":"Mid-level","postedAt":null,"postedAtText":"Posted 3 days ago","sourcePlatform":"Company careers page","sourceType":"company_careers","sourceUrl":"https://employer.example/jobs/123","applicationUrl":"https://employer.example/apply/123","matchReason":"Why this matches my preferences","evidenceUrls":["https://employer.example/jobs/123"],"sourceMetadata":{}}]}`;
 
 export function buildJobChatGptPrompt({
-  kind, token, origin, jobCount,
+  kind, token, origin, jobCount, deploymentShareToken,
   scheduleFrequency = "daily", scheduleTimeChoice = "morning", scheduleTime = "09:00",
   scheduleTimezone = "Africa/Cairo", scheduleEndEnabled = false, scheduleEndDate = ""
 }: JobPromptOptions): string {
   const base = origin.replace(/\/$/, "");
-  const context = base + "/api/assistant-context?scope=jobs&access=" + encodeURIComponent(token);
-  const save = base + "/api/assistant-jobs-save?access=" + encodeURIComponent(token);
+  const accessQuery = "access=" + encodeURIComponent(token) + (deploymentShareToken ? "&_vercel_share=" + encodeURIComponent(deploymentShareToken) : "");
+  const context = base + "/api/assistant-context?scope=jobs&" + accessQuery;
+  const save = base + "/api/assistant-jobs-save?" + accessQuery;
   const scheduled = kind === "scheduled";
   const recurrence = scheduleFrequency === "weekdays" ? "Every weekday (Monday to Friday)"
     : scheduleFrequency === "weekly" ? "Once every week"
@@ -155,6 +160,8 @@ export function buildJobChatGptPrompt({
     "Job context (HTTP GET): " + context,
     "Job save endpoint (HTTP POST, Content-Type: application/json): " + save,
     "Use the same token for both endpoints, preferably as Authorization: Bearer <token>. The URLs above also include the token as an access query parameter. Never print the token or send either private endpoint URL to a search engine or unrelated service.",
+    deploymentShareToken ? "The URLs also include a Vercel share key. It only bypasses Vercel Authentication on this feature-branch Preview so Firecrawl can reach the Inlinked API. It is separate from, and does not replace, the Inlinked Access Token. Keep both values private." : "This deployment does not require a Vercel preview share key.",
+    "Distinguish 401 errors: a Vercel Protected Deployment / Vercel Authentication response means the preview share key was not accepted; Inlinked's JSON response saying the AI token is missing, invalid or revoked means the Inlinked Access Token needs attention. Do not confuse these errors.",
     "",
     "## Inlinked API connection procedure",
     "For every HTTP request to Inlinked, use [$firecrawl](app://asdk_app_6a314a73f8ac819195b0d55e36b9c609) and its browser-interaction capability to execute the actual GET or POST request with the exact URL, method, headers and JSON body. Do not substitute a scrape-only read for an HTTP request.",
@@ -199,7 +206,7 @@ export function buildJobChatGptPrompt({
     "Finish with the exact save response, or clearly state that the results were not saved and provide JSON for manual import.",
     "",
     "## Privacy and safety",
-    "Do not message employers, apply for jobs, contact recruiters or create accounts. Do not bypass website restrictions. Keep my Inlinked credentials and private API URLs confidential."
+    "Do not message employers, apply for jobs, contact recruiters or create accounts. Do not bypass website restrictions. Keep the Inlinked Access Token, Vercel share key and private API URLs confidential."
   ];
 
   if (!scheduled) return lines.join("\n");
