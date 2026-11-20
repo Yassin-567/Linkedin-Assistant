@@ -170,7 +170,7 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
       <h2>1. What should ChatGPT research?</h2>
       <div className="method-grid">
         <button type="button" className={"method-card" + (researchArea === "jobs" ? " active" : "")} onClick={() => setResearchArea("jobs")} aria-pressed={researchArea === "jobs"}><strong>Find jobs</strong><span className="muted">Search vacancies across job boards, employers, LinkedIn and public social posts.</span></button>
-        <button type="button" className={"method-card" + (researchArea === "connections" ? " active" : "")} onClick={() => setResearchArea("connections")} aria-pressed={researchArea === "leads"}><strong>Find LinkedIn connections</strong><span className="muted">Discover relevant professionals and decision-makers using your LinkedIn search preferences.</span></button>
+        <button type="button" className={"method-card" + (researchArea === "connections" ? " active" : "")} onClick={() => setResearchArea("connections")} aria-pressed={researchArea === "connections"}><strong>Find LinkedIn connections</strong><span className="muted">Discover relevant professionals and decision-makers using your LinkedIn search preferences.</span></button>
       </div>
       {researchArea === "jobs" && <div className="search-depth-section">
         <h3>Job search mode</h3>
