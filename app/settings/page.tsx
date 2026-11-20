@@ -16,7 +16,8 @@ const profileLabels: Record<keyof ProfileFields, string> = {
   name: "Full name", headline: "Professional headline", company: "Current company",
   about: "Public search snippet / About context", skills: "Skills", experience: "Experience", education: "Education"
 };
-function lines(value: string) { return value.split("\n").map(x => x.trim()).filter(Boolean); }
+function lines(value: string) { return value.split("\n"); }
+function cleanLines(values: string[]) { return values.map(value => value.trim()).filter(Boolean); }
 function sourceLabel(value?: string) {
   if (value === "public_linkedin_index") return "Public LinkedIn search result";
   if (value === "user_entered_or_edited") return "Entered or edited by you";
@@ -66,7 +67,14 @@ export default function SettingsPage() {
   async function save(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setMessage("");
     try {
-      const r = await fetch("/api/preferences", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) });
+      const r = await fetch("/api/preferences", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        ...p,
+        countries: cleanLines(p.countries),
+        industries: cleanLines(p.industries),
+        keywords: cleanLines(p.keywords),
+        jobTitles: cleanLines(p.jobTitles),
+        excludedKeywords: cleanLines(p.excludedKeywords)
+      }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Save failed.");
       setMessage("Your preferences have been saved. You can now inspect the LinkedIn profile URL.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Save failed."); }
