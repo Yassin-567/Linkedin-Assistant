@@ -131,10 +131,25 @@ export default function LeadsPage() {
 
   useEffect(() => { if (selectedId) void loadLeads(selectedId); else setLeads([]); }, [selectedId]);
 
-  function chooseProfile(id: string) {
-    setSelectedId(id);
-    const profile = profiles.find(x => x.id === id);
+  async function chooseProfile(id: string) {
+    let profile = profiles.find(x => x.id === id);
     if (!profile) return;
+    if (!profile.isActive) {
+      try {
+        const response = await fetch("/api/lead-profiles", {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: profile.id, name: profile.name, description: profile.description, preferences: profile.preferences, isActive: true })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not activate this profile.");
+        profile = data.profile as Profile;
+        setProfiles(old => old.map(item => item.id === profile!.id ? profile! : { ...item, isActive: false }));
+      } catch (error) {
+        setProfileMessage(error instanceof Error ? error.message : "Could not activate this profile.");
+        return;
+      }
+    }
+    setSelectedId(id);
     setProfileName(profile.name); setProfileDescription(profile.description || "");
     setPreferences({ ...defaultPreferences, ...profile.preferences });
     setEngineSelection(profile.preferences.discoveryEngines?.length ? profile.preferences.discoveryEngines : defaultPreferences.discoveryEngines);
