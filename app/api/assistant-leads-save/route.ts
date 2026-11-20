@@ -74,9 +74,9 @@ export async function POST(request: NextRequest) {
     const auth = await resolveAssistantAuth(request);
     if (!auth) return fail("AI Access Token is missing, invalid or revoked.", 401);
     const sql = db();
-    const profiles: any = await sql\`
+    const profiles: any = await sql`
       SELECT id FROM lead_profiles WHERE id = ${body.profileId}::uuid AND user_id = ${auth.userId} LIMIT 1
-    \`;
+    `;
     if (!profiles.length) return fail("Lead Profile not found in this Inlinked account.", 404);
 
     let saved = 0, duplicates = 0, invalid = 0;
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 
       const website = safeUrl(input.website).raw;
       const profileUrl = safeUrl(input.profileUrl).raw;
-      const prior: any = await sql\`
+      const prior: any = await sql`
         SELECT id FROM business_leads
         WHERE user_id = ${auth.userId} AND profile_id = ${body.profileId}::uuid
           AND (
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
             OR (${Boolean(website)} AND lower(website) = lower(${website}))
           )
         LIMIT 1
-      \`;
+      `;
       if (prior.length) {
         duplicates++;
         results.push({ index, status: "duplicate", name: title, company, sourceUrl: source.raw });
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       const scores = scoreObject(input.scores);
       const metadata = object(input.sourceMetadata);
       const publishedAt = publishedDate(input.publishedAt);
-      const rows: any = await sql\`
+      const rows: any = await sql`
         INSERT INTO business_leads(
           user_id, profile_id, title, company, contact_name, contact_role, website, profile_url,
           email, phone, location, country, opportunity_summary, service_requested,
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
           ${JSON.stringify(metadata)}::jsonb, 'New', ''
         )
         ON CONFLICT DO NOTHING RETURNING id::text
-      \`;
+      `;
       if (!rows.length) {
         duplicates++;
         results.push({ index, status: "duplicate", name: title, company, sourceUrl: source.raw });

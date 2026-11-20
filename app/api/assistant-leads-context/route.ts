@@ -23,15 +23,15 @@ export async function GET(request: NextRequest) {
     const profileId = request.nextUrl.searchParams.get("profileId") || "";
     if (!validId(profileId)) return fail("A valid Lead Profile ID is required.", 400);
     const sql = db();
-    const profiles: any = await sql\`
+    const profiles: any = await sql`
       SELECT id::text, name, description, preferences, is_active AS "isActive"
       FROM lead_profiles WHERE id = ${profileId}::uuid AND user_id = ${auth.userId} LIMIT 1
-    \`;
+    `;
     if (!profiles.length) return fail("Lead Profile not found in this Inlinked account.", 404);
-    const existing: any = await sql\`
+    const existing: any = await sql`
       SELECT company, website, source_url AS "sourceUrl", normalized_source_url AS "normalizedSourceUrl"
       FROM business_leads WHERE user_id = ${auth.userId} ORDER BY created_at DESC LIMIT 5000
-    \`;
+    `;
     const profile = profiles[0];
     return NextResponse.json({
       ok: true,
