@@ -2,7 +2,7 @@
 export type PromptKind = "research" | "scheduled";
 export type ScheduleFrequency = "daily" | "weekdays" | "weekly" | "monthly";
 export type ScheduleTimeChoice = "morning" | "afternoon" | "evening" | "night" | "specific";
-export type JobSearchDepth = "standard" | "deep";
+export type JobSearchDepth = "standard" | "deep" | "loose";
 type Options = {
   kind: PromptKind;
   token: string;
@@ -147,6 +147,7 @@ export function buildJobChatGptPrompt({
   const save = base + "/api/assistant-jobs-save?" + accessQuery;
   const scheduled = kind === "scheduled";
   const deepSearch = searchDepth === "deep";
+  const looseSearch = searchDepth === "loose";
   const recurrence = scheduleFrequency === "weekdays" ? "Every weekday (Monday to Friday)"
     : scheduleFrequency === "weekly" ? "Once every week"
       : scheduleFrequency === "monthly" ? "Once every month" : "Every day";
@@ -192,11 +193,31 @@ export function buildJobChatGptPrompt({
       "Maintain a research log of the distinct query themes and source categories actually checked, plus approximate raw results screened, unique vacancies verified, rejected vacancies and the main rejection reasons. Do not fabricate search counts or claim a pass was completed when it was not.",
       "Continue until the target is reached or the useful public sources and query variations have been reasonably exhausted. If fewer qualified vacancies exist, return fewer and explain which additional passes were completed and what limited the result set."
     ] : []),
-    "",
-    "## Apply my preferences",
-    "Use jobSearchPreferences from the retrieved context as my default filters. Apply target roles, keywords, countries, locations, work modes, employment types, seniority levels, salary floor and exclusions. My latest instructions in this chat override saved preferences.",
-    "Do not narrow the search to a single occupation unless my saved preferences explicitly do so. When the role list or a preference dimension is empty, keep that dimension broad instead of inventing a restriction.",
-    "Include each enabled source category in the preferences: job boards, company career pages, public LinkedIn jobs and public social-media posts. Never treat the source category as a job requirement.",
+    ...(looseSearch ? [
+      "",
+      "## Loose Mode — expanded discovery passes",
+      "Run at least six distinct research passes unless the target is reached earlier: (1) exact saved job titles; (2) adjacent titles and alternative names for the same work; (3) task/responsibility searches; (4) equivalent-tool searches (for example Xero, Sage and other bookkeeping systems alongside QuickBooks Online); (5) related operational roles and industries; and (6) employer/recruiter pages plus recent public hiring and social posts.",
+      "Vary query wording and source domains. Search beyond the first results page where pagination exists. Do not count repeated listings as new opportunities. Maintain an honest research log of query themes, sources checked, unique vacancies verified and rejection reasons."
+    ] : []),
+    ...(looseSearch ? [
+      "",
+      "## Loose Mode — flexible matching",
+      "Use the retrieved jobSearchPreferences as the starting point, but distinguish hard restrictions from soft preferences. This mode deliberately discovers credible opportunities that may not satisfy every preference today.",
+      "Keep these as hard restrictions: the vacancy must be genuine and currently open; reject scams and fraudulent listings; exclude every savedJobUrls URL and duplicate/repost; respect excludedKeywords; reject explicit country/residency restrictions that rule out applicants based in the candidate's country; and do not claim qualifications, software experience, work authorisation or skills the candidate has not confirmed.",
+      "The saved target countries remain the primary geographic target. If a vacancy explicitly says applicants residing in Egypt (the candidate's location) cannot apply, mark Not eligible and do not save it. If country/residency eligibility is unclear, retain it for review with an eligibility warning rather than assuming acceptance. Search terms such as worldwide, EMEA, global or contractor are discovery clues, not proof of eligibility.",
+      "Treat adjacent job titles, equivalent software and transferable responsibilities as valid discovery routes. Examples include Bookkeeper → Accounts Assistant / Finance Administrator; invoice processing → Accounts Payable; engineer scheduling → Service Coordinator; inventory coordination → Stock Controller; Xero or Sage → potentially transferable bookkeeping workflows from QuickBooks Online; and other field-service platforms → potentially transferable experience from Service Fusion. These are transferable similarities, not proof the candidate has used the named tool.",
+      "Do not automatically reject a relevant vacancy because it requests more years of experience. Compare the actual duties and distinguish mandatory qualifications/specialist expertise from preferred years. Include reasonable gaps for review, including larger gaps where responsibilities strongly overlap, but clearly state the requested years and the candidate's confirmed experience. Mandatory licences, qualifications or specialist duties the candidate cannot meet must remain explicit blockers.",
+      "Do not automatically reject a relevant vacancy because its hours overlap with the candidate's current schedule, it requests UK business-hour availability, or it offers more than 30 hours per week. Include it with a precise schedule-conflict warning so the candidate can decide. Also flag work-mode, employment-type, seniority and salary mismatches instead of silently treating them as matches.",
+      "A populated minimum salary is a soft preference in Loose Mode: a vacancy below it may be included for review only when otherwise relevant, with the advertised amount and shortfall clearly shown. Missing salary or employment-type details are not rejection reasons. Never invent or silently alter salary figures.",
+      "For every opportunity, separate confirmed matching skills, transferable skills, equivalent tools, missing requirements, experience gaps, schedule conflicts, work-mode/salary mismatches and country eligibility. Never describe a transferable tool as one the candidate has actually used.",
+      "Use the enabled source categories in the preferences: job boards, employer career pages, public LinkedIn job listings and public social-media posts. Do not restrict discovery to exact target-role wording."
+    ] : [
+      "",
+      "## Apply my preferences",
+      "Use jobSearchPreferences from the retrieved context as my default filters. Apply target roles, keywords, countries, locations, work modes, employment types, seniority levels, salary floor and exclusions. My latest instructions in this chat override saved preferences.",
+      "Do not narrow the search to a single occupation unless my saved preferences explicitly do so. When the role list or a preference dimension is empty, keep that dimension broad instead of inventing a restriction.",
+      "Include each enabled source category in the preferences: job boards, company career pages, public LinkedIn jobs and public social-media posts. Never treat the source category as a job requirement."
+    ]),
     "",
     "## Verify and deduplicate",
     "Confirm each vacancy is a real job rather than a generic company page, old hiring announcement, repost without a live role, course, advertisement, or recruitment scam. Prefer the employer's own career page or official application URL as corroboration.",
@@ -217,6 +238,12 @@ export function buildJobChatGptPrompt({
     "If the HTTP request tool available in this chat cannot send the POST, do not claim persistence. Instead output a valid JSON object with a jobs array so I can paste it into Inlinked → Jobs. Never expose my token in the JSON or report.",
     "",
     "## Report",
+    ...(looseSearch ? [
+      "For every Loose Mode result, provide a Skill Match Score (0–100) based on evidenced responsibility/skill overlap, and a separate Practical Eligibility classification: Good fit, Good potential — requires review, Low fit, Not eligible or Closed. Do not let a high skill score override a hard eligibility restriction.",
+      "Show matching skills, transferable skills, equivalent tools, missing requirements, experience gaps, schedule conflicts, work-mode/salary warnings and country eligibility. Give concise, evidence-based reasons for inclusion.",
+      "For saved jobs, populate sourceMetadata with searchMode: loose, skillMatchScore, practicalEligibility, matchingSkills, transferableSkills, equivalentTools, missingRequirements, experienceGaps, scheduleConflicts, preferenceWarnings, countryEligibility and inclusionReasons. Keep metadata factual and within the existing sourceMetadata field.",
+      "Save only verified vacancies classified Good fit or Good potential — requires review. Do not save Low fit, Not eligible or Closed results. Closed vacancies are always rejected, even in Loose Mode."
+    ] : []),
     "Summarize the search passes and types of sources checked. For every result give title, company, location/country, work mode, salary if published, posting date if known, source platform, original source link, direct application link, and a short reason it matches.",
     "Separate confirmed facts from unclear details. Mention potentially stale or unverified vacancies and any inability to inspect a LinkedIn/social page. Report search limitations accurately.",
     "Finish with the exact save response, or clearly state that the results were not saved and provide JSON for manual import.",
