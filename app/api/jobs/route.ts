@@ -21,7 +21,8 @@ export async function GET() {
         source_platform AS "sourcePlatform", source_type AS "sourceType",
         source_url AS "sourceUrl", application_url AS "applicationUrl",
         match_reason AS "matchReason", evidence_urls AS "evidenceUrls",
-        status, notes, discovered_at AS "discoveredAt", created_at AS "createdAt"
+        source_metadata AS "sourceMetadata", status, notes,
+        discovered_at AS "discoveredAt", created_at AS "createdAt"
       FROM jobs WHERE user_id = ${user.userId}
       ORDER BY created_at DESC LIMIT 1000
     `;
