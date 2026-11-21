@@ -32,7 +32,7 @@ const JOB_PROMPT = [
   '    "excludedKeywords": [],',
   '    "salaryCurrency": "",',
   '    "minimumSalary": null,',
-  '    "language": "",',
+  '    "language": ""',
   "  }",
   "}",
   "",
