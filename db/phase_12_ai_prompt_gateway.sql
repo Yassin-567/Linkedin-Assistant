@@ -1,6 +1,10 @@
 -- Phase 12: permanent-token prompt gateway and short-lived AI sessions.
 -- The permanent ai_access_tokens credential is used only by /api/assistant-prompt.
 -- All other AI endpoints authenticate through this 15-minute session table.
+ALTER TABLE user_preferences
+  ADD COLUMN IF NOT EXISTS connection_target_count integer NOT NULL DEFAULT 50
+  CHECK (connection_target_count BETWEEN 1 AND 50);
+
 CREATE TABLE IF NOT EXISTS assistant_session_tokens (
   token_hash text PRIMARY KEY,
   user_id text NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
