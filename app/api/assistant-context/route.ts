@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
           seniority_levels, excluded_keywords, salary_currency, minimum_salary, language,
           include_linkedin, include_social_media, include_company_sites, include_job_boards, target_count
           FROM job_search_preferences WHERE user_id = ${userId} LIMIT 1`,
-        sql`SELECT normalized_source_url AS url FROM jobs WHERE user_id = ${userId}
+        sql`SELECT id::text, title, company, status, normalized_source_url AS url FROM jobs WHERE user_id = ${userId}
           ORDER BY created_at DESC LIMIT 5000`
       ]);
       const p = preferenceRows[0] || {};
@@ -58,7 +58,8 @@ export async function GET(request: NextRequest) {
           includeJobBoards: p.include_job_boards !== false,
           targetCount: Number(p.target_count || 30)
         },
-        exclusions: { savedJobUrls: savedJobRows.map((x: any) => x.url) }
+        exclusions: { savedJobUrls: savedJobRows.map((x: any) => x.url) },
+        savedJobRecords: savedJobRows.slice(0, 500).map((x: any) => ({ id: x.id, title: x.title, company: x.company, status: x.status, sourceUrl: x.url }))
       }, { headers: noStore });
     }
 
@@ -88,7 +89,7 @@ export async function GET(request: NextRequest) {
 
     const [connectionRows, savedProspectRows, connectionMeta]: any = await Promise.all([
       sql`SELECT normalized_linkedin_url AS url FROM linkedin_connections WHERE user_id = ${userId} ORDER BY imported_at DESC LIMIT 20000`,
-      sql`SELECT normalized_linkedin_url AS url FROM prospects WHERE user_id = ${userId} AND normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url <> '' ORDER BY created_at DESC LIMIT 1000`,
+      sql`SELECT id::text, name, company, status, normalized_linkedin_url AS url FROM prospects WHERE user_id = ${userId} AND normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url <> '' ORDER BY created_at DESC LIMIT 1000`,
       sql`SELECT max(imported_at) AS imported_at, count(*)::int AS count FROM linkedin_connections WHERE user_id = ${userId}`
     ]);
 
@@ -124,7 +125,8 @@ export async function GET(request: NextRequest) {
         uploadedConnectionsCount: Number(connectionMeta[0]?.count || 0),
         uploadedConnectionsImportedAt: connectionMeta[0]?.imported_at || null,
         uploadedConnectionProfileUrls: connectionRows.map((x: any) => x.url),
-        savedProspectProfileUrls: savedProspectRows.map((x: any) => x.url)
+        savedProspectProfileUrls: savedProspectRows.map((x: any) => x.url),
+        savedProspectRecords: savedProspectRows.map((x: any) => ({ id: x.id, name: x.name, company: x.company, status: x.status, linkedinUrl: x.url }))
       }
     }, { headers: noStore });
   } catch (error) {
