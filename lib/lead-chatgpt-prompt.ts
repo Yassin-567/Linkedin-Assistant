@@ -10,6 +10,7 @@ type Options = {
   engines: string[];
   locationOverride?: string;
   queryOverride?: string;
+  researchTool?: string;
 };
 
 const descriptions: Record<CommercialLeadEngine, string> = {
@@ -24,6 +25,8 @@ export function buildCommercialLeadPrompt(options: Options): string {
     (options.deploymentShareToken ? "&_vercel_share=" + encodeURIComponent(options.deploymentShareToken) : "");
   const contextUrl = base + "/api/assistant-leads-context?profileId=" + encodeURIComponent(options.profileId) + "&" + query;
   const saveUrl = base + "/api/assistant-leads-save?" + query;
+  const updateUrl = base + "/api/assistant-update?" + query;
+  const researchTool = (options.researchTool || "ChatGPT").trim().slice(0, 80) || "Other";
   const selectedEngines = options.engines.filter((engine): engine is CommercialLeadEngine =>
     engine === "direct_demand" || engine === "opportunity_signal" || engine === "ideal_customer"
   );
@@ -40,7 +43,9 @@ export function buildCommercialLeadPrompt(options: Options): string {
     "Selected Lead Profile: " + options.profileName + " (ID: " + options.profileId + ")",
     "Lead Profile context (HTTP GET): " + contextUrl,
     "Commercial lead save endpoint (HTTP POST, Content-Type: application/json): " + saveUrl,
-    "Use the same Access Token for both endpoints. The URLs contain the access query parameter; Authorization: Bearer is also supported. Never print the token, share key or private endpoint URLs in your report, and never send them to public search engines or unrelated services.",
+    "Record update endpoint (HTTP POST, Content-Type: application/json): " + updateUrl,
+    "AI research tool attribution: " + researchTool + ". Include this exact value as the top-level researchTool field in every save request. This identifies the AI application, not the website where the evidence was found.",
+    "Use the same Access Token for Context, Save and Update. The URLs contain the access query parameter; Authorization: Bearer is also supported. Never print the token, share key or private endpoint URLs in your report, and never send them to public search engines or unrelated services.",
     options.deploymentShareToken
       ? "The URLs include a Vercel preview share key as well as the Inlinked Access Token. Keep both private. The share key only provides access to this deployment; it is not a substitute for the Inlinked token."
       : "This deployment does not require a Vercel preview share key.",
@@ -76,12 +81,13 @@ export function buildCommercialLeadPrompt(options: Options): string {
     "2. Run several distinct searches for every selected discovery engine. Vary the query wording, target sectors, location terms and source types. Open and check useful original pages, not just search snippets.",
     "3. Build a deduplicated shortlist. Reject closed or stale requests when they are presented as current demand. For opportunity signals and ideal-customer fits, describe the observed fact separately from the commercial hypothesis.",
     "4. Prepare up to " + target + " records. Each record must contain a valid original public sourceUrl and a recognized discoveryEngine. Use only source URLs you actually inspected or verified in public results.",
-    "5. Save the qualified batch in one HTTP POST request to the exact commercial lead save endpoint above. Set Content-Type: application/json and send a JSON body with profileId set to " + options.profileId + " and a leads array containing 1–50 records.",
+    "5. Save the qualified batch in one HTTP POST request to the exact commercial lead save endpoint above. Set Content-Type: application/json and send a JSON body with profileId set to " + options.profileId + ", researchTool set to " + JSON.stringify(researchTool) + ", and a leads array containing 1–50 records.",
     "6. Each lead object should follow this schema:",
     "{\"title\":\"Business or opportunity title\",\"company\":\"Company name\",\"contactName\":\"Verified contact name or blank\",\"contactRole\":\"Verified role or blank\",\"website\":\"https://company.example/\",\"profileUrl\":\"Public company or professional profile URL if available\",\"email\":\"Verified public business email or blank\",\"phone\":\"Verified public phone or blank\",\"location\":\"City or region\",\"country\":\"Country\",\"opportunitySummary\":\"Evidence-led summary and why it may matter\",\"serviceRequested\":\"Relevant service from the profile or blank\",\"discoveryEngine\":\"direct_demand | opportunity_signal | ideal_customer\",\"buyingIntent\":\"Explicit demand | Strong buying signal | Ideal customer prospect | Potential opportunity\",\"confidence\":\"High | Medium | Low | Unverified\",\"projectType\":\"one_time | recurring | either | unknown\",\"budgetText\":\"Only a publicly stated budget, otherwise blank\",\"estimatedValueMin\":null,\"estimatedValueMax\":null,\"valueCurrency\":\"Currency code or blank\",\"sourcePlatform\":\"Name of public source platform or website\",\"sourceType\":\"social_post | forum_post | business_website | project_site | public_web\",\"sourceUrl\":\"Exact original public evidence URL\",\"publishedAt\":null,\"evidenceUrls\":[\"https://...\"],\"scores\":{\"serviceMatch\":0,\"buyingIntent\":0,\"freshness\":0,\"commercialPotential\":0,\"contactability\":0,\"priority\":0},\"sourceMetadata\":{\"observedEvidence\":\"What the source actually states\",\"commercialRationale\":\"Why it could fit\",\"limitations\":\"Missing or uncertain details\"}}",
     "The numerical scores are prioritisation estimates, not verified probabilities. Use 0–100 values and score conservatively. Use null for unknown estimated value fields. Do not convert an inferred signal into a confirmed request.",
-    "7. Read the actual POST status and JSON response. Report the exact returned total, saved, duplicates and invalid counts. A lead is saved only when its per-item status is saved or the aggregate saved count confirms it. Never claim success before the endpoint confirms it.",
+    "7. Read the actual POST status and JSON response. The response returns the saved record ID for each successfully saved lead. Report the exact returned total, saved, duplicates and invalid counts. A lead is saved only when its per-item status is saved or the aggregate saved count confirms it. Never claim success before the endpoint confirms it.",
     "8. If context retrieval fails, stop. If saving fails, do not claim that anything was saved; present the researched JSON and actual error so the user can retry.",
+    "9. When I later tell you that I actually contacted, received a reply from, held a meeting with, or changed the status of a saved commercial lead, use the Update endpoint with POST and an updates array. Each item must contain resource: commercial_lead, the saved record id returned by Save, and the exact new commercial lead status (for example Contacted, In discussion or Proposal). Include notes only when I provide them. Do not record an outreach action that has not actually happened.",
     "9. Stop the Firecrawl browser-interaction session after checking the save response.",
     "",
     "## Final report",
