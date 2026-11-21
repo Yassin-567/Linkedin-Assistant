@@ -16,11 +16,10 @@ export type AssistantAuth = {
   expiresAt: string;
 };
 
-/** Reads a temporary session token from Authorization: Bearer, then legacy token query names. */
+/** Reads temporary session credentials only from the Authorization: Bearer header. */
 export function readAssistantToken(request: NextRequest) {
   const bearer = (request.headers.get("authorization") || "").match(/^Bearer\s+([A-Za-z0-9_-]{40,60})$/i)?.[1];
-  const query = request.nextUrl.searchParams;
-  return bearer || query.get("access") || query.get("ai") || "";
+  return bearer || "";
 }
 
 export async function resolveAssistantAuth(request: NextRequest): Promise<AssistantAuth | null> {
