@@ -22,3 +22,23 @@ export async function PUT(request:NextRequest){
  try{const sql=db();await sql`INSERT INTO user_preferences(user_id,countries,industries,keywords,job_titles,excluded_keywords,language,linkedin_profile_url,connection_target_count,updated_at) VALUES(${user.userId},${countries},${industries},${keywords},${jobTitles},${excluded},${language},${profileUrl},${connectionTargetCount},now()) ON CONFLICT(user_id) DO UPDATE SET countries=EXCLUDED.countries,industries=EXCLUDED.industries,keywords=EXCLUDED.keywords,job_titles=EXCLUDED.job_titles,excluded_keywords=EXCLUDED.excluded_keywords,language=EXCLUDED.language,linkedin_profile_url=EXCLUDED.linkedin_profile_url,connection_target_count=EXCLUDED.connection_target_count,updated_at=now()`;await sql`UPDATE app_users SET profile_summary=${profile},updated_at=now() WHERE id=${user.userId}`;return NextResponse.json({ok:true});}
  catch(e){console.error("Preferences save failed",e);return NextResponse.json({error:"Could not save preferences. Check database setup."},{status:503});}
 }
+
+export async function PATCH(request: NextRequest) {
+ const user = await currentUser();
+ if (!user) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+ const body = await request.json().catch(() => null);
+ const count = body?.connectionTargetCount;
+ if (!Number.isInteger(count) || count < 1 || count > 50) {
+  return NextResponse.json({ error: "Choose between 1 and 50 LinkedIn connections." }, { status: 400 });
+ }
+ try {
+  const sql = db();
+  await sql`INSERT INTO user_preferences(user_id, connection_target_count)
+    VALUES(${user.userId}, ${count})
+    ON CONFLICT(user_id) DO UPDATE SET connection_target_count = EXCLUDED.connection_target_count, updated_at = now()`;
+  return NextResponse.json({ ok: true, connectionTargetCount: count }, { headers: { "Cache-Control": "no-store" } });
+ } catch (error) {
+  console.error("Connection target count update failed", error);
+  return NextResponse.json({ error: "Could not save the LinkedIn connection target." }, { status: 503 });
+ }
+}
