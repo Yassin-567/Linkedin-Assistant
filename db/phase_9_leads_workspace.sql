@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS business_leads (
   estimated_value_max numeric(14,2),
   value_currency text NOT NULL DEFAULT '',
   source_platform text NOT NULL DEFAULT 'Manual',
+  research_tool text NOT NULL DEFAULT 'Unknown',
   source_type text NOT NULL DEFAULT 'manual',
   source_url text NOT NULL DEFAULT '',
   normalized_source_url text NOT NULL DEFAULT '',
