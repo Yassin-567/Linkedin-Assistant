@@ -73,6 +73,7 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
       .catch(() => undefined);
   }, []);
 
+  const scheduledAvailable = workflow !== "record_update";
   const scheduleReady = kind !== "scheduled" || !scheduleEndEnabled || Boolean(scheduleEndDate);
   const promptLink = useMemo(() => {
     if (!token || !origin || (scheduledAvailable && kind === "scheduled" && !scheduleReady)) return "";
@@ -206,7 +207,7 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
     }
   }
 
-  const scheduledAvailable = workflow !== "record_update";
+
 
   return <>
     <section className="panel">
