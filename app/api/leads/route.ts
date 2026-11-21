@@ -36,7 +36,7 @@ async function fetchLead(userId: string, id: string) {
     service_requested AS "serviceRequested", discovery_engine AS "discoveryEngine",
     buying_intent AS "buyingIntent", confidence, project_type AS "projectType", budget_text AS "budgetText",
     estimated_value_min AS "estimatedValueMin", estimated_value_max AS "estimatedValueMax",
-    value_currency AS "valueCurrency", source_platform AS "sourcePlatform", source_type AS "sourceType",
+    value_currency AS "valueCurrency", source_platform AS "sourcePlatform", research_tool AS "researchTool", source_type AS "sourceType",
     source_url AS "sourceUrl", published_at AS "publishedAt", evidence, scores,
     source_metadata AS "sourceMetadata", status, notes, next_follow_up AS "nextFollowUp",
     won_value AS "wonValue", won_currency AS "wonCurrency", discovered_at AS "discoveredAt",
@@ -70,7 +70,7 @@ async function insertLead(userId: string, input: any) {
   const rows: any = await sql`INSERT INTO business_leads(
     user_id, profile_id, title, company, contact_name, contact_role, website, profile_url, email, phone,
     location, country, opportunity_summary, service_requested, discovery_engine, buying_intent, confidence,
-    project_type, budget_text, estimated_value_min, estimated_value_max, value_currency, source_platform,
+    project_type, budget_text, estimated_value_min, estimated_value_max, value_currency, source_platform, research_tool,
     source_type, source_url, normalized_source_url, published_at, evidence, scores, source_metadata,
     status, notes, next_follow_up
   ) VALUES (
@@ -80,7 +80,7 @@ async function insertLead(userId: string, input: any) {
     ${clean(input.serviceRequested,500)}, ${engine}, ${clean(input.buyingIntent,80) || "Potential opportunity"},
     ${clean(input.confidence,50) || "Unreviewed"}, ${projectType}, ${clean(input.budgetText,300)},
     ${numeric(input.estimatedValueMin)}, ${numeric(input.estimatedValueMax)}, ${clean(input.valueCurrency,12)},
-    ${clean(input.sourcePlatform,100) || "Manual"}, ${clean(input.sourceType,80) || "manual"},
+    ${clean(input.sourcePlatform,100) || "Manual"}, ${clean(input.researchTool,80) || "Unknown"}, ${clean(input.sourceType,80) || "manual"},
     ${source.raw}, ${source.normalized}, ${publishedAt},
     ${JSON.stringify(evidence)}::jsonb, ${JSON.stringify(scoreData)}::jsonb, ${JSON.stringify(metadata)}::jsonb,
     ${status}, ${clean(input.notes,5000)}, ${clean(input.nextFollowUp,10) || null}::date
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
       service_requested AS "serviceRequested", discovery_engine AS "discoveryEngine",
       buying_intent AS "buyingIntent", confidence, project_type AS "projectType", budget_text AS "budgetText",
       estimated_value_min AS "estimatedValueMin", estimated_value_max AS "estimatedValueMax",
-      value_currency AS "valueCurrency", source_platform AS "sourcePlatform", source_type AS "sourceType",
+      value_currency AS "valueCurrency", source_platform AS "sourcePlatform", research_tool AS "researchTool", source_type AS "sourceType",
       source_url AS "sourceUrl", published_at AS "publishedAt", evidence, scores,
       source_metadata AS "sourceMetadata", status, notes, next_follow_up AS "nextFollowUp",
       won_value AS "wonValue", won_currency AS "wonCurrency", discovered_at AS "discoveredAt",
@@ -133,7 +133,8 @@ export async function POST(request: NextRequest) {
     let saved = 0, duplicates = 0, invalid = 0;
     const results: any[] = [];
     for (let index = 0; index < batch.length; index++) {
-      const result = await insertLead(user.userId, batch[index] || {});
+      const input = batch[index] || {};
+      const result = await insertLead(user.userId, { ...input, researchTool: input.researchTool ?? body.researchTool });
       if (result.status === "saved") saved++;
       else if (result.status === "duplicate") duplicates++;
       else invalid++;
