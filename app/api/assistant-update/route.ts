@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     const results: Record<string, unknown>[] = [];
 
     for (let index = 0; index < body.updates.length; index++) {
-      const input = body.updates[index] || {};
+      const input: UpdateInput = body.updates[index] || {};
       const resource = typeof input.resource === "string" ? input.resource : "";
       const id = input.id;
       const status = typeof input.status === "string" ? input.status : "";
