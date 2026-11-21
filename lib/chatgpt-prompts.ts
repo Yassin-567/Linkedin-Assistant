@@ -18,7 +18,7 @@ type Options = {
   scheduleEndDate?: string;
 };
 
-const LEAD_EXAMPLE = '{"leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug/"}]}';
+const LEAD_EXAMPLE = '{"researchTool":"[selected AI application]","leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug/"}]}';
 
 export function buildChatGptPrompt({
   kind, token, origin, deploymentShareToken, prospectCount, researchTool = "ChatGPT",
@@ -140,7 +140,7 @@ type JobPromptOptions = {
   scheduleEndDate?: string;
 };
 
-const JOB_EXAMPLE = `{"jobs":[{"title":"Job title","company":"Employer","description":"Full description when publicly available","salaryText":"Salary as advertised, if available","salaryMin":null,"salaryMax":null,"salaryCurrency":"GBP","workplaceType":"remote","employmentType":"Full-time","location":"Location","country":"United Kingdom","seniority":"Mid-level","postedAt":null,"postedAtText":"Posted 3 days ago","sourcePlatform":"Company careers page","sourceType":"company_careers","sourceUrl":"https://employer.example/jobs/123","applicationUrl":"https://employer.example/apply/123","matchReason":"Why this matches my preferences","evidenceUrls":["https://employer.example/jobs/123"],"sourceMetadata":{}}]}`;
+const JOB_EXAMPLE = `{"researchTool":"[selected AI application]","jobs":[{"title":"Job title","company":"Employer","description":"Full description when publicly available","salaryText":"Salary as advertised, if available","salaryMin":null,"salaryMax":null,"salaryCurrency":"GBP","workplaceType":"remote","employmentType":"Full-time","location":"Location","country":"United Kingdom","seniority":"Mid-level","postedAt":null,"postedAtText":"Posted 3 days ago","sourcePlatform":"Company careers page","sourceType":"company_careers","sourceUrl":"https://employer.example/jobs/123","applicationUrl":"https://employer.example/apply/123","matchReason":"Why this matches my preferences","evidenceUrls":["https://employer.example/jobs/123"],"sourceMetadata":{}}]}`;
 
 export function buildJobChatGptPrompt({
   kind, token, origin, jobCount, searchDepth = "standard", deploymentShareToken, researchTool = "ChatGPT",
