@@ -64,6 +64,12 @@ export async function POST(request: Request) {
         WHERE user_id = ${user.userId} AND revoked_at IS NULL
         RETURNING token_hash
       ),
+      revoked_prompt_sessions AS (
+        UPDATE assistant_session_tokens
+        SET revoked_at = now()
+        WHERE user_id = ${user.userId} AND revoked_at IS NULL
+        RETURNING token_hash
+      ),
       issued AS (
         INSERT INTO ai_access_tokens(token_hash, user_id)
         VALUES (${tokenHash}, ${user.userId})
@@ -95,6 +101,7 @@ export async function DELETE() {
     const sql = db();
     await sql`UPDATE ai_access_tokens SET revoked_at = now() WHERE user_id = ${user.userId} AND revoked_at IS NULL`;
     await sql`UPDATE assistant_scoped_tokens SET revoked_at = now() WHERE user_id = ${user.userId} AND revoked_at IS NULL`;
+    await sql`UPDATE assistant_session_tokens SET revoked_at = now() WHERE user_id = ${user.userId} AND revoked_at IS NULL`;
     return NextResponse.json({ ok: true, enabled: false }, { headers: noStore });
   } catch (error) {
     console.error("Access Token revocation failed", error);
