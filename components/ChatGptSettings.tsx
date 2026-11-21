@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { buildChatGptPrompt, buildJobChatGptPrompt, type JobSearchDepth, type PromptKind, type ScheduleFrequency, type ScheduleTimeChoice } from "@/lib/chatgpt-prompts";
+import { buildRecordUpdatePrompt } from "@/lib/record-update-prompt";
 
 type Status = { enabled: boolean; createdAt: string };
 type AccessToken = { token: string; origin: string };
@@ -71,6 +72,13 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
   const activeToken = access?.token || "";
   const activeOrigin = access?.origin || "";
   const scheduleReady = kind !== "scheduled" || !scheduleEndEnabled || Boolean(scheduleEndDate);
+  const updateAssistantPrompt = useMemo(
+    () => (activeToken && activeOrigin
+      ? buildRecordUpdatePrompt({ token: activeToken, origin: activeOrigin, deploymentShareToken })
+      : ""),
+    [activeToken, activeOrigin, deploymentShareToken]
+  );
+
   const prompt = useMemo(
     () => (activeToken && activeOrigin && scheduleReady
       ? researchArea === "jobs"
@@ -152,6 +160,16 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
       setMessage("Access Token copied. Treat it like a password.");
     } catch {
       setMessage("Your browser blocked copying. Select the token and copy it manually.");
+    }
+  }
+
+  async function copyUpdateAssistantPrompt() {
+    if (!updateAssistantPrompt) return;
+    try {
+      await navigator.clipboard.writeText(updateAssistantPrompt);
+      setMessage("Dedicated Record Update Assistant prompt copied. It contains the same private Inlinked Access Token; keep it secure.");
+    } catch {
+      setMessage("Your browser blocked copying. Select the Record Update Assistant prompt preview and copy it manually.");
     }
   }
 
@@ -305,17 +323,24 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
     </section>
 
     <section className="panel">
-      <h2>Record update API endpoint</h2>
-      <p className="muted">This is an API route, not a page to open. AI assistants use it to update the status or notes of records already saved in your Inlinked account.</p>
+      <h2>Dedicated Record Update Assistant Prompt</h2>
+      <p className="muted">Copy this separate prompt into the AI conversation where you want ongoing record tracking. It uses your existing Access Token and tells the assistant to update Inlinked whenever you report a completed application, message, reply, call or other pipeline action.</p>
       <div className="lead-form">
         <label>Endpoint path<input type="text" readOnly value="/api/assistant-update" /></label>
         <label>HTTP method<input type="text" readOnly value="POST" /></label>
       </div>
-      <button type="button" className="secondary" onClick={() => void copyUpdateEndpoint()}>Copy full endpoint URL</button>
-      <p className="footnote">Use the same Inlinked Access Token as your research prompt. Send it as <code>Authorization: Bearer YOUR_ACCESS_TOKEN</code> or use the <code>?access=</code> query parameter. The request must include a JSON body.</p>
+      <div className="row" style={{ justifyContent: "flex-start", flexWrap: "wrap" }}>
+        <button type="button" onClick={() => void copyUpdateAssistantPrompt()} disabled={!updateAssistantPrompt}>Copy Record Update Assistant Prompt</button>
+        <button type="button" className="secondary" onClick={() => void copyUpdateEndpoint()}>Copy endpoint URL only</button>
+      </div>
+      {updateAssistantPrompt
+        ? <pre className="prompt-box" aria-label="Record Update Assistant prompt preview">{mask(mask(updateAssistantPrompt, activeToken), deploymentShareToken)}</pre>
+        : <p className="footnote">Generate an Access Token or load your existing token above to build the dedicated update prompt.</p>}
+      <p className="footnote">The dedicated prompt includes the same Access Token already used by your research/save prompts. Do not paste that prompt into public chats or share it with anyone else. To use it in a different AI conversation, copy it there again; assistants may not retain instructions across unrelated chats.</p>
+      <p className="footnote">The endpoint accepts authenticated HTTP <code>POST</code> requests with a JSON body. Its status updates are separate from your research prompts.</p>
       <p className="footnote"><strong>Supported records:</strong> Jobs (<code>job</code>), LinkedIn research prospects (<code>linkedin_prospect</code>) and Commercial Leads (<code>commercial_lead</code>). Imported LinkedIn Connections CSV rows are a separate list and are not updated by this endpoint.</p>
       <pre className="prompt-box" aria-label="Update request example">{'{"updates":[{"resource":"job","id":"SAVED_RECORD_ID","status":"Applied"}]}'}</pre>
-      <p className="footnote">Use a record ID returned when it was saved or provided by the matching Context response. The endpoint accepts 1–50 updates per request. Only record a status change after the action really happened.</p>
+      <p className="footnote">The endpoint accepts 1–50 updates per request and only changes status and optional notes. Imported LinkedIn Connections CSV rows are not supported.</p>
     </section>
 
     <section className="panel">

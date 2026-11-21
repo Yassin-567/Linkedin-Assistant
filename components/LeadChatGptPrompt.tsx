@@ -115,7 +115,7 @@ export default function LeadChatGptPrompt({
       ? <pre className="prompt-box" aria-label="Commercial lead ChatGPT research prompt">{maskSecrets(prompt, token, shareToken)}</pre>
       : <div className="empty"><strong>No prompt yet</strong><p>Choose a saved Lead Profile and at least one discovery engine. Your existing Access Token is used; no new token is generated.</p></div>}
     <p className="muted" role="status">{message}</p>
-    <p className="footnote">The prompt asks the AI application currently running it to identify itself automatically, research with its own web search, retrieve this profile's current preferences, then save qualified commercial leads into this pipeline. Saved-record status changes use <code>POST /api/assistant-update</code>. The full endpoint instructions are included in the prompt and in Settings.</p>
+    <p className="footnote">The prompt asks the AI application currently running it to identify itself automatically, research with its own web search, retrieve this profile's current preferences, then save qualified commercial leads into this pipeline. Record status changes are handled by the separate Record Update Assistant Prompt in Settings.</p>
     <p className="footnote">Anyone with the copied prompt can access your profile context and save records to your Inlinked account. Keep it private.</p>
   </div>;
 }

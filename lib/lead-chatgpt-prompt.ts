@@ -24,7 +24,6 @@ export function buildCommercialLeadPrompt(options: Options): string {
     (options.deploymentShareToken ? "&_vercel_share=" + encodeURIComponent(options.deploymentShareToken) : "");
   const contextUrl = base + "/api/assistant-leads-context?profileId=" + encodeURIComponent(options.profileId) + "&" + query;
   const saveUrl = base + "/api/assistant-leads-save?" + query;
-  const updateUrl = base + "/api/assistant-update?" + query;
   const selectedEngines = options.engines.filter((engine): engine is CommercialLeadEngine =>
     engine === "direct_demand" || engine === "opportunity_signal" || engine === "ideal_customer"
   );
@@ -41,10 +40,9 @@ export function buildCommercialLeadPrompt(options: Options): string {
     "Selected Lead Profile: " + options.profileName + " (ID: " + options.profileId + ")",
     "Lead Profile context (HTTP GET): " + contextUrl,
     "Commercial lead save endpoint (HTTP POST, Content-Type: application/json): " + saveUrl,
-    "Record update endpoint (HTTP POST, Content-Type: application/json): " + updateUrl,
     "Before saving, identify the AI application currently hosting this conversation (for example ChatGPT, Claude, Gemini, Perplexity, Grok or Microsoft Copilot). Set the top-level researchTool field to that application name in every save request. Do not ask the user to choose.",
     "Use the product/application name, not the search provider, browser, website, source platform or API vendor. Do not guess an underlying model or version. If you cannot reliably identify the host AI application, use Unknown. Keep this attribution separate from sourcePlatform and evidence URLs.",
-    "Use the same Access Token for Context, Save and Update. The URLs contain the access query parameter; Authorization: Bearer is also supported. Never print the token, share key or private endpoint URLs in your report, and never send them to public search engines or unrelated services.",
+    "Use the same Access Token for the Lead Profile Context and Save requests. The URLs contain the access query parameter; Authorization: Bearer is also supported. Never print the token, share key or private endpoint URLs in your report, and never send them to public search engines or unrelated services.",
     options.deploymentShareToken
       ? "The URLs include a Vercel preview share key as well as the Inlinked Access Token. Keep both private. The share key only provides access to this deployment; it is not a substitute for the Inlinked token."
       : "This deployment does not require a Vercel preview share key.",
@@ -86,8 +84,6 @@ export function buildCommercialLeadPrompt(options: Options): string {
     "The numerical scores are prioritisation estimates, not verified probabilities. Use 0–100 values and score conservatively. Use null for unknown estimated value fields. Do not convert an inferred signal into a confirmed request.",
     "7. Read the actual POST status and JSON response. The response returns the saved record ID for each successfully saved lead. Report the exact returned total, saved, duplicates and invalid counts. A lead is saved only when its per-item status is saved or the aggregate saved count confirms it. Never claim success before the endpoint confirms it.",
     "8. If context retrieval fails, stop. If saving fails, do not claim that anything was saved; present the researched JSON and actual error so the user can retry.",
-    "9. When I later tell you that I actually contacted, received a reply from, held a meeting with, or changed the status of a saved commercial lead, identify it by matching company, title or source URL against exclusions.savedLeadRecords (or use the ID returned by Save), then use the Update endpoint with POST and an updates array. Each item must contain resource: commercial_lead, the saved record id returned by Save, and the exact new commercial lead status (for example Contacted, In discussion or Proposal). Include notes only when I provide them. Do not record an outreach action that has not actually happened.",
-    "Example update body: {\"updates\":[{\"resource\":\"commercial_lead\",\"id\":\"saved-record-uuid\",\"status\":\"Contacted\"}]}.",
     "9. Stop the Firecrawl browser-interaction session after checking the save response.",
     "",
     "## Final report",

@@ -28,7 +28,6 @@ export function buildChatGptPrompt({
   const accessQuery = `access=${encodeURIComponent(token)}${deploymentShareToken ? `&_vercel_share=${encodeURIComponent(deploymentShareToken)}` : ""}`;
   const context = `${base}/api/assistant-context?${accessQuery}`;
   const save = `${base}/api/assistant-save?${accessQuery}`;
-  const update = `${base}/api/assistant-update?${accessQuery}`;
   const scheduled = kind === "scheduled";
   const recurrence = scheduleFrequency === "weekdays"
     ? "Every weekday (Monday to Friday)"
@@ -51,7 +50,6 @@ export function buildChatGptPrompt({
     "This prompt contains my Inlinked Access Token. It does not expire automatically. It remains valid until I revoke or regenerate it in Inlinked Settings.",
     `Context endpoint (HTTP GET): ${context}`,
     `LinkedIn Connections save endpoint (HTTP POST, Content-Type: application/json): ${save}`,
-    `Record update endpoint (HTTP POST, Content-Type: application/json): ${update}`,
     "Before saving, identify the AI application currently hosting this conversation (for example ChatGPT, Claude, Gemini, Perplexity, Grok or Microsoft Copilot). Set the top-level researchTool field to that application name in every save request. Do not ask the user to choose.",
     "Use the product/application name, not the search provider, browser, website, source platform or an API vendor. Do not guess an underlying model or version. If you cannot reliably identify the host AI application, use Unknown. Keep this attribution separate from sourcePlatform and evidence URLs.",
     "Use this same Access Token directly for Context, Save and Update. Do not call a credentials endpoint, exchange the token, or request another token. Use the exact endpoint URLs above. All three endpoints accept the token in the access query parameter; they also support Authorization: Bearer if needed.",
@@ -84,8 +82,6 @@ export function buildChatGptPrompt({
     LEAD_EXAMPLE,
     "10. The endpoint accepts up to 50 connection candidates per request and returns each saved record ID. Read the actual POST status and response body. The response uses the fields total, saved, duplicates and invalid (not duplicate). Report these exact returned values accurately. Never claim a connection candidate was saved unless the API confirms it.",
     "11. If context retrieval fails, do not guess the preferences or exclusions. If saving fails, report the actual error and do not claim the prospects were saved.",
-    "12. When I later tell you that I actually contacted, received a reply from, booked a meeting with, or otherwise changed one of these saved prospects, identify the record by matching name, company or LinkedIn URL against exclusions.savedProspectRecords (or use the ID returned by Save), then use the Update endpoint with POST and an updates array. Each item must contain resource: linkedin_prospect, the saved record id returned by Save, and the exact new status (for example Contacted, Replied or Call booked). Include notes only when I provide them. Do not mark anything as contacted merely because you drafted a message or found contact details.",
-    "Example update body: {\"updates\":[{\"resource\":\"linkedin_prospect\",\"id\":\"saved-record-uuid\",\"status\":\"Contacted\"}]}.",
     "13. Stop the Firecrawl browser-interaction session after the final API response has been inspected. If a session fails to initialize, retry once using a completely fresh firecrawl_interact session started directly on the Context endpoint URL; do not use a prior scrapeId.",
     "",
     "## Output",
@@ -98,7 +94,7 @@ export function buildChatGptPrompt({
     "- Keep both Inlinked endpoint URLs, the Inlinked Access Token and any Vercel share key private. Never print, publish, expose in the report, or send them to search engines or unrelated services.",
     "- Keep sourcePlatform/source links separate from researchTool. The researchTool value identifies the AI application; sourcePlatform identifies where the evidence was published.",
     "- Do not message anyone on LinkedIn. Do not access private LinkedIn content or bypass access controls.",
-    "- Use only the Context and Save endpoints during research. Use the Update endpoint only when I explicitly ask you to record an action that has actually happened."
+    "- Use only the Context and Save endpoints in this research workflow. Record updates are handled by my separate Record Update Assistant Prompt."
   ];
 
   if (!scheduled) return lines.join("\n");
@@ -151,7 +147,6 @@ export function buildJobChatGptPrompt({
   const accessQuery = "access=" + encodeURIComponent(token) + (deploymentShareToken ? "&_vercel_share=" + encodeURIComponent(deploymentShareToken) : "");
   const context = base + "/api/assistant-context?scope=jobs&" + accessQuery;
   const save = base + "/api/assistant-jobs-save?" + accessQuery;
-  const update = base + "/api/assistant-update?" + accessQuery;
   const scheduled = kind === "scheduled";
   const deepSearch = searchDepth === "deep";
   const looseSearch = searchDepth === "loose";
@@ -170,7 +165,6 @@ export function buildJobChatGptPrompt({
     "Use my existing long-lived Inlinked Access Token directly. It does not expire automatically and remains valid until I revoke or regenerate it.",
     "Job context (HTTP GET): " + context,
     "Job save endpoint (HTTP POST, Content-Type: application/json): " + save,
-    "Record update endpoint (HTTP POST, Content-Type: application/json): " + update,
     "Before saving, identify the AI application currently hosting this conversation (for example ChatGPT, Claude, Gemini, Perplexity, Grok or Microsoft Copilot). Set the top-level researchTool field to that application name in every save request. Do not ask the user to choose.",
     "Use the product/application name, not the search provider, browser, website, job board, source platform or an API vendor. Do not guess an underlying model or version. If you cannot reliably identify the host AI application, use Unknown. Keep this attribution separate from sourcePlatform and evidence URLs.",
     "Use the same token for Context, Save and Update, preferably as Authorization: Bearer <token>. The URLs above also include the token as an access query parameter. Never print the token or send either private endpoint URL to a search engine or unrelated service.",
@@ -246,8 +240,6 @@ export function buildJobChatGptPrompt({
     "Use salaryMin/salaryMax only when numeric values and currency are clear; preserve the advertised wording in salaryText. Set workplaceType to remote, hybrid, on-site or unknown. Use an ISO date for postedAt only when a reliable date is known; otherwise use postedAtText and leave postedAt null.",
     "POST all qualified jobs in batches of no more than 50. Inspect the actual HTTP status and JSON response. Report the exact total, saved, duplicates and invalid counts. Do not claim a job was saved unless the endpoint confirms it.",
     "If the HTTP request tool available in this chat cannot send the POST, do not claim persistence. Instead output a valid JSON object with researchTool and a jobs array so I can paste it into Inlinked → Jobs. Never expose my token in the JSON or report.",
-    "When I later tell you that I actually applied, received an interview, got an offer or had another status change, identify the vacancy by matching its title, employer or source URL against savedJobRecords (or use the ID returned by Save), then use the Update endpoint with POST and an updates array. Each item must contain resource: job, the record id returned by Save, and the exact new job status (for example Applied or Interviewing). Include notes only when I provide them. Opening an application page or preparing an application is not proof that I applied.",
-    "Example update body: {\"updates\":[{\"resource\":\"job\",\"id\":\"saved-record-uuid\",\"status\":\"Applied\"}]}.",
     "",
     "## Report",
     ...(looseSearch ? [
