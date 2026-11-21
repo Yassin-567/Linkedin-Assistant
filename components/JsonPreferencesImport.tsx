@@ -33,11 +33,6 @@ const JOB_PROMPT = [
   '    "salaryCurrency": "",',
   '    "minimumSalary": null,',
   '    "language": "",',
-  '    "includeLinkedIn": true,',
-  '    "includeSocialMedia": true,',
-  '    "includeCompanySites": true,',
-  '    "includeJobBoards": true,',
-  '    "targetCount": 30',
   "  }",
   "}",
   "",
@@ -65,7 +60,7 @@ const LINKEDIN_PROMPT = [
   '    "keywords": [],',
   '    "jobTitles": [],',
   '    "excludedKeywords": [],',
-  '    "language": "English",',
+  '    "language": "",',
   '    "profileSummary": ""',
   "  }",
   "}",
@@ -149,10 +144,9 @@ function parseImport(raw: string, kind: ImportKind): Parsed {
     const currency = optionalText(input.salaryCurrency, "salaryCurrency", 10);
     const language = optionalText(input.language, "language", 60);
     if (currency !== undefined) result.salaryCurrency = currency.toUpperCase();
-    if (language !== undefined) result.language = language || "English";
+    if (language !== undefined && language) result.language = language;
     if (minimumSalary !== undefined) result.minimumSalary = minimumSalary;
     if (targetCount !== undefined) result.targetCount = targetCount;
-    for (const key of ["includeLinkedIn", "includeSocialMedia", "includeCompanySites", "includeJobBoards"]) {
       if (input[key] !== undefined) {
         if (typeof input[key] !== "boolean") throw new Error(key + " must be true or false.");
         result[key] = input[key];
@@ -265,10 +259,6 @@ export default function JsonPreferencesImport() {
           salaryCurrency: incoming.salaryCurrency || current.salaryCurrency || "",
           minimumSalary: incoming.minimumSalary === undefined ? current.minimumSalary : incoming.minimumSalary,
           language: incoming.language || current.language || "English",
-          includeLinkedIn: incoming.includeLinkedIn === undefined ? current.includeLinkedIn : incoming.includeLinkedIn,
-          includeSocialMedia: incoming.includeSocialMedia === undefined ? current.includeSocialMedia : incoming.includeSocialMedia,
-          includeCompanySites: incoming.includeCompanySites === undefined ? current.includeCompanySites : incoming.includeCompanySites,
-          includeJobBoards: incoming.includeJobBoards === undefined ? current.includeJobBoards : incoming.includeJobBoards,
           targetCount: incoming.targetCount === undefined ? current.targetCount : incoming.targetCount
         };
         const save = await fetch("/api/job-preferences", {
