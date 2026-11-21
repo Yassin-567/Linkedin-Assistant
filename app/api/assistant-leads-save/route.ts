@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
           user_id, profile_id, title, company, contact_name, contact_role, website, profile_url,
           email, phone, location, country, opportunity_summary, service_requested,
           discovery_engine, buying_intent, confidence, project_type, budget_text,
-          estimated_value_min, estimated_value_max, value_currency, source_platform, source_type,
+          estimated_value_min, estimated_value_max, value_currency, source_platform, source_type, research_tool,
           source_url, normalized_source_url, published_at, evidence, scores, source_metadata,
           status, notes
         ) VALUES (
