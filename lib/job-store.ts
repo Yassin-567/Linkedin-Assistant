@@ -17,6 +17,7 @@ type PreparedJob = {
   postedAt: Date | null;
   postedAtText: string;
   sourcePlatform: string;
+  researchTool: string;
   sourceType: string;
   sourceUrl: string;
   normalizedSourceUrl: string;
@@ -124,6 +125,7 @@ function prepareJob(value: unknown, index: number): PreparedJob {
     postedAt,
     postedAtText: textValue(job.postedAtText ?? job.postedDate, 200),
     sourcePlatform: textValue(job.sourcePlatform ?? job.source, 80) || "Other",
+    researchTool: textValue(job.researchTool, 80) || "Unknown",
     sourceType: textValue(job.sourceType, 60) || "other",
     sourceUrl,
     normalizedSourceUrl: sourceUrl ? normalizedUrl(sourceUrl) : "",
@@ -160,14 +162,14 @@ export async function saveJobBatch(sql: SqlClient, userId: string, values: unkno
       INSERT INTO jobs (
         user_id, title, company, description, salary_text, salary_min, salary_max,
         salary_currency, workplace_type, employment_type, location, country,
-        seniority, posted_at, posted_at_text, source_platform, source_type,
+        seniority, posted_at, posted_at_text, source_platform, research_tool, source_type,
         source_url, normalized_source_url, application_url, match_reason,
         evidence_urls, source_metadata, status, notes
       ) VALUES (
         ${userId}, ${job.title}, ${job.company}, ${job.description}, ${job.salaryText},
         ${job.salaryMin}, ${job.salaryMax}, ${job.salaryCurrency}, ${job.workplaceType},
         ${job.employmentType}, ${job.location}, ${job.country}, ${job.seniority},
-        ${job.postedAt}, ${job.postedAtText}, ${job.sourcePlatform}, ${job.sourceType},
+        ${job.postedAt}, ${job.postedAtText}, ${job.sourcePlatform}, ${job.researchTool}, ${job.sourceType},
         ${job.sourceUrl}, ${job.normalizedSourceUrl}, ${job.applicationUrl}, ${job.matchReason},
         ${JSON.stringify(job.evidenceUrls)}::jsonb, ${JSON.stringify(job.sourceMetadata)}::jsonb,
         'Saved', ''
@@ -178,7 +180,7 @@ export async function saveJobBatch(sql: SqlClient, userId: string, values: unkno
 
     if (rows.length) {
       saved++;
-      results.push({ index: job.index, status: "saved", title: job.title, company: job.company, sourceUrl: job.sourceUrl });
+      results.push({ index: job.index, id: String(rows[0].id), status: "saved", title: job.title, company: job.company, sourceUrl: job.sourceUrl, researchTool: job.researchTool });
     } else {
       duplicates++;
       results.push({ index: job.index, status: "duplicate", title: job.title, sourceUrl: job.sourceUrl });
