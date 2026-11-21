@@ -21,7 +21,7 @@ const profileLabels: Record<keyof ProfileFields, string> = {
 function lines(value: string) { return value.split("\n"); }
 function cleanLines(values: string[]) { return values.map(value => value.trim()).filter(Boolean); }
 function sourceLabel(value?: string) {
-  if (value === "public_linkedin_index") return "Public LinkedIn search result";
+  if (value === "public_linkedin_index") return "Legacy public-index context";
   if (value === "user_entered_or_edited") return "Entered or edited by you";
   return "Not found";
 }
@@ -56,7 +56,7 @@ export default function SettingsPage() {
       if (profileResponse.ok) {
         setProfile({ ...emptyProfile, ...(profileData.fields || {}) });
         setSources(profileData.fieldSources || {});
-        setVerifiedAt(profileData.verifiedAt || "");
+        setVerifiedAt(profileData.savedAt || "");
       } else setProfileMessage(profileData.error || "Could not load profile verification.");
     }).catch(() => setMessage("Could not load settings.")).finally(() => setBusy(false));
   }, []);
