@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     `;
     if (!profiles.length) return fail("Lead Profile not found in this Inlinked account.", 404);
     const existing: any = await sql`
-      SELECT company, website, source_url AS "sourceUrl", normalized_source_url AS "normalizedSourceUrl"
+      SELECT id::text, title, company, status, website, source_url AS "sourceUrl", normalized_source_url AS "normalizedSourceUrl"
       FROM business_leads WHERE user_id = ${auth.userId} ORDER BY created_at DESC LIMIT 5000
     `;
     const profile = profiles[0];
@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
       },
       exclusions: {
         savedLeadCount: existing.length,
+        savedLeadRecords: existing.slice(0, 500).map((row: any) => ({ id: row.id, title: row.title, company: row.company, status: row.status, sourceUrl: row.normalizedSourceUrl || row.sourceUrl })),
         savedSourceUrls: existing.map((row: any) => row.normalizedSourceUrl || row.sourceUrl).filter(Boolean),
         savedCompanies: [...new Set(existing.map((row: any) => String(row.company || "").trim()).filter(Boolean))],
         savedWebsites: [...new Set(existing.map((row: any) => String(row.website || "").trim()).filter(Boolean))]
