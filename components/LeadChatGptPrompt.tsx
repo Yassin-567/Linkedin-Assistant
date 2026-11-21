@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type Props = { profileId: string; profileName: string };
+type Props = { profileId: string; profileName: string; profileSaved: boolean };
 
-export default function LeadChatGptPrompt({ profileId, profileName }: Props) {
+export default function LeadChatGptPrompt({ profileId, profileName, profileSaved }: Props) {
   const [token, setToken] = useState("");
   const [tokenDraft, setTokenDraft] = useState("");
   const [origin, setOrigin] = useState("");
@@ -32,13 +32,13 @@ export default function LeadChatGptPrompt({ profileId, profileName }: Props) {
   }, []);
 
   const promptLink = useMemo(() => {
-    if (!token || !origin || !profileId) return "";
+    if (!token || !origin || !profileId || !profileSaved) return "";
     const url = new URL("/api/assistant-prompt", origin);
     url.searchParams.set("type", "leads");
     url.searchParams.set("mode", "standard");
     url.searchParams.set("ai", token);
     return url.toString();
-  }, [token, origin, profileId]);
+  }, [token, origin, profileId, profileSaved]);
 
   function loadExistingToken() {
     const value = tokenDraft.trim();
@@ -64,9 +64,9 @@ export default function LeadChatGptPrompt({ profileId, profileName }: Props) {
 
   return <div className="lead-chatgpt-prompt wide">
     <div className="wide form-footer">
-      <span className="muted">{profileId ? "Selected Lead Profile: " + profileName : "Save and activate a Lead Profile first."}</span>
+      <span className="muted">{profileSaved ? "Selected Lead Profile: " + profileName : "Save and activate the intended Lead Profile first."}</span>
       <div className="row">
-        <button type="button" onClick={() => void copyLink()} disabled={!promptLink || checking}>Copy Leads prompt link</button>
+        <button type="button" onClick={() => void copyLink()} disabled={!promptLink || checking || !profileSaved}>Copy Leads prompt link</button>
         {promptLink && <a className="button secondary" href={promptLink} target="_blank" rel="noreferrer">Open prompt in browser</a>}
       </div>
     </div>
@@ -79,7 +79,7 @@ export default function LeadChatGptPrompt({ profileId, profileName }: Props) {
     </div>}
     {!checking && !enabled && <p className="footnote">No active permanent AI token was found. <a href="/settings">Open Settings → ChatGPT connection</a> and generate one first.</p>}
     {checking && <p className="muted">Checking your prompt gateway connection…</p>}
-    {!profileId && <p className="footnote">Save and activate a Lead Profile before copying this link. The gateway uses the active profile and its saved discovery engines.</p>}
+    {!profileSaved && <p className="footnote">Save your current profile changes and make it active before copying this link. The gateway uses the active saved profile and its discovery engines.</p>}
     <p className="muted" role="status">{message}</p>
     <p className="footnote">The link contains your permanent credential. Anyone with it can open the prompt, read the selected profile instructions and generate a temporary session. Keep it private. Revoke or regenerate the permanent token if the link is exposed.</p>
   </div>;
