@@ -29,7 +29,7 @@ type Scores = { serviceMatch?: number; buyingIntent?: number; freshness?: number
 type Lead = {
   id: string; profileId: string | null; title: string; company: string; contactName: string; contactRole: string;
   location: string; country: string; opportunitySummary: string; serviceRequested: string; discoveryEngine: string;
-  buyingIntent: string; confidence: string; projectType: string; sourcePlatform: string; sourceUrl: string;
+  buyingIntent: string; confidence: string; projectType: string; sourcePlatform: string; researchTool?: string; sourceUrl: string;
   publishedAt: string | null; evidence: string[]; scores: Scores; status: string; notes: string;
   nextFollowUp: string | null; wonValue: number | null; wonCurrency: string;
 };
@@ -348,7 +348,7 @@ export default function LeadsPage() {
           <div className="job-card-top"><div className="job-title-block"><h3>{lead.title || lead.company || "Potential customer"}</h3><strong>{lead.company || lead.contactName || "Business not identified"}</strong><div className="job-meta">{[lead.location, lead.country, label(lead.discoveryEngine), lead.sourcePlatform].filter(Boolean).join(" · ")}</div></div>
             <select aria-label={"Pipeline status for " + (lead.company || lead.title)} value={lead.status} onChange={event => void updateLead(lead, { status: event.target.value })}>{statusOptions.map(status => <option key={status}>{status}</option>)}</select>
           </div>
-          <div className="job-chip-row"><span className="job-chip">{lead.buyingIntent}</span><span className="job-chip">{lead.confidence} confidence</span>{typeof lead.scores?.priority === "number" && <span className="job-chip">{lead.scores.priority}/100 priority</span>}</div>
+          <div className="job-chip-row"><span className="job-chip">AI research tool: {lead.researchTool || "Unknown"}</span><span className="job-chip">{lead.buyingIntent}</span><span className="job-chip">{lead.confidence} confidence</span>{typeof lead.scores?.priority === "number" && <span className="job-chip">{lead.scores.priority}/100 priority</span>}</div>
           {lead.opportunitySummary && <p className="job-match">{lead.opportunitySummary}</p>}
           <div className="job-actions"><a href={lead.sourceUrl} target="_blank" rel="noreferrer">Original source ↗</a><button type="button" className="text-button" onClick={() => setExpandedLead(old => old === lead.id ? "" : lead.id)}>{expandedLead === lead.id ? "Hide details" : "Notes and follow-up"}</button><button type="button" className="text-button delete" onClick={() => void removeLead(lead)}>Remove</button></div>
           {expandedLead === lead.id && <div className="job-expanded">
