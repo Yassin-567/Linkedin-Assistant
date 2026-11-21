@@ -42,6 +42,29 @@ Save body (1 to 50 leads; personal `linkedin.com/in/` profiles only):
 
 Response: `total`, `saved`, `duplicates`, `invalid` and a per-lead `results` array. Prospects are stored with status "To research".
 
+
+## Update saved records
+
+Use the same long-lived Access Token with:
+
+`POST /api/assistant-update?access=<ACCESS_TOKEN>`
+
+Body (1–50 updates per request):
+
+```json
+{"updates":[{"resource":"job","id":"saved-record-uuid","status":"Applied","notes":"Application submitted through the employer website."},{"resource":"linkedin_prospect","id":"saved-prospect-uuid","status":"Contacted"},{"resource":"commercial_lead","id":"saved-lead-uuid","status":"Contacted"}]}
+```
+
+Allowed resources are `linkedin_prospect`, `job`, and `commercial_lead`. The status must exactly match that workspace's existing status choices. Notes are optional. The response reports `updated`, `notFound`, `invalid` and per-item results. Every record is checked against the user owning the Access Token.
+
+The assistant save endpoints return the database ID for each saved record. Context responses also include recent saved record IDs: `savedProspectRecords` in normal LinkedIn context, `savedJobRecords` in `scope=jobs` context, and `savedLeadRecords` in commercial Lead context. Match a record unambiguously by its name/company/title/source URL before using its ID. Ask the user to clarify when more than one record could match.
+
+Only send an update after the user confirms that the action actually happened. A drafted message, an opened company website, or an opened application page does not mean that the prospect was contacted or the job was applied for.
+
+## AI research tool attribution
+
+Every assistant save request may include a top-level `researchTool` field, such as `ChatGPT`, `Claude`, `Gemini`, `Perplexity`, `Grok`, `Microsoft Copilot` or a custom label. Inlinked stores this separately from `sourcePlatform` / the original website or job board and displays it on saved records. New prompts include the selected tool automatically; for manual API requests, pass the tool name explicitly. Older records show `Unknown`.
+
 ## Security
 
 - Treat the Access Token like a password. Anyone who has it can read your search context and save prospects to your Inlinked account.
