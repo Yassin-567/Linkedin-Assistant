@@ -7,7 +7,7 @@ type Job = {
   workplaceType: string; employmentType: string; location: string; country: string;
   seniority: string; postedAt: string | null; postedAtText: string;
   sourcePlatform: string; researchTool: string; sourceType: string; sourceUrl: string; applicationUrl: string;
-  matchReason: string; evidenceUrls: string[]; sourceMetadata: Record<string, unknown> | null; status: string; notes: string;
+  matchReason: string; recommendedOutreach?: string; evidenceUrls: string[]; sourceMetadata: Record<string, unknown> | null; status: string; notes: string;
   discoveredAt: string; createdAt: string;
 };
 const statuses = ["Saved", "Applied", "Interviewing", "Offer", "Rejected", "Closed", "Not interested"];
@@ -52,15 +52,17 @@ export default function JobsPage() {
     return (filter === "All" || job.status === filter) && text.includes(search.toLowerCase());
   }), [jobs, filter, search]);
 
-  async function update(job: Job, changes: { status?: string; notes?: string }) {
+  async function update(job: Job, changes: { status?: string; notes?: string; recommendedOutreach?: string }) {
     try {
-      const response = await fetch("/api/jobs", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: job.id, status: changes.status ?? job.status, notes: changes.notes ?? job.notes }) });
+      const response = await fetch("/api/jobs", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: job.id, status: changes.status ?? job.status, notes: changes.notes ?? job.notes, recommendedOutreach: changes.recommendedOutreach ?? job.recommendedOutreach ?? "" }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not update this job.");
       setJobs(old => old.map(item => item.id === job.id ? { ...item, ...changes } : item));
       setMessage("Job updated.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Update failed."); }
   }
+
+  async function copyRecommended(text:string) { try { await navigator.clipboard.writeText(text); setMessage("Recommended message copied."); } catch { setMessage("Could not copy the message. Select and copy it manually."); } }
 
   async function remove(job: Job) {
     if (!window.confirm("Remove " + job.title + " from your saved jobs?")) return;
@@ -93,7 +95,7 @@ export default function JobsPage() {
   }
 
   function exportCsv() {
-    const fields = ["title","company","location","country","workplaceType","employmentType","salaryText","postedAtText","sourcePlatform","researchTool","sourceUrl","applicationUrl","status","notes"];
+    const fields = ["title","company","location","country","workplaceType","employmentType","salaryText","postedAtText","sourcePlatform","researchTool","sourceUrl","applicationUrl","status","notes","recommendedOutreach"];
     const quote = (v: unknown) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
     const lines = [fields, ...shown.map(job => fields.map(field => (job as unknown as Record<string, unknown>)[field]))]
       .map(row => row.map(quote).join(",")).join("\r\n");
@@ -130,7 +132,7 @@ export default function JobsPage() {
             <div className="job-title-block"><h3>{job.title}</h3><strong>{job.company || "Employer not identified"}</strong><div className="job-meta">
               {[job.location, job.country, label(job.workplaceType), label(job.employmentType), job.seniority].filter(Boolean).join(" · ")}
             </div></div>
-            <select aria-label={"Status for " + job.title} value={job.status} onChange={e => void update(job, { status: e.target.value })}>{statuses.map(status => <option key={status}>{status}</option>)}</select>
+            <div className="job-status-outreach"><select aria-label={"Status for " + job.title} value={job.status} onChange={e => void update(job, { status: e.target.value })}>{statuses.map(status => <option key={status}>{status}</option>)}</select><aside className="recommended-outreach"><label>Recommended outreach<textarea rows={4} defaultValue={job.recommendedOutreach || ""} onBlur={e=>{const value=e.target.value;if(value!==(job.recommendedOutreach||""))void update(job,{recommendedOutreach:value});}} placeholder="A tailored message to the recruiter or hiring team will appear here."/></label><button type="button" className="secondary" disabled={!job.recommendedOutreach?.trim()} onClick={()=>void copyRecommended(job.recommendedOutreach||"")}>Copy message</button></aside></div>
           </div>
           <div className="job-chip-row">
             <span className="job-chip">{job.sourcePlatform || "Other source"}</span>

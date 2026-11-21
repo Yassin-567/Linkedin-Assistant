@@ -29,7 +29,7 @@ type Scores = { serviceMatch?: number; buyingIntent?: number; freshness?: number
 type Lead = {
   id: string; profileId: string | null; title: string; company: string; contactName: string; contactRole: string;
   location: string; country: string; opportunitySummary: string; serviceRequested: string; discoveryEngine: string;
-  buyingIntent: string; confidence: string; projectType: string; sourcePlatform: string; researchTool?: string; sourceUrl: string;
+  buyingIntent: string; confidence: string; projectType: string; sourcePlatform: string; researchTool?: string; sourceUrl: string; recommendedOutreach?: string;
   publishedAt: string | null; evidence: string[]; scores: Scores; status: string; notes: string;
   nextFollowUp: string | null; wonValue: number | null; wonCurrency: string;
 };
@@ -218,7 +218,7 @@ export default function LeadsPage() {
       const response = await fetch("/api/leads", {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: lead.id, status: changes.status ?? lead.status, notes: changes.notes ?? lead.notes,
-          nextFollowUp: changes.nextFollowUp ?? lead.nextFollowUp, wonValue: changes.wonValue ?? lead.wonValue,
+          nextFollowUp: changes.nextFollowUp ?? lead.nextFollowUp, recommendedOutreach: changes.recommendedOutreach ?? lead.recommendedOutreach ?? "", wonValue: changes.wonValue ?? lead.wonValue,
           wonCurrency: changes.wonCurrency ?? lead.wonCurrency })
       });
       const data = await response.json();
@@ -226,6 +226,8 @@ export default function LeadsPage() {
       setLeads(old => old.map(x => x.id === lead.id ? data.lead : x));
     } catch (error) { setSearchMessage(error instanceof Error ? error.message : "Could not update lead."); }
   }
+
+  async function copyRecommended(text:string) { try { await navigator.clipboard.writeText(text); setSearchMessage("Recommended message copied."); } catch { setSearchMessage("Could not copy the message. Select and copy it manually."); } }
 
   async function removeLead(lead: Lead) {
     if (!window.confirm("Remove this lead from your pipeline?")) return;
@@ -346,7 +348,7 @@ export default function LeadsPage() {
       {loadingLeads ? <div className="empty">Loading saved opportunities…</div> : shownLeads.length ? <div className="job-list">
         {shownLeads.map(lead => <article className="job-card" key={lead.id}>
           <div className="job-card-top"><div className="job-title-block"><h3>{lead.title || lead.company || "Potential customer"}</h3><strong>{lead.company || lead.contactName || "Business not identified"}</strong><div className="job-meta">{[lead.location, lead.country, label(lead.discoveryEngine), lead.sourcePlatform].filter(Boolean).join(" · ")}</div></div>
-            <select aria-label={"Pipeline status for " + (lead.company || lead.title)} value={lead.status} onChange={event => void updateLead(lead, { status: event.target.value })}>{statusOptions.map(status => <option key={status}>{status}</option>)}</select>
+            <div className="job-status-outreach"><select aria-label={"Pipeline status for " + (lead.company || lead.title)} value={lead.status} onChange={event => void updateLead(lead, { status: event.target.value })}>{statusOptions.map(status => <option key={status}>{status}</option>)}</select><aside className="recommended-outreach"><label>Recommended outreach<textarea rows={4} defaultValue={lead.recommendedOutreach || ""} onBlur={event=>{const value=event.target.value;if(value!==(lead.recommendedOutreach||""))void updateLead(lead,{recommendedOutreach:value});}} placeholder="A personalized business outreach message will appear here."/></label><button type="button" className="secondary" disabled={!lead.recommendedOutreach?.trim()} onClick={()=>void copyRecommended(lead.recommendedOutreach||"")}>Copy message</button></aside></div>
           </div>
           <div className="job-chip-row"><span className="job-chip">AI research tool: {lead.researchTool || "Unknown"}</span><span className="job-chip">{lead.buyingIntent}</span><span className="job-chip">{lead.confidence} confidence</span>{typeof lead.scores?.priority === "number" && <span className="job-chip">{lead.scores.priority}/100 priority</span>}</div>
           {lead.opportunitySummary && <p className="job-match">{lead.opportunitySummary}</p>}

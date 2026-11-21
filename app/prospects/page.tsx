@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-type Lead = { id: string; name: string; company: string; url: string; status: string; followUp: string; notes: string; connected?: boolean; connectedOn?: string; researchTool?: string };
+type Lead = { id: string; name: string; company: string; url: string; status: string; followUp: string; notes: string; connected?: boolean; connectedOn?: string; researchTool?: string; recommendedOutreach?: string };
 const statuses = ["To research", "Ready to contact", "Contacted", "Connected", "Replied", "Call booked", "Client", "Not a fit"];
 
 export default function Home() {
@@ -100,10 +100,11 @@ export default function Home() {
   }
   function exportCsv() {
     const q = (s:string) => '"' + s.replace(/"/g,'""') + '"';
-    const rows = [["Name","Company","LinkedIn URL","Status","Follow-up","Notes","Connected","Connected on","AI research tool"], ...leads.map(x => [x.name,x.company,x.url,x.status,x.followUp,x.notes,x.connected ? "Yes" : "No",x.connectedOn || "",x.researchTool || "Unknown"])];
+    const rows = [["Name","Company","LinkedIn URL","Status","Follow-up","Notes","Recommended Outreach","Connected","Connected on","AI research tool"], ...leads.map(x => [x.name,x.company,x.url,x.status,x.followUp,x.notes,x.recommendedOutreach || "",x.connected ? "Yes" : "No",x.connectedOn || "",x.researchTool || "Unknown"])];
     const blob = new Blob([rows.map(row => row.map(q).join(",")).join("\n")], {type:"text/csv"});
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "linkedin-connections.csv"; a.click(); URL.revokeObjectURL(a.href);
   }
+  async function copyRecommended(text:string) { try { await navigator.clipboard.writeText(text); setMessage("Recommended message copied."); } catch { setMessage("Could not copy the message. Select and copy it manually."); } }
   async function publish() {
     const r = await fetch("/api/linkedin/post",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:post})});
     const data = await r.json(); setMessage(r.ok ? "Post published." : (data.error || "Post failed."));
@@ -120,7 +121,7 @@ export default function Home() {
       <div className="stat"><span>Clients won</span><strong>{leads.filter(x=>x.status==="Client").length}</strong></div>
     </section>
     <section className="panel">
-      <div className="section-heading"><div><h2>Connection tracker</h2><p className="muted">Add professionals and decision-makers you discover. Keep relationship-building personal.</p></div><div className="row"><a className="button" href="/search">Find LinkedIn profiles</a><a className="button secondary" href="/connections">Import connections</a><a className="button secondary" href="/settings">LinkedIn search settings</a><button onClick={exportCsv} disabled={!leads.length}>Export CSV</button></div></div>
+      <div className="section-heading"><div><h2>Connection tracker</h2><p className="muted">Add professionals and decision-makers you discover. Keep relationship-building personal.</p></div><div className="row"><a className="button secondary" href="/connections">Import connections</a><a className="button secondary" href="/settings">Research preferences</a><button onClick={exportCsv} disabled={!leads.length}>Export CSV</button></div></div>
       <form className="lead-form" onSubmit={addLead}>
         <label>Contact name *<input required value={name} onChange={e=>setName(e.target.value)} placeholder="Jane Smith"/></label>
         <label>Company *<input required value={company} onChange={e=>setCompany(e.target.value)} placeholder="ABC Appliance Repairs"/></label>
@@ -131,7 +132,7 @@ export default function Home() {
         <div className="wide form-footer"><span className="muted">* Required</span><button type="submit">+ Save connection</button></div>
       </form>
       <div className="toolbar"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search LinkedIn connections..."/><select value={filter} onChange={e=>setFilter(e.target.value)}><option>All</option>{statuses.map(s=><option key={s}>{s}</option>)}</select></div>
-      {shown.length ? <div className="lead-list">{shown.map(x=><article className="lead" key={x.id}><div><strong>{x.name}</strong><div>{x.company}</div><small className="muted">AI research tool: {x.researchTool || "Unknown"}</small>{x.connected && <span className="connected-tag">✓ Connected{x.connectedOn ? ` · ${x.connectedOn}` : ""}</span>}{x.followUp && <small>Follow up: {x.followUp}</small>}{x.notes && <p>{x.notes}</p>}{x.url && <a href={x.url} target="_blank" rel="noreferrer">Open LinkedIn ↗</a>}</div><div className="lead-controls"><select value={x.status} onChange={e=>void updateLead(x.id,{status:e.target.value})}>{statuses.map(s=><option key={s}>{s}</option>)}</select><button className="delete" onClick={()=>void removeLead(x.id)}>×</button></div></article>)}</div> : <div className="empty"><strong>{leads.length ? "No matching connections" : "Your connection list starts here"}</strong><p>Add a professional or decision-maker from any country or industry to track your next relationship-building step.</p></div>}
+      {shown.length ? <div className="lead-list">{shown.map(x=><article className="lead" key={x.id}><div className="prospect-summary"><strong>{x.name}</strong><div>{x.company}</div><small className="muted">AI research tool: {x.researchTool || "Unknown"}</small>{x.connected && <span className="connected-tag">✓ Connected{x.connectedOn ? ` · ${x.connectedOn}` : ""}</span>}{x.followUp && <small>Follow up: {x.followUp}</small>}{x.notes && <p>{x.notes}</p>}{x.url && <a href={x.url} target="_blank" rel="noreferrer">Open LinkedIn ↗</a>}</div><aside className="recommended-outreach"><label>Recommended outreach<textarea rows={4} defaultValue={x.recommendedOutreach || ""} onBlur={e=>{const value=e.target.value;if(value!==(x.recommendedOutreach||""))void updateLead(x.id,{recommendedOutreach:value});}} placeholder="A personalized message will appear here after AI research."/></label><button type="button" className="secondary" disabled={!x.recommendedOutreach?.trim()} onClick={()=>void copyRecommended(x.recommendedOutreach||"")}>Copy message</button></aside><div className="lead-controls"><select value={x.status} onChange={e=>void updateLead(x.id,{status:e.target.value})}>{statuses.map(s=><option key={s}>{s}</option>)}</select><button className="delete" onClick={()=>void removeLead(x.id)}>×</button></div></article>)}</div> : <div className="empty"><strong>{leads.length ? "No matching connections" : "Your connection list starts here"}</strong><p>Add a professional or decision-maker from any country or industry to track your next relationship-building step.</p></div>}
       <p className="storage-note">{cloudStorage ? "Synced to your private cloud storage and mirrored in this browser." : "Saved in this browser until you sign in to enable private database sync."} Export CSV regularly for backup.</p>
     </section>
     {account.connected&&<section className="panel"><h2>Paste from ChatGPT</h2><p className="muted">Ask ChatGPT to list LinkedIn connections one per line as <code>Name | Company | LinkedIn profile URL</code>, then paste them here (up to 50). Duplicates are skipped.</p><textarea rows={5} value={pasted} onChange={e=>setPasted(e.target.value)} placeholder={"Jane Smith | ABC Appliance Repairs | https://www.linkedin.com/in/jane-smith"}/><div className="row"><button onClick={()=>void importPasted()} disabled={pasteBusy||!pasted.trim()}>{pasteBusy?"Importing...":"Import pasted connections"}</button></div></section>}

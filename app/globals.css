@@ -323,3 +323,17 @@ button.method-card:hover:not(:disabled) { background: #f7fbf9; transform: none; 
   .lead-result { flex-direction:column; }
   .lead-result > button { width:100%; }
 }
+
+/* Personalized outreach field shown beside each saved record. */
+.lead { display:grid; grid-template-columns:minmax(190px,1fr) minmax(250px,.85fr) auto; align-items:start; }
+.recommended-outreach { display:grid; gap:8px; min-width:0; padding:11px; border:1px solid #e1e8e9; border-radius:10px; background:#f8fbfa; }
+.recommended-outreach label { display:grid; gap:6px; color:#30463b; font-size:11px; font-weight:700; }
+.recommended-outreach textarea { min-height:88px; resize:vertical; font-size:12px; line-height:1.5; }
+.recommended-outreach button { justify-self:start; padding:8px 12px; font-size:11px; }
+.job-status-outreach { display:grid; gap:10px; width:min(44%,440px); min-width:260px; }
+.job-card-top .job-status-outreach select { width:100%; }
+@media (max-width:700px) {
+  .lead { grid-template-columns:minmax(0,1fr); }
+  .lead-controls { justify-content:space-between; }
+  .job-card-top .job-status-outreach { width:100%; min-width:0; }
+}
