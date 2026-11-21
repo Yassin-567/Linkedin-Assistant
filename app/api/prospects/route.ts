@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/app-auth";
 import { db } from "@/lib/db";
 export const runtime = "nodejs";
-const statuses = ["To research","Ready to contact","Contacted","Replied","Call booked","Client","Not a fit"];
+const statuses = ["To research","Ready to contact","Contacted","Connected","Replied","Call booked","Client","Not a fit"];
 const sources = ["Unknown","Google/Serper","LinkedIn","Manual","ChatGPT research","Referral","Other"];
 const methods = ["Unknown","Find Leads","Manual entry","ChatGPT AI Token","ChatGPT temporary link","CSV import"];
 const fail = (error:string,status:number) => NextResponse.json({error},{status,headers:{"Cache-Control":"no-store"}});
@@ -22,11 +22,14 @@ export async function POST(request:NextRequest) {
  const b=await request.json().catch(()=>null); if(!b||typeof b!=="object")return fail("A prospect object is required.",400);
  const name=clean(b.name,200),company=clean(b.company,300),url=profileUrl(b.url);
  const researchTool=clean(b.researchTool,80)||"Unknown";
+ const statusValue=pick(b.status,statuses,"To research");
+ const connectedValue=!!b.connected||statusValue==="Connected";
+ const connectedOnValue=clean(b.connectedOn,100);
  if(!name||!company)return fail("Contact name and company are required.",400);
  if(b.url&&!url)return fail("Use a valid LinkedIn personal profile URL, or leave it blank.",400);
  try {
   const sql=db(); const rows: any=await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,industry,status,follow_up,notes,connected,connected_on,discovery_source,saved_via,research_tool)
-   VALUES(${user.userId},${name},${company},${url},${url},${clean(b.industry,160)},${pick(b.status,statuses,"To research")},${clean(b.followUp,30)},${clean(b.notes,5000)},${!!b.connected},${clean(b.connectedOn,100)},${pick(b.discoverySource,sources,"Manual")},${pick(b.savedVia,methods,"Manual entry")},${researchTool})
+   VALUES(${user.userId},${name},${company},${url},${url},${clean(b.industry,160)},${statusValue},${clean(b.followUp,30)},${clean(b.notes,5000)},${connectedValue},CASE WHEN ${statusValue} = 'Connected' AND ${connectedOnValue} = '' THEN to_char(current_date,'YYYY-MM-DD') ELSE ${connectedOnValue} END,${pick(b.discoverySource,sources,"Manual")},${pick(b.savedVia,methods,"Manual entry")},${researchTool})
    ON CONFLICT(user_id,normalized_linkedin_url) WHERE normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url<>'' DO NOTHING
    RETURNING id::text,name,company,linkedin_url AS url,industry,status,follow_up AS "followUp",notes,connected,connected_on AS "connectedOn",discovery_source AS "discoverySource",saved_via AS "savedVia",research_tool AS "researchTool",created_at AS "createdAt",updated_at AS "updatedAt"`;
   if(!rows.length)return fail("This LinkedIn profile is already saved in your account.",409);
@@ -40,12 +43,13 @@ export async function PATCH(request:NextRequest) {
  const name=clean(b.name,200),company=clean(b.company,300); if(!name||!company)return fail("Contact name and company are required.",400);
  const hasUrl=Object.prototype.hasOwnProperty.call(b,"url"),url=hasUrl?profileUrl(b.url):null;
   const hasResearchTool=Object.prototype.hasOwnProperty.call(b,"researchTool"),researchTool=clean(b.researchTool,80);
+ const statusValue=pick(b.status,statuses,"To research");
  if(hasUrl&&b.url&&!url)return fail("Use a valid LinkedIn personal profile URL, or leave it blank.",400);
  try {
   const sql=db();
   const rows: any=hasUrl
-   ? await sql`UPDATE prospects SET name=${name},company=${company},linkedin_url=${url},normalized_linkedin_url=${url},industry=${clean(b.industry,160)},status=${pick(b.status,statuses,"To research")},follow_up=${clean(b.followUp,30)},notes=${clean(b.notes,5000)},connected=${!!b.connected},connected_on=${clean(b.connectedOn,100)},discovery_source=${pick(b.discoverySource,sources,"Unknown")},saved_via=${pick(b.savedVia,methods,"Unknown")},research_tool=CASE WHEN ${hasResearchTool} THEN ${researchTool||"Unknown"} ELSE research_tool END,updated_at=now() WHERE id=${id}::uuid AND user_id=${user.userId} RETURNING id::text,name,company,linkedin_url AS url,industry,status,follow_up AS "followUp",notes,connected,connected_on AS "connectedOn",discovery_source AS "discoverySource",saved_via AS "savedVia",research_tool AS "researchTool"`
-   : await sql`UPDATE prospects SET name=${name},company=${company},industry=${clean(b.industry,160)},status=${pick(b.status,statuses,"To research")},follow_up=${clean(b.followUp,30)},notes=${clean(b.notes,5000)},connected=${!!b.connected},connected_on=${clean(b.connectedOn,100)},discovery_source=${pick(b.discoverySource,sources,"Unknown")},saved_via=${pick(b.savedVia,methods,"Unknown")},research_tool=CASE WHEN ${hasResearchTool} THEN ${researchTool||"Unknown"} ELSE research_tool END,updated_at=now() WHERE id=${id}::uuid AND user_id=${user.userId} RETURNING id::text,name,company,linkedin_url AS url,industry,status,follow_up AS "followUp",notes,connected,connected_on AS "connectedOn",discovery_source AS "discoverySource",saved_via AS "savedVia",research_tool AS "researchTool"`;
+   ? await sql`UPDATE prospects SET name=${name},company=${company},linkedin_url=${url},normalized_linkedin_url=${url},industry=${clean(b.industry,160)},status=${statusValue},follow_up=${clean(b.followUp,30)},notes=${clean(b.notes,5000)},connected=CASE WHEN ${statusValue} = 'Connected' THEN true ELSE ${!!b.connected} END,connected_on=CASE WHEN ${statusValue} = 'Connected' THEN COALESCE(NULLIF(${clean(b.connectedOn,100)},''),NULLIF(connected_on,''),to_char(current_date,'YYYY-MM-DD')) ELSE ${clean(b.connectedOn,100)} END,discovery_source=${pick(b.discoverySource,sources,"Unknown")},saved_via=${pick(b.savedVia,methods,"Unknown")},research_tool=CASE WHEN ${hasResearchTool} THEN ${researchTool||"Unknown"} ELSE research_tool END,updated_at=now() WHERE id=${id}::uuid AND user_id=${user.userId} RETURNING id::text,name,company,linkedin_url AS url,industry,status,follow_up AS "followUp",notes,connected,connected_on AS "connectedOn",discovery_source AS "discoverySource",saved_via AS "savedVia",research_tool AS "researchTool"`
+   : await sql`UPDATE prospects SET name=${name},company=${company},industry=${clean(b.industry,160)},status=${statusValue},follow_up=${clean(b.followUp,30)},notes=${clean(b.notes,5000)},connected=CASE WHEN ${statusValue} = 'Connected' THEN true ELSE ${!!b.connected} END,connected_on=CASE WHEN ${statusValue} = 'Connected' THEN COALESCE(NULLIF(${clean(b.connectedOn,100)},''),NULLIF(connected_on,''),to_char(current_date,'YYYY-MM-DD')) ELSE ${clean(b.connectedOn,100)} END,discovery_source=${pick(b.discoverySource,sources,"Unknown")},saved_via=${pick(b.savedVia,methods,"Unknown")},research_tool=CASE WHEN ${hasResearchTool} THEN ${researchTool||"Unknown"} ELSE research_tool END,updated_at=now() WHERE id=${id}::uuid AND user_id=${user.userId} RETURNING id::text,name,company,linkedin_url AS url,industry,status,follow_up AS "followUp",notes,connected,connected_on AS "connectedOn",discovery_source AS "discoverySource",saved_via AS "savedVia",research_tool AS "researchTool"`;
   if(!rows.length)return fail("Prospect not found in your account, or its LinkedIn URL is already used.",404);
   return NextResponse.json({ok:true,lead:rows[0]},{headers:{"Cache-Control":"no-store"}});
  } catch(e){console.error("Prospect update failed",e);return fail("Could not update this prospect.",503);}

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 
 type Lead = { id: string; name: string; company: string; url: string; status: string; followUp: string; notes: string; connected?: boolean; connectedOn?: string; researchTool?: string };
-const statuses = ["To research", "Ready to contact", "Contacted", "Replied", "Call booked", "Client", "Not a fit"];
+const statuses = ["To research", "Ready to contact", "Contacted", "Connected", "Replied", "Call booked", "Client", "Not a fit"];
 
 export default function Home() {
   const [account, setAccount] = useState<{connected:boolean; profile?:{name?:string;email?:string}}>({connected:false});

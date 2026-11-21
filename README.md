@@ -35,7 +35,7 @@ A global, individual-account prospecting workspace. Every Google-authenticated u
 - Private per-user outreach history for LinkedIn, email and other channels.
 - Editable connection-request, LinkedIn follow-up, email-introduction and email-follow-up drafts.
 - The app never sends messages automatically. A user reviews, copies and sends manually, then explicitly records that it was sent.
-- Sent messages, replies, meetings and notes are logged against the selected prospect. Sent/replied/meeting events update the prospect pipeline status.
+- Sent messages, replies, meetings and notes are logged against the selected prospect. Sent/replied/meeting events update the prospect pipeline status. LinkedIn prospects also support a `Connected` status; setting it marks the connection flag and records the first connection date without clearing that metadata when the pipeline later advances.
 - Follow-up dates create due/upcoming reminders. Duplicate profile saves are blocked by the existing per-user unique profile constraint; repeated identical sent-message logs are blocked for 10 minutes, and request idempotency keys prevent duplicate submissions.
 
 ## Phase 6: client acquisition dashboard

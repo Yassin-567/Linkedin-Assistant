@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
 
     const [connectionRows, savedProspectRows, connectionMeta]: any = await Promise.all([
       sql`SELECT normalized_linkedin_url AS url FROM linkedin_connections WHERE user_id = ${userId} ORDER BY imported_at DESC LIMIT 20000`,
-      sql`SELECT id::text, name, company, status, normalized_linkedin_url AS url FROM prospects WHERE user_id = ${userId} AND normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url <> '' ORDER BY created_at DESC LIMIT 1000`,
+      sql`SELECT id::text, name, company, status, connected, connected_on AS "connectedOn", normalized_linkedin_url AS url FROM prospects WHERE user_id = ${userId} AND normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url <> '' ORDER BY created_at DESC LIMIT 1000`,
       sql`SELECT max(imported_at) AS imported_at, count(*)::int AS count FROM linkedin_connections WHERE user_id = ${userId}`
     ]);
 
@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
         uploadedConnectionsImportedAt: connectionMeta[0]?.imported_at || null,
         uploadedConnectionProfileUrls: connectionRows.map((x: any) => x.url),
         savedProspectProfileUrls: savedProspectRows.map((x: any) => x.url),
-        savedProspectRecords: savedProspectRows.map((x: any) => ({ id: x.id, name: x.name, company: x.company, status: x.status, linkedinUrl: x.url }))
+        savedProspectRecords: savedProspectRows.map((x: any) => ({ id: x.id, name: x.name, company: x.company, status: x.status, connected: Boolean(x.connected), connectedOn: x.connectedOn || "", linkedinUrl: x.url }))
       }
     }, { headers: noStore });
   } catch (error) {

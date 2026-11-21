@@ -20,7 +20,7 @@ const validId = (value: unknown) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
 const statuses: Record<string, string[]> = {
-  linkedin_prospect: ["To research", "Ready to contact", "Contacted", "Replied", "Call booked", "Client", "Not a fit"],
+  linkedin_prospect: ["To research", "Ready to contact", "Contacted", "Connected", "Replied", "Call booked", "Client", "Not a fit"],
   job: ["Saved", "Applied", "Interviewing", "Offer", "Rejected", "Closed", "Not interested"],
   commercial_lead: ["New", "Qualified", "Contacted", "In discussion", "Proposal", "Won", "Lost", "Not relevant"]
 };
@@ -77,9 +77,15 @@ export async function POST(request: NextRequest) {
           UPDATE prospects
           SET status = ${status},
               notes = CASE WHEN ${notesProvided} THEN ${notes} ELSE notes END,
+              connected = CASE WHEN ${status} = 'Connected' THEN true ELSE connected END,
+              connected_on = CASE
+                WHEN ${status} = 'Connected' AND COALESCE(connected_on, '') = ''
+                  THEN to_char(current_date, 'YYYY-MM-DD')
+                ELSE connected_on
+              END,
               updated_at = now()
           WHERE id = ${id}::uuid AND user_id = ${auth.userId}
-          RETURNING id::text, status, updated_at AS "updatedAt"
+          RETURNING id::text, status, connected, connected_on AS "connectedOn", updated_at AS "updatedAt"
         `;
       } else if (resource === "job") {
         rows = await sql`
@@ -114,6 +120,10 @@ export async function POST(request: NextRequest) {
         id: String(rows[0].id),
         status: "updated",
         currentStatus: rows[0].status,
+        ...(resource === "linkedin_prospect" ? {
+          connected: Boolean(rows[0].connected),
+          connectedOn: rows[0].connectedOn || ""
+        } : {}),
         updatedAt: rows[0].updatedAt
       });
     }

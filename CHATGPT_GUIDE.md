@@ -58,11 +58,11 @@ Body (1–50 updates per request):
 {"updates":[{"resource":"job","id":"saved-record-uuid","status":"Applied","notes":"Application submitted through the employer website."},{"resource":"linkedin_prospect","id":"saved-prospect-uuid","status":"Contacted"},{"resource":"commercial_lead","id":"saved-lead-uuid","status":"Contacted"}]}
 ```
 
-Allowed resources are `linkedin_prospect`, `job`, and `commercial_lead`. The status must exactly match that workspace's existing status choices. Notes are optional. The response reports `updated`, `notFound`, `invalid` and per-item results. Every record is checked against the user owning the Access Token.
+Allowed resources are `linkedin_prospect`, `job`, and `commercial_lead`. The status must exactly match that workspace's existing status choices. LinkedIn prospect statuses include `Connected`; setting it also marks the saved prospect as connected and records today as the connection date when no date exists. Notes are optional. The response reports `updated`, `notFound`, `invalid` and per-item results. Every record is checked against the user owning the Access Token.
 
 The assistant save endpoints return the database ID for each saved record. Context responses also include recent saved record IDs: `savedProspectRecords` in normal LinkedIn context, `savedJobRecords` in `scope=jobs` context, and `savedLeadRecords` in commercial Lead context. Match a record unambiguously by its name/company/title/source URL before using its ID. Ask the user to clarify when more than one record could match.
 
-Only send an update after the user confirms that the action actually happened. A drafted message, an opened company website, or an opened application page does not mean that the prospect was contacted or the job was applied for.
+Only send an update after the user confirms that the action actually happened. A drafted message, an opened company website, or an opened application page does not mean that the prospect was contacted or the job was applied for. Mark a LinkedIn prospect `Connected` only after the connection request has been accepted or the user confirms they are now connected; a sent or pending request is `Contacted`, not `Connected`.
 
 ## AI research tool attribution
 
