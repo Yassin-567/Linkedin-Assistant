@@ -172,7 +172,7 @@ function parseImport(raw: string, kind: ImportKind): Parsed {
   }
   const language = optionalText(input.language, "language", 60);
   const profileSummary = optionalText(input.profileSummary, "profileSummary", 4000);
-  if (language !== undefined) result.language = language || "English";
+  if (language !== undefined && language) result.language = language;
   if (profileSummary !== undefined) result.profileSummary = profileSummary;
   if (!Object.entries(result).some(([key, value]) =>
     ((key === "profileSummary" || key === "linkedinProfileUrl") && typeof value === "string" && value.trim().length > 0) ||
