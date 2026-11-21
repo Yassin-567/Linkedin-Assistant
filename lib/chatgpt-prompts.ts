@@ -85,6 +85,7 @@ export function buildChatGptPrompt({
     "10. The endpoint accepts up to 50 connection candidates per request and returns each saved record ID. Read the actual POST status and response body. The response uses the fields total, saved, duplicates and invalid (not duplicate). Report these exact returned values accurately. Never claim a connection candidate was saved unless the API confirms it.",
     "11. If context retrieval fails, do not guess the preferences or exclusions. If saving fails, report the actual error and do not claim the prospects were saved.",
     "12. When I later tell you that I actually contacted, received a reply from, booked a meeting with, or otherwise changed one of these saved prospects, identify the record by matching name, company or LinkedIn URL against exclusions.savedProspectRecords (or use the ID returned by Save), then use the Update endpoint with POST and an updates array. Each item must contain resource: linkedin_prospect, the saved record id returned by Save, and the exact new status (for example Contacted, Replied or Call booked). Include notes only when I provide them. Do not mark anything as contacted merely because you drafted a message or found contact details.",
+    "Example update body: {\"updates\":[{\"resource\":\"linkedin_prospect\",\"id\":\"saved-record-uuid\",\"status\":\"Contacted\"}]}.",
     "13. Stop the Firecrawl browser-interaction session after the final API response has been inspected. If a session fails to initialize, retry once using a completely fresh firecrawl_interact session started directly on the Context endpoint URL; do not use a prior scrapeId.",
     "",
     "## Output",
@@ -246,6 +247,7 @@ export function buildJobChatGptPrompt({
     "POST all qualified jobs in batches of no more than 50. Inspect the actual HTTP status and JSON response. Report the exact total, saved, duplicates and invalid counts. Do not claim a job was saved unless the endpoint confirms it.",
     "If the HTTP request tool available in this chat cannot send the POST, do not claim persistence. Instead output a valid JSON object with researchTool and a jobs array so I can paste it into Inlinked → Jobs. Never expose my token in the JSON or report.",
     "When I later tell you that I actually applied, received an interview, got an offer or had another status change, identify the vacancy by matching its title, employer or source URL against savedJobRecords (or use the ID returned by Save), then use the Update endpoint with POST and an updates array. Each item must contain resource: job, the record id returned by Save, and the exact new job status (for example Applied or Interviewing). Include notes only when I provide them. Opening an application page or preparing an application is not proof that I applied.",
+    "Example update body: {\"updates\":[{\"resource\":\"job\",\"id\":\"saved-record-uuid\",\"status\":\"Applied\"}]}.",
     "",
     "## Report",
     ...(looseSearch ? [
