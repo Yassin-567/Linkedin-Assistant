@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   excluded_keywords text[] NOT NULL DEFAULT ARRAY[]::text[],
   language text NOT NULL DEFAULT 'English',
   linkedin_profile_url text NOT NULL DEFAULT '',
+  connection_target_count integer NOT NULL DEFAULT 50 CHECK (connection_target_count BETWEEN 1 AND 50),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
