@@ -30,6 +30,7 @@ type UpdateInput = {
   id?: unknown;
   status?: unknown;
   notes?: unknown;
+  recommendedOutreach?: unknown;
 };
 
 export async function POST(request: NextRequest) {
@@ -58,14 +59,19 @@ export async function POST(request: NextRequest) {
       const input: UpdateInput = body.updates[index] || {};
       const resource = typeof input.resource === "string" ? input.resource : "";
       const id = input.id;
+      const statusProvided = Object.prototype.hasOwnProperty.call(input, "status");
       const status = typeof input.status === "string" ? input.status : "";
       const notesProvided = Object.prototype.hasOwnProperty.call(input, "notes");
       const notes = typeof input.notes === "string" ? input.notes.trim() : "";
+      const outreachProvided = Object.prototype.hasOwnProperty.call(input, "recommendedOutreach");
+      const recommendedOutreach = typeof input.recommendedOutreach === "string" ? input.recommendedOutreach.trim() : "";
 
       if (!Object.prototype.hasOwnProperty.call(statuses, resource) ||
           !validId(id) ||
-          !statuses[resource].includes(status) ||
-          (notesProvided && (typeof input.notes !== "string" || notes.length > 5000))) {
+          (statusProvided && (typeof input.status !== "string" || !statuses[resource].includes(status))) ||
+          (!statusProvided && !notesProvided && !outreachProvided) ||
+          (notesProvided && (typeof input.notes !== "string" || notes.length > 5000)) ||
+          (outreachProvided && (typeof input.recommendedOutreach !== "string" || recommendedOutreach.length > 6000))) {
         invalid++;
         results.push({ index, status: "invalid", error: "Provide a valid resource, record ID and allowed status. Optional notes must be text of 5,000 characters or fewer." });
         continue;
@@ -75,35 +81,38 @@ export async function POST(request: NextRequest) {
       if (resource === "linkedin_prospect") {
         rows = await sql`
           UPDATE prospects
-          SET status = ${status},
+          SET status = CASE WHEN ${statusProvided} THEN ${status} ELSE status END,
               notes = CASE WHEN ${notesProvided} THEN ${notes} ELSE notes END,
-              connected = CASE WHEN ${status} = 'Connected' THEN true ELSE connected END,
+              recommended_outreach = CASE WHEN ${outreachProvided} THEN ${recommendedOutreach} ELSE recommended_outreach END,
+              connected = CASE WHEN ${statusProvided} AND ${status} = 'Connected' THEN true ELSE connected END,
               connected_on = CASE
-                WHEN ${status} = 'Connected' AND COALESCE(connected_on, '') = ''
+                WHEN ${statusProvided} AND ${status} = 'Connected' AND COALESCE(connected_on, '') = ''
                   THEN to_char(current_date, 'YYYY-MM-DD')
                 ELSE connected_on
               END,
               updated_at = now()
           WHERE id = ${id}::uuid AND user_id = ${auth.userId}
-          RETURNING id::text, status, connected, connected_on AS "connectedOn", updated_at AS "updatedAt"
+          RETURNING id::text, status, notes, recommended_outreach AS "recommendedOutreach", connected, connected_on AS "connectedOn", updated_at AS "updatedAt"
         `;
       } else if (resource === "job") {
         rows = await sql`
           UPDATE jobs
-          SET status = ${status},
+          SET status = CASE WHEN ${statusProvided} THEN ${status} ELSE status END,
               notes = CASE WHEN ${notesProvided} THEN ${notes} ELSE notes END,
+              recommended_outreach = CASE WHEN ${outreachProvided} THEN ${recommendedOutreach} ELSE recommended_outreach END,
               updated_at = now()
           WHERE id = ${id}::uuid AND user_id = ${auth.userId}
-          RETURNING id::text, status, updated_at AS "updatedAt"
+          RETURNING id::text, status, notes, recommended_outreach AS "recommendedOutreach", updated_at AS "updatedAt"
         `;
       } else {
         rows = await sql`
           UPDATE business_leads
-          SET status = ${status},
+          SET status = CASE WHEN ${statusProvided} THEN ${status} ELSE status END,
               notes = CASE WHEN ${notesProvided} THEN ${notes} ELSE notes END,
+              recommended_outreach = CASE WHEN ${outreachProvided} THEN ${recommendedOutreach} ELSE recommended_outreach END,
               updated_at = now()
           WHERE id = ${id}::uuid AND user_id = ${auth.userId}
-          RETURNING id::text, status, updated_at AS "updatedAt"
+          RETURNING id::text, status, notes, recommended_outreach AS "recommendedOutreach", updated_at AS "updatedAt"
         `;
       }
 
@@ -120,6 +129,7 @@ export async function POST(request: NextRequest) {
         id: String(rows[0].id),
         status: "updated",
         currentStatus: rows[0].status,
+        recommendedOutreach: rows[0].recommendedOutreach || "",
         ...(resource === "linkedin_prospect" ? {
           connected: Boolean(rows[0].connected),
           connectedOn: rows[0].connectedOn || ""

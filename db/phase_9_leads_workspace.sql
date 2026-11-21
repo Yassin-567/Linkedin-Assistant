@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS business_leads (
   status text NOT NULL DEFAULT 'New'
     CHECK (status IN ('New','Qualified','Contacted','In discussion','Proposal','Won','Lost','Not relevant')),
   notes text NOT NULL DEFAULT '',
+  recommended_outreach text NOT NULL DEFAULT '',
   next_follow_up date,
   won_value numeric(14,2),
   won_currency text NOT NULL DEFAULT '',

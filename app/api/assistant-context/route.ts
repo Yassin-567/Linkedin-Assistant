@@ -18,15 +18,18 @@ export async function GET(request: NextRequest) {
     if (request.nextUrl.searchParams.get("scope") === "jobs") {
       const sql = db();
       await sql`INSERT INTO job_search_preferences(user_id) VALUES(${userId}) ON CONFLICT(user_id) DO NOTHING`;
-      const [preferenceRows, savedJobRows]: any = await Promise.all([
+      const [preferenceRows, savedJobRows, ownerRows]: any = await Promise.all([
         sql`SELECT target_roles, keywords, countries, locations, work_modes, employment_types,
           seniority_levels, excluded_keywords, salary_currency, minimum_salary, language,
           include_linkedin, include_social_media, include_company_sites, include_job_boards, target_count
           FROM job_search_preferences WHERE user_id = ${userId} LIMIT 1`,
-        sql`SELECT id::text, title, company, status, normalized_source_url AS url FROM jobs WHERE user_id = ${userId}
-          ORDER BY created_at DESC LIMIT 5000`
+        sql`SELECT id::text, title, company, status, recommended_outreach AS "recommendedOutreach", normalized_source_url AS url FROM jobs WHERE user_id = ${userId}
+          ORDER BY created_at DESC LIMIT 5000`,
+        sql`SELECT u.profile_summary, u.linkedin_profile_data, u.linkedin_profile_source, u.linkedin_profile_verified_at, p.linkedin_profile_url FROM app_users u LEFT JOIN user_preferences p ON p.user_id = u.id WHERE u.id = ${userId} LIMIT 1`
       ]);
       const p = preferenceRows[0] || {};
+      const owner = ownerRows[0] || {};
+      const profileData = owner.linkedin_profile_data && typeof owner.linkedin_profile_data === "object" ? owner.linkedin_profile_data : {};
       return NextResponse.json({
         ok: true,
         contextVersion: 1,
@@ -40,6 +43,7 @@ export async function GET(request: NextRequest) {
           firecrawlIsOptional: true,
           doNotInventMissingJobDetails: true
         },
+        owner: { linkedinProfileUrl: owner.linkedin_profile_url || "", profileSummary: owner.profile_summary || "", profile: { fields: profileData.fields || {}, fieldSources: profileData.fieldSources || {}, source: owner.linkedin_profile_source || "not_verified", savedAt: owner.linkedin_profile_verified_at || null } },
         jobSearchPreferences: {
           targetRoles: p.target_roles || [],
           keywords: p.keywords || [],
@@ -59,7 +63,7 @@ export async function GET(request: NextRequest) {
           targetCount: Number(p.target_count || 30)
         },
         exclusions: { savedJobUrls: savedJobRows.map((x: any) => x.url) },
-        savedJobRecords: savedJobRows.slice(0, 500).map((x: any) => ({ id: x.id, title: x.title, company: x.company, status: x.status, sourceUrl: x.url }))
+        savedJobRecords: savedJobRows.slice(0, 500).map((x: any) => ({ id: x.id, title: x.title, company: x.company, status: x.status, recommendedOutreach: x.recommendedOutreach || "", sourceUrl: x.url }))
       }, { headers: noStore });
     }
 
@@ -89,7 +93,7 @@ export async function GET(request: NextRequest) {
 
     const [connectionRows, savedProspectRows, connectionMeta]: any = await Promise.all([
       sql`SELECT normalized_linkedin_url AS url FROM linkedin_connections WHERE user_id = ${userId} ORDER BY imported_at DESC LIMIT 20000`,
-      sql`SELECT id::text, name, company, status, connected, connected_on AS "connectedOn", normalized_linkedin_url AS url FROM prospects WHERE user_id = ${userId} AND normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url <> '' ORDER BY created_at DESC LIMIT 1000`,
+      sql`SELECT id::text, name, company, status, connected, connected_on AS "connectedOn", recommended_outreach AS "recommendedOutreach", normalized_linkedin_url AS url FROM prospects WHERE user_id = ${userId} AND normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url <> '' ORDER BY created_at DESC LIMIT 1000`,
       sql`SELECT max(imported_at) AS imported_at, count(*)::int AS count FROM linkedin_connections WHERE user_id = ${userId}`
     ]);
 
@@ -126,7 +130,7 @@ export async function GET(request: NextRequest) {
         uploadedConnectionsImportedAt: connectionMeta[0]?.imported_at || null,
         uploadedConnectionProfileUrls: connectionRows.map((x: any) => x.url),
         savedProspectProfileUrls: savedProspectRows.map((x: any) => x.url),
-        savedProspectRecords: savedProspectRows.map((x: any) => ({ id: x.id, name: x.name, company: x.company, status: x.status, connected: Boolean(x.connected), connectedOn: x.connectedOn || "", linkedinUrl: x.url }))
+        savedProspectRecords: savedProspectRows.map((x: any) => ({ id: x.id, name: x.name, company: x.company, status: x.status, connected: Boolean(x.connected), connectedOn: x.connectedOn || "", recommendedOutreach: x.recommendedOutreach || "", linkedinUrl: x.url }))
       }
     }, { headers: noStore });
   } catch (error) {

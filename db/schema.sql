@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS prospects (
   notes text NOT NULL DEFAULT '',
   connected boolean NOT NULL DEFAULT false,
   connected_on text NOT NULL DEFAULT '',
+  recommended_outreach text NOT NULL DEFAULT '',
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   discovery_source text NOT NULL DEFAULT 'Unknown',
@@ -109,18 +110,6 @@ CREATE INDEX IF NOT EXISTS assistant_scoped_tokens_user_scope_idx
   ON assistant_scoped_tokens(user_id, scope, expires_at DESC)
   WHERE revoked_at IS NULL;
 
-CREATE TABLE IF NOT EXISTS prospect_intelligence (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id text NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
-  prospect_id uuid NOT NULL REFERENCES prospects(id) ON DELETE CASCADE,
-  company text NOT NULL,
-  report jsonb NOT NULL DEFAULT '{}'::jsonb,
-  sources jsonb NOT NULL DEFAULT '[]'::jsonb,
-  researched_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT prospect_intelligence_user_prospect_unique UNIQUE (user_id, prospect_id)
-);
-CREATE INDEX IF NOT EXISTS prospect_intelligence_user_researched_idx
-  ON prospect_intelligence(user_id, researched_at DESC);
 
 CREATE TABLE IF NOT EXISTS outreach_activities (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -196,6 +185,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   status text NOT NULL DEFAULT 'Saved'
     CHECK (status IN ('Saved','Applied','Interviewing','Offer','Rejected','Closed','Not interested')),
   notes text NOT NULL DEFAULT '',
+  recommended_outreach text NOT NULL DEFAULT '',
   discovered_at timestamptz NOT NULL DEFAULT now(),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),

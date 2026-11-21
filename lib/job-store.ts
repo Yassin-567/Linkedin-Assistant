@@ -23,6 +23,7 @@ type PreparedJob = {
   normalizedSourceUrl: string;
   applicationUrl: string;
   matchReason: string;
+  recommendedOutreach: string;
   evidenceUrls: string[];
   sourceMetadata: Record<string, unknown>;
   error: string | null;
@@ -131,6 +132,7 @@ function prepareJob(value: unknown, index: number): PreparedJob {
     normalizedSourceUrl: sourceUrl ? normalizedUrl(sourceUrl) : "",
     applicationUrl,
     matchReason: textValue(job.matchReason ?? job.reasonForFit, 1500),
+    recommendedOutreach: textValue(job.recommendedOutreach, 6000),
     evidenceUrls,
     sourceMetadata,
     error
@@ -163,14 +165,14 @@ export async function saveJobBatch(sql: SqlClient, userId: string, values: unkno
         user_id, title, company, description, salary_text, salary_min, salary_max,
         salary_currency, workplace_type, employment_type, location, country,
         seniority, posted_at, posted_at_text, source_platform, research_tool, source_type,
-        source_url, normalized_source_url, application_url, match_reason,
+        source_url, normalized_source_url, application_url, match_reason, recommended_outreach,
         evidence_urls, source_metadata, status, notes
       ) VALUES (
         ${userId}, ${job.title}, ${job.company}, ${job.description}, ${job.salaryText},
         ${job.salaryMin}, ${job.salaryMax}, ${job.salaryCurrency}, ${job.workplaceType},
         ${job.employmentType}, ${job.location}, ${job.country}, ${job.seniority},
         ${job.postedAt}, ${job.postedAtText}, ${job.sourcePlatform}, ${job.researchTool}, ${job.sourceType},
-        ${job.sourceUrl}, ${job.normalizedSourceUrl}, ${job.applicationUrl}, ${job.matchReason},
+        ${job.sourceUrl}, ${job.normalizedSourceUrl}, ${job.applicationUrl}, ${job.matchReason}, ${job.recommendedOutreach},
         ${JSON.stringify(job.evidenceUrls)}::jsonb, ${JSON.stringify(job.sourceMetadata)}::jsonb,
         'Saved', ''
       )
