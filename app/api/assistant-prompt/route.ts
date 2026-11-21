@@ -83,10 +83,10 @@ export async function GET(request: NextRequest) {
     if (!allowedTimezones.includes(timezone as typeof allowedTimezones[number])) {
       return errorResponse("Invalid timezone.", 400);
     }
-    if (timeChoice === "specific" && !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(time)) {
+    if (timeChoice === "specific" && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
       return errorResponse("Specific time must use HH:MM 24-hour format.", 400);
     }
-    if (endEnabled && (!/^\\d{4}-\\d{2}-\\d{2}$/.test(endDate) || Number.isNaN(Date.parse(endDate + "T00:00:00Z")))) {
+    if (endEnabled && (!/^\d{4}-\d{2}-\d{2}$/.test(endDate) || Number.isNaN(Date.parse(endDate + "T00:00:00Z")))) {
       return errorResponse("A valid end date is required when End repeat is On.", 400);
     }
     scheduledTask = {
