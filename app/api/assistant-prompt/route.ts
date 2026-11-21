@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashToken } from "@/lib/assistant-auth";
