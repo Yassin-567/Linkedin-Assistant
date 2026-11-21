@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
       timezone: timezone as typeof allowedTimezones[number],
       endEnabled,
       endDate,
-      bootstrapUrl: request.nextUrl.toString()
+      bootstrapUrl: (() => { const runUrl = new URL(request.nextUrl.toString()); runUrl.searchParams.set("kind", "research"); for (const key of ["frequency", "timeChoice", "time", "timezone", "endEnabled", "endDate"]) runUrl.searchParams.delete(key); return runUrl.toString(); })()
     };
   }
 
