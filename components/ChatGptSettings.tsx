@@ -23,6 +23,8 @@ function localDateValue(date = new Date()) {
 
 export default function ChatGptSettings({ prospectCount, jobCount }: { prospectCount: number; jobCount: number }) {
   const [researchArea, setResearchArea] = useState<"connections" | "jobs">("jobs");
+  const [researchTool, setResearchTool] = useState("ChatGPT");
+  const [customResearchTool, setCustomResearchTool] = useState("");
   const [status, setStatus] = useState<Status>({ enabled: false, createdAt: "" });
   const [kind, setKind] = useState<PromptKind>("research");
   const [jobSearchDepth, setJobSearchDepth] = useState<JobSearchDepth>("standard");
@@ -71,23 +73,24 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
   const activeToken = access?.token || "";
   const activeOrigin = access?.origin || "";
   const scheduleReady = kind !== "scheduled" || !scheduleEndEnabled || Boolean(scheduleEndDate);
+  const activeResearchTool = researchTool === "Other" ? customResearchTool.trim() || "Other" : researchTool;
   const prompt = useMemo(
     () => (activeToken && activeOrigin && scheduleReady
       ? researchArea === "jobs"
         ? buildJobChatGptPrompt({
-            kind, token: activeToken, origin: activeOrigin, jobCount, searchDepth: jobSearchDepth, deploymentShareToken,
+            kind, token: activeToken, origin: activeOrigin, jobCount, searchDepth: jobSearchDepth, deploymentShareToken, researchTool: activeResearchTool,
             scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
             scheduleEndEnabled, scheduleEndDate
           })
         : buildChatGptPrompt({
-            kind, token: activeToken, origin: activeOrigin, prospectCount, deploymentShareToken,
+            kind, token: activeToken, origin: activeOrigin, prospectCount, deploymentShareToken, researchTool: activeResearchTool,
             scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
             scheduleEndEnabled, scheduleEndDate
           })
       : ""),
     [researchArea, kind, activeToken, activeOrigin, prospectCount, jobCount, jobSearchDepth,
       scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
-      scheduleEndEnabled, scheduleEndDate, scheduleReady, deploymentShareToken]
+      scheduleEndEnabled, scheduleEndDate, scheduleReady, deploymentShareToken, activeResearchTool]
   );
 
   function useExistingAccessToken() {
@@ -171,6 +174,15 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
       <div className="method-grid">
         <button type="button" className={"method-card" + (researchArea === "jobs" ? " active" : "")} onClick={() => setResearchArea("jobs")} aria-pressed={researchArea === "jobs"}><strong>Find jobs</strong><span className="muted">Search vacancies across job boards, employers, LinkedIn and public social posts.</span></button>
         <button type="button" className={"method-card" + (researchArea === "connections" ? " active" : "")} onClick={() => setResearchArea("connections")} aria-pressed={researchArea === "connections"}><strong>Find LinkedIn connections</strong><span className="muted">Discover relevant professionals and decision-makers using your LinkedIn search preferences.</span></button>
+      </div>
+      <div className="lead-form" style={{ marginTop: 14 }}>
+        <label>Which AI application will perform this research?
+          <select value={researchTool} onChange={event => setResearchTool(event.target.value)}>
+            <option>ChatGPT</option><option>Claude</option><option>Gemini</option><option>Perplexity</option><option>Grok</option><option>Microsoft Copilot</option><option>Other</option>
+          </select>
+          <small className="muted">This value is saved separately from the original website or job-board source.</small>
+        </label>
+        {researchTool === "Other" && <label>AI application name<input value={customResearchTool} onChange={event => setCustomResearchTool(event.target.value)} maxLength={80} placeholder="Enter the AI application name" /></label>}
       </div>
       {researchArea === "jobs" && <div className="search-depth-section">
         <h3>Job search mode</h3>
