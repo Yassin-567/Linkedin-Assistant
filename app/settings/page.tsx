@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import ChatGptSettings from "@/components/ChatGptSettings";
 import JobPreferencesSettings from "@/components/JobPreferencesSettings";
 import CvImportSettings from "@/components/CvImportSettings";
+import JsonPreferencesImport from "@/components/JsonPreferencesImport";
 
 type Prefs = {
   linkedinProfileUrl: string; countries: string[]; industries: string[]; keywords: string[];
@@ -166,7 +167,7 @@ Content-Type: application/json
 
     {activeTab === "jobs" && <JobPreferencesSettings />}
 
-    {activeTab === "cv" && <CvImportSettings />}
+    {activeTab === "cv" && <><CvImportSettings /><JsonPreferencesImport /></>}
 
     {activeTab === "preferences" && <>
     <section className="panel"><form className="lead-form" onSubmit={save}>
