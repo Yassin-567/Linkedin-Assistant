@@ -23,8 +23,6 @@ function localDateValue(date = new Date()) {
 
 export default function ChatGptSettings({ prospectCount, jobCount }: { prospectCount: number; jobCount: number }) {
   const [researchArea, setResearchArea] = useState<"connections" | "jobs">("jobs");
-  const [researchTool, setResearchTool] = useState("ChatGPT");
-  const [customResearchTool, setCustomResearchTool] = useState("");
   const [status, setStatus] = useState<Status>({ enabled: false, createdAt: "" });
   const [kind, setKind] = useState<PromptKind>("research");
   const [jobSearchDepth, setJobSearchDepth] = useState<JobSearchDepth>("standard");
@@ -73,24 +71,23 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
   const activeToken = access?.token || "";
   const activeOrigin = access?.origin || "";
   const scheduleReady = kind !== "scheduled" || !scheduleEndEnabled || Boolean(scheduleEndDate);
-  const activeResearchTool = researchTool === "Other" ? customResearchTool.trim() || "Other" : researchTool;
   const prompt = useMemo(
     () => (activeToken && activeOrigin && scheduleReady
       ? researchArea === "jobs"
         ? buildJobChatGptPrompt({
-            kind, token: activeToken, origin: activeOrigin, jobCount, searchDepth: jobSearchDepth, deploymentShareToken, researchTool: activeResearchTool,
+            kind, token: activeToken, origin: activeOrigin, jobCount, searchDepth: jobSearchDepth, deploymentShareToken,
             scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
             scheduleEndEnabled, scheduleEndDate
           })
         : buildChatGptPrompt({
-            kind, token: activeToken, origin: activeOrigin, prospectCount, deploymentShareToken, researchTool: activeResearchTool,
+            kind, token: activeToken, origin: activeOrigin, prospectCount, deploymentShareToken,
             scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
             scheduleEndEnabled, scheduleEndDate
           })
       : ""),
     [researchArea, kind, activeToken, activeOrigin, prospectCount, jobCount, jobSearchDepth,
       scheduleFrequency, scheduleTimeChoice, scheduleTime, scheduleTimezone,
-      scheduleEndEnabled, scheduleEndDate, scheduleReady, deploymentShareToken, activeResearchTool]
+      scheduleEndEnabled, scheduleEndDate, scheduleReady, deploymentShareToken]
   );
 
   function useExistingAccessToken() {
@@ -158,6 +155,16 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
     }
   }
 
+  async function copyUpdateEndpoint() {
+    const url = `${window.location.origin}/api/assistant-update`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setMessage("Update endpoint URL copied. Add your Inlinked Access Token when making a POST request.");
+    } catch {
+      setMessage("Your browser blocked copying. Use the endpoint path shown below with your current Inlinked domain.");
+    }
+  }
+
   async function copyPrompt() {
     if (!prompt) return;
     try {
@@ -174,15 +181,6 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
       <div className="method-grid">
         <button type="button" className={"method-card" + (researchArea === "jobs" ? " active" : "")} onClick={() => setResearchArea("jobs")} aria-pressed={researchArea === "jobs"}><strong>Find jobs</strong><span className="muted">Search vacancies across job boards, employers, LinkedIn and public social posts.</span></button>
         <button type="button" className={"method-card" + (researchArea === "connections" ? " active" : "")} onClick={() => setResearchArea("connections")} aria-pressed={researchArea === "connections"}><strong>Find LinkedIn connections</strong><span className="muted">Discover relevant professionals and decision-makers using your LinkedIn search preferences.</span></button>
-      </div>
-      <div className="lead-form" style={{ marginTop: 14 }}>
-        <label>Which AI application will perform this research?
-          <select value={researchTool} onChange={event => setResearchTool(event.target.value)}>
-            <option>ChatGPT</option><option>Claude</option><option>Gemini</option><option>Perplexity</option><option>Grok</option><option>Microsoft Copilot</option><option>Other</option>
-          </select>
-          <small className="muted">This value is saved separately from the original website or job-board source.</small>
-        </label>
-        {researchTool === "Other" && <label>AI application name<input value={customResearchTool} onChange={event => setCustomResearchTool(event.target.value)} maxLength={80} placeholder="Enter the AI application name" /></label>}
       </div>
       {researchArea === "jobs" && <div className="search-depth-section">
         <h3>Job search mode</h3>
@@ -304,6 +302,20 @@ export default function ChatGptSettings({ prospectCount, jobCount }: { prospectC
               <p className="footnote">This only loads the existing token into this preview browser. It does not create, regenerate or revoke any token in your Inlinked account.</p>
             </div>
           : <p className="footnote">Generate a token to build either prompt below. The token is shown only once and is not recoverable from the database.</p>}
+    </section>
+
+    <section className="panel">
+      <h2>Record update API endpoint</h2>
+      <p className="muted">This is an API route, not a page to open. AI assistants use it to update the status or notes of records already saved in your Inlinked account.</p>
+      <div className="lead-form">
+        <label>Endpoint path<input type="text" readOnly value="/api/assistant-update" /></label>
+        <label>HTTP method<input type="text" readOnly value="POST" /></label>
+      </div>
+      <button type="button" className="secondary" onClick={() => void copyUpdateEndpoint()}>Copy full endpoint URL</button>
+      <p className="footnote">Use the same Inlinked Access Token as your research prompt. Send it as <code>Authorization: Bearer YOUR_ACCESS_TOKEN</code> or use the <code>?access=</code> query parameter. The request must include a JSON body.</p>
+      <p className="footnote"><strong>Supported records:</strong> Jobs (<code>job</code>), LinkedIn research prospects (<code>linkedin_prospect</code>) and Commercial Leads (<code>commercial_lead</code>). Imported LinkedIn Connections CSV rows are a separate list and are not updated by this endpoint.</p>
+      <pre className="prompt-box" aria-label="Update request example">{'{"updates":[{"resource":"job","id":"SAVED_RECORD_ID","status":"Applied"}]}'}</pre>
+      <p className="footnote">Use a record ID returned when it was saved or provided by the matching Context response. The endpoint accepts 1–50 updates per request. Only record a status change after the action really happened.</p>
     </section>
 
     <section className="panel">

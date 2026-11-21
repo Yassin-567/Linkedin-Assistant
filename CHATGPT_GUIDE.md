@@ -31,6 +31,7 @@ Use the same Access Token directly with both endpoints. No Credentials endpoint 
 |---|---|---|
 | Read profile, preferences and exclusions | `GET /api/assistant-context?access=<ACCESS_TOKEN>` | Access Token |
 | Save prospects | `POST /api/assistant-save?access=<ACCESS_TOKEN>` | Same Access Token |
+| Update saved record status/notes | `POST /api/assistant-update?access=<ACCESS_TOKEN>` | Same Access Token |
 
 Both endpoints also accept `Authorization: Bearer <ACCESS_TOKEN>` instead of the query parameter. The generated ChatGPT prompt uses the `access` query parameter.
 
@@ -49,6 +50,8 @@ Use the same long-lived Access Token with:
 
 `POST /api/assistant-update?access=<ACCESS_TOKEN>`
 
+This is an API route, not a normal page. In the app, find its path under **Settings → ChatGPT connection → Record update API endpoint**, or copy the full production URL: `https://inlinked.vercel.app/api/assistant-update`. It only accepts `POST`; opening the URL in a browser with `GET` will not display an endpoint page. The generated research prompts also include the update URL and instructions.
+
 Body (1–50 updates per request):
 
 ```json
@@ -63,7 +66,7 @@ Only send an update after the user confirms that the action actually happened. A
 
 ## AI research tool attribution
 
-Every assistant save request may include a top-level `researchTool` field, such as `ChatGPT`, `Claude`, `Gemini`, `Perplexity`, `Grok`, `Microsoft Copilot` or a custom label. Inlinked stores this separately from `sourcePlatform` / the original website or job board and displays it on saved records. New prompts include the selected tool automatically; for manual API requests, pass the tool name explicitly. Older records show `Unknown`.
+Generated prompts no longer ask you to select an AI application. Instead, they instruct the assistant to identify the application currently hosting the conversation and set its name automatically in the top-level `researchTool` field. If it cannot reliably identify the application, it must use `Unknown`. Inlinked stores this separately from `sourcePlatform` / the original website or job board and displays it on saved records. The prompt must not confuse the AI application with the search provider or the source website. Older records show `Unknown`.
 
 ## Security
 

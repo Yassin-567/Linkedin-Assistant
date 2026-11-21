@@ -9,7 +9,6 @@ type Options = {
   origin: string;
   deploymentShareToken?: string;
   prospectCount: number;
-  researchTool?: string;
   scheduleFrequency?: ScheduleFrequency;
   scheduleTimeChoice?: ScheduleTimeChoice;
   scheduleTime?: string;
@@ -18,10 +17,10 @@ type Options = {
   scheduleEndDate?: string;
 };
 
-const LEAD_EXAMPLE = '{"researchTool":"[selected AI application]","leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug/"}]}';
+const LEAD_EXAMPLE = '{"researchTool":"AI application name or Unknown","leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug/"}]}';
 
 export function buildChatGptPrompt({
-  kind, token, origin, deploymentShareToken, prospectCount, researchTool = "ChatGPT",
+  kind, token, origin, deploymentShareToken, prospectCount,
   scheduleFrequency = "daily", scheduleTimeChoice = "morning", scheduleTime = "09:00",
   scheduleTimezone = "Africa/Cairo", scheduleEndEnabled = false, scheduleEndDate = ""
 }: Options): string {
@@ -53,7 +52,8 @@ export function buildChatGptPrompt({
     `Context endpoint (HTTP GET): ${context}`,
     `LinkedIn Connections save endpoint (HTTP POST, Content-Type: application/json): ${save}`,
     `Record update endpoint (HTTP POST, Content-Type: application/json): ${update}`,
-    `AI research tool attribution: ${researchTool}. Include this exact value as the top-level researchTool field in every save request. This identifies the AI application performing the research, not the website where the result was found.`,
+    "Before saving, identify the AI application currently hosting this conversation (for example ChatGPT, Claude, Gemini, Perplexity, Grok or Microsoft Copilot). Set the top-level researchTool field to that application name in every save request. Do not ask the user to choose.",
+    "Use the product/application name, not the search provider, browser, website, source platform or an API vendor. Do not guess an underlying model or version. If you cannot reliably identify the host AI application, use Unknown. Keep this attribution separate from sourcePlatform and evidence URLs.",
     "Use this same Access Token directly for Context, Save and Update. Do not call a credentials endpoint, exchange the token, or request another token. Use the exact endpoint URLs above. All three endpoints accept the token in the access query parameter; they also support Authorization: Bearer if needed.",
     deploymentShareToken ? "The URLs also contain a Vercel share key. It only bypasses Vercel Authentication for this feature-branch Preview so Firecrawl can reach Inlinked's API. It is not a replacement for the Inlinked Access Token. Keep both values private." : "This deployment does not require a Vercel preview share key.",
     "Distinguish errors carefully: if Vercel returns a Protected Deployment / Vercel Authentication page, the deployment share key is missing or invalid. If the endpoint returns Inlinked's JSON error that the AI token is missing, invalid or revoked, report an Inlinked Access Token problem. Never call the token invalid just because Vercel blocked the request.",
@@ -80,7 +80,7 @@ export function buildChatGptPrompt({
     "6. Research connection candidates independently using current public sources. Verify each person's name, current role, company and relevance. Do not treat search snippets as verified facts. Never invent missing information.",
     "7. Prioritize professionals and decision-makers relevant to my networking goals. Explain briefly why each connection candidate is relevant. For larger targets, split discovery into multiple focused query batches and keep a running deduplicated count; do not mistake one query's result count for the requested total of connection candidates.",
     "8. Only save LinkedIn connection candidates that pass all checks and have a valid personal LinkedIn URL under linkedin.com/in/. Do not save company pages, search pages, uploaded connections, existing saved LinkedIn connection candidates, or uncertain matches.",
-    "9. Save all qualified LinkedIn connection candidates in ONE HTTP POST request to the exact LinkedIn Connections save endpoint URL above. Set Content-Type: application/json and send a JSON body with researchTool set to " + JSON.stringify(researchTool) + " and a leads array in this format:",
+    "9. Save all qualified LinkedIn connection candidates in ONE HTTP POST request to the exact LinkedIn Connections save endpoint URL above. Set Content-Type: application/json and send a JSON body with a top-level researchTool field set to your self-identified AI application name (or Unknown) and a leads array in this format:",
     LEAD_EXAMPLE,
     "10. The endpoint accepts up to 50 connection candidates per request and returns each saved record ID. Read the actual POST status and response body. The response uses the fields total, saved, duplicates and invalid (not duplicate). Report these exact returned values accurately. Never claim a connection candidate was saved unless the API confirms it.",
     "11. If context retrieval fails, do not guess the preferences or exclusions. If saving fails, report the actual error and do not claim the prospects were saved.",
@@ -131,7 +131,6 @@ type JobPromptOptions = {
   origin: string;
   jobCount: number;
   searchDepth?: JobSearchDepth;
-  researchTool?: string;
   deploymentShareToken?: string;
   scheduleFrequency?: ScheduleFrequency;
   scheduleTimeChoice?: ScheduleTimeChoice;
@@ -141,10 +140,10 @@ type JobPromptOptions = {
   scheduleEndDate?: string;
 };
 
-const JOB_EXAMPLE = `{"researchTool":"[selected AI application]","jobs":[{"title":"Job title","company":"Employer","description":"Full description when publicly available","salaryText":"Salary as advertised, if available","salaryMin":null,"salaryMax":null,"salaryCurrency":"GBP","workplaceType":"remote","employmentType":"Full-time","location":"Location","country":"United Kingdom","seniority":"Mid-level","postedAt":null,"postedAtText":"Posted 3 days ago","sourcePlatform":"Company careers page","sourceType":"company_careers","sourceUrl":"https://employer.example/jobs/123","applicationUrl":"https://employer.example/apply/123","matchReason":"Why this matches my preferences","evidenceUrls":["https://employer.example/jobs/123"],"sourceMetadata":{}}]}`;
+const JOB_EXAMPLE = `{"researchTool":"AI application name or Unknown","jobs":[{"title":"Job title","company":"Employer","description":"Full description when publicly available","salaryText":"Salary as advertised, if available","salaryMin":null,"salaryMax":null,"salaryCurrency":"GBP","workplaceType":"remote","employmentType":"Full-time","location":"Location","country":"United Kingdom","seniority":"Mid-level","postedAt":null,"postedAtText":"Posted 3 days ago","sourcePlatform":"Company careers page","sourceType":"company_careers","sourceUrl":"https://employer.example/jobs/123","applicationUrl":"https://employer.example/apply/123","matchReason":"Why this matches my preferences","evidenceUrls":["https://employer.example/jobs/123"],"sourceMetadata":{}}]}`;
 
 export function buildJobChatGptPrompt({
-  kind, token, origin, jobCount, searchDepth = "standard", deploymentShareToken, researchTool = "ChatGPT",
+  kind, token, origin, jobCount, searchDepth = "standard", deploymentShareToken,
   scheduleFrequency = "daily", scheduleTimeChoice = "morning", scheduleTime = "09:00",
   scheduleTimezone = "Africa/Cairo", scheduleEndEnabled = false, scheduleEndDate = ""
 }: JobPromptOptions): string {
@@ -172,7 +171,8 @@ export function buildJobChatGptPrompt({
     "Job context (HTTP GET): " + context,
     "Job save endpoint (HTTP POST, Content-Type: application/json): " + save,
     "Record update endpoint (HTTP POST, Content-Type: application/json): " + update,
-    "AI research tool attribution: " + researchTool + ". Include this exact value as the top-level researchTool field in every save request. This identifies the AI application, not the job board or employer website.",
+    "Before saving, identify the AI application currently hosting this conversation (for example ChatGPT, Claude, Gemini, Perplexity, Grok or Microsoft Copilot). Set the top-level researchTool field to that application name in every save request. Do not ask the user to choose.",
+    "Use the product/application name, not the search provider, browser, website, job board, source platform or an API vendor. Do not guess an underlying model or version. If you cannot reliably identify the host AI application, use Unknown. Keep this attribution separate from sourcePlatform and evidence URLs.",
     "Use the same token for Context, Save and Update, preferably as Authorization: Bearer <token>. The URLs above also include the token as an access query parameter. Never print the token or send either private endpoint URL to a search engine or unrelated service.",
     deploymentShareToken ? "The URLs also include a Vercel share key. It only bypasses Vercel Authentication on this feature-branch Preview so Firecrawl can reach the Inlinked API. It is separate from, and does not replace, the Inlinked Access Token. Keep both values private." : "This deployment does not require a Vercel preview share key.",
     "Distinguish 401 errors: a Vercel Protected Deployment / Vercel Authentication response means the preview share key was not accepted; Inlinked's JSON response saying the AI token is missing, invalid or revoked means the Inlinked Access Token needs attention. Do not confuse these errors.",
@@ -239,7 +239,7 @@ export function buildJobChatGptPrompt({
     "Never infer salary, employment type, seniority, posted date or remote status when the source does not state it. Leave unknown values blank/null and explain limitations.",
     "",
     "## Save to Inlinked",
-    "Save up to 50 jobs per POST request using the exact endpoint above. Send a JSON body with researchTool set to " + JSON.stringify(researchTool) + " and a jobs array. Send only jobs that meet the checks. Include all fields supported by the example; omit unknown facts or use null/empty text rather than guessing.",
+    "Save up to 50 jobs per POST request using the exact endpoint above. Send a JSON body with a top-level researchTool field set to your self-identified AI application name (or Unknown) and a jobs array. Send only jobs that meet the checks. Include all fields supported by the example; omit unknown facts or use null/empty text rather than guessing.",
     "Use the following JSON structure:",
     JOB_EXAMPLE,
     "Set sourcePlatform to the actual source (examples: LinkedIn, Facebook, X, Reddit, Indeed, Reed, employer career page, recruiter website). Set sourceType to one concise descriptor such as job_board, company_careers, linkedin, social_post, recruiter_post or other.",

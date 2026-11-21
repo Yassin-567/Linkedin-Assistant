@@ -27,8 +27,6 @@ export default function LeadChatGptPrompt({
   const [enabled, setEnabled] = useState(false);
   const [checking, setChecking] = useState(true);
   const [targetCount, setTargetCount] = useState(20);
-  const [researchTool, setResearchTool] = useState("ChatGPT");
-  const [customResearchTool, setCustomResearchTool] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -65,15 +63,14 @@ export default function LeadChatGptPrompt({
     setMessage("Existing Access Token loaded in this browser. It was not regenerated.");
   }
 
-  const activeResearchTool = researchTool === "Other" ? customResearchTool.trim() || "Other" : researchTool;
 
   const prompt = useMemo(() => {
     if (!token || !origin || !profileId || engines.length === 0) return "";
     return buildCommercialLeadPrompt({
       token, origin, deploymentShareToken: shareToken, profileId, profileName,
-      targetCount, engines, locationOverride, queryOverride, researchTool: activeResearchTool
+      targetCount, engines, locationOverride, queryOverride
     });
-  }, [token, origin, shareToken, profileId, profileName, targetCount, engines, locationOverride, queryOverride, activeResearchTool]);
+  }, [token, origin, shareToken, profileId, profileName, targetCount, engines, locationOverride, queryOverride]);
 
   async function copyPrompt() {
     if (!prompt) return;
@@ -87,13 +84,6 @@ export default function LeadChatGptPrompt({
 
   return <div className="lead-chatgpt-prompt wide">
     <div className="lead-form">
-      <label>Which AI application will perform this research?
-        <select value={researchTool} onChange={event => setResearchTool(event.target.value)}>
-          <option>ChatGPT</option><option>Claude</option><option>Gemini</option><option>Perplexity</option><option>Grok</option><option>Microsoft Copilot</option><option>Other</option>
-        </select>
-        <small className="muted">This is stored separately from the original public source platform.</small>
-      </label>
-      {researchTool === "Other" && <label>AI application name<input value={customResearchTool} onChange={event => setCustomResearchTool(event.target.value)} maxLength={80} placeholder="Enter the AI application name" /></label>}
       <label>Number of commercial leads to target
         <input type="number" min={1} max={50} step={1} value={targetCount}
           onChange={event => {
@@ -125,6 +115,7 @@ export default function LeadChatGptPrompt({
       ? <pre className="prompt-box" aria-label="Commercial lead ChatGPT research prompt">{maskSecrets(prompt, token, shareToken)}</pre>
       : <div className="empty"><strong>No prompt yet</strong><p>Choose a saved Lead Profile and at least one discovery engine. Your existing Access Token is used; no new token is generated.</p></div>}
     <p className="muted" role="status">{message}</p>
-    <p className="footnote">The prompt asks ChatGPT to research with its own web search, retrieve this profile's current preferences, then save qualified commercial leads into this pipeline. Anyone with the copied prompt can access your profile context and save records to your Inlinked account. Keep it private.</p>
+    <p className="footnote">The prompt asks the AI application currently running it to identify itself automatically, research with its own web search, retrieve this profile's current preferences, then save qualified commercial leads into this pipeline. Saved-record status changes use <code>POST /api/assistant-update</code>. The full endpoint instructions are included in the prompt and in Settings.</p>
+    <p className="footnote">Anyone with the copied prompt can access your profile context and save records to your Inlinked account. Keep it private.</p>
   </div>;
 }
