@@ -6,7 +6,7 @@ type Job = {
   salaryMin: number | null; salaryMax: number | null; salaryCurrency: string;
   workplaceType: string; employmentType: string; location: string; country: string;
   seniority: string; postedAt: string | null; postedAtText: string;
-  sourcePlatform: string; sourceType: string; sourceUrl: string; applicationUrl: string;
+  sourcePlatform: string; researchTool: string; sourceType: string; sourceUrl: string; applicationUrl: string;
   matchReason: string; evidenceUrls: string[]; sourceMetadata: Record<string, unknown> | null; status: string; notes: string;
   discoveredAt: string; createdAt: string;
 };
@@ -82,7 +82,7 @@ export default function JobsPage() {
     if (!Array.isArray(batch) || batch.length < 1 || batch.length > 50) { setMessage("Provide between 1 and 50 jobs in a jobs array."); return; }
     setImporting(true);
     try {
-      const response = await fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jobs: batch }) });
+      const response = await fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jobs: batch, researchTool: parsed && typeof parsed === "object" && "researchTool" in parsed ? (parsed as { researchTool?: string }).researchTool : undefined }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Import failed.");
       await reload();
@@ -93,7 +93,7 @@ export default function JobsPage() {
   }
 
   function exportCsv() {
-    const fields = ["title","company","location","country","workplaceType","employmentType","salaryText","postedAtText","sourcePlatform","sourceUrl","applicationUrl","status","notes"];
+    const fields = ["title","company","location","country","workplaceType","employmentType","salaryText","postedAtText","sourcePlatform","researchTool","sourceUrl","applicationUrl","status","notes"];
     const quote = (v: unknown) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
     const lines = [fields, ...shown.map(job => fields.map(field => (job as unknown as Record<string, unknown>)[field]))]
       .map(row => row.map(quote).join(",")).join("\r\n");
@@ -134,6 +134,7 @@ export default function JobsPage() {
           </div>
           <div className="job-chip-row">
             <span className="job-chip">{job.sourcePlatform || "Other source"}</span>
+            <span className="job-chip">AI research tool: {job.researchTool || "Unknown"}</span>
             {job.salaryText && <span className="job-chip salary">{job.salaryText}</span>}
             {(job.postedAtText || safeDate(job.postedAt)) && <span className="job-chip">Posted: {job.postedAtText || safeDate(job.postedAt)}</span>}
             {job.discoveredAt && <span className="job-chip">Found: {safeDate(job.discoveredAt)}</span>}
