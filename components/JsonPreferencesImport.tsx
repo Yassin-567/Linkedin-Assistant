@@ -187,7 +187,7 @@ function parseImport(raw: string, kind: ImportKind): Parsed {
   if (!Object.entries(result).some(([key, value]) =>
     ((key === "profileSummary" || key === "linkedinProfileUrl") && typeof value === "string" && value.trim().length > 0) ||
     (Array.isArray(value) && value.length > 0)
-  )) {
+  ))) {
     throw new Error("The JSON contains no LinkedIn preference values to import.");
   }
   return { kind, preferences: result };
