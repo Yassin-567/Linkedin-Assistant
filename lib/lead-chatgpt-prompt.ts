@@ -88,6 +88,7 @@ export function buildCommercialLeadPrompt(options: Options): string {
     "7. Read the actual POST status and JSON response. The response returns the saved record ID for each successfully saved lead. Report the exact returned total, saved, duplicates and invalid counts. A lead is saved only when its per-item status is saved or the aggregate saved count confirms it. Never claim success before the endpoint confirms it.",
     "8. If context retrieval fails, stop. If saving fails, do not claim that anything was saved; present the researched JSON and actual error so the user can retry.",
     "9. When I later tell you that I actually contacted, received a reply from, held a meeting with, or changed the status of a saved commercial lead, identify it by matching company, title or source URL against exclusions.savedLeadRecords (or use the ID returned by Save), then use the Update endpoint with POST and an updates array. Each item must contain resource: commercial_lead, the saved record id returned by Save, and the exact new commercial lead status (for example Contacted, In discussion or Proposal). Include notes only when I provide them. Do not record an outreach action that has not actually happened.",
+    "Example update body: {\"updates\":[{\"resource\":\"commercial_lead\",\"id\":\"saved-record-uuid\",\"status\":\"Contacted\"}]}.",
     "9. Stop the Firecrawl browser-interaction session after checking the save response.",
     "",
     "## Final report",
