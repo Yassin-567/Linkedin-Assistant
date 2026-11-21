@@ -136,4 +136,4 @@ AI save prompts for LinkedIn prospects, jobs and commercial Leads instruct the a
 
 Assistant save responses now include saved record IDs. Context responses also expose recent `savedProspectRecords`, `savedJobRecords` and `savedLeadRecords` with IDs so older records can be updated by a later AI request.
 
-**Database upgrade:** apply `db/phase_10_ai_research_tool.sql` after Phase 9. Existing records keep their history and receive `research_tool = 'Unknown'` until new records are saved with an AI tool selected.
+**Database upgrade:** apply `db/phase_10_ai_research_tool.sql` after Phase 9. Existing records keep their history and receive `research_tool = 'Unknown'` until a new save is made by a self-identifying AI prompt or an API request supplies `researchTool` explicitly.
