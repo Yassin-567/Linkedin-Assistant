@@ -72,7 +72,7 @@ export default function ChatGptSettings() {
       if (!response.ok) throw new Error(data.error || "Could not generate the permanent AI token.");
       const nextToken = String(data.accessToken || "");
       setToken(nextToken);
-      setOrigin(data.origin || window.location.origin);
+      setOrigin(window.location.origin);
       localStorage.setItem("inlinked_access_token", nextToken);
       setStatus({ enabled: true, createdAt: data.createdAt || new Date().toISOString() });
       setMessage("Permanent AI token generated. Use it only in private prompt links; it is not accepted by Context, Save or Update endpoints.");
