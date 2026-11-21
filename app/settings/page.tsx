@@ -16,7 +16,7 @@ const emptyProfile: ProfileFields = { name: "", headline: "", company: "", about
 const assistantSaveExample = JSON.stringify({ leads: [{ name: "Full name", company: "Company name", linkedin: "https://www.linkedin.com/in/profile-slug/" }] }, null, 2);
 const profileLabels: Record<keyof ProfileFields, string> = {
   name: "Full name", headline: "Professional headline", company: "Current company",
-  about: "Public search snippet / About context", skills: "Skills", experience: "Experience", education: "Education"
+  about: "About / professional summary", skills: "Skills", experience: "Experience", education: "Education"
 };
 function lines(value: string) { return value.split("\n"); }
 function cleanLines(values: string[]) { return values.map(value => value.trim()).filter(Boolean); }

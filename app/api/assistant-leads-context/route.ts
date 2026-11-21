@@ -32,10 +32,13 @@ export async function GET(request: NextRequest) {
       SELECT id::text, title, company, status, recommended_outreach AS "recommendedOutreach", website, source_url AS "sourceUrl", normalized_source_url AS "normalizedSourceUrl"
       FROM business_leads WHERE user_id = ${auth.userId} ORDER BY created_at DESC LIMIT 5000
     `;
+    const ownerRows: any = await sql`SELECT profile_summary, linkedin_profile_data FROM app_users WHERE id = ${auth.userId} LIMIT 1`;
+    const owner = ownerRows[0] || {};
+    const profileData = owner.linkedin_profile_data && typeof owner.linkedin_profile_data === "object" ? owner.linkedin_profile_data : {};
     const profile = profiles[0];
     return NextResponse.json({
       ok: true,
-      contextVersion: 1,
+      contextVersion: 2,
       scope: "commercial_leads",
       retrievedAt: new Date().toISOString(),
       instructions: {
@@ -47,6 +50,7 @@ export async function GET(request: NextRequest) {
         distinguishDirectDemandFromInferredSignals: true,
         doNotInventContactsBudgetsOrBusinessFacts: true
       },
+      owner: { profileSummary: owner.profile_summary || "", profile: { fields: profileData.fields || {}, fieldSources: profileData.fieldSources || {} } },
       profile: {
         id: String(profile.id),
         name: profile.name,

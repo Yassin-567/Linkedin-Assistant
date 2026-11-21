@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
           (notesProvided && (typeof input.notes !== "string" || notes.length > 5000)) ||
           (outreachProvided && (typeof input.recommendedOutreach !== "string" || recommendedOutreach.length > 6000))) {
         invalid++;
-        results.push({ index, status: "invalid", error: "Provide a valid resource, record ID and allowed status. Optional notes must be text of 5,000 characters or fewer." });
+        results.push({ index, status: "invalid", error: "Provide a valid resource and record ID, plus at least one allowed status, notes or recommendedOutreach. Notes must be 5,000 characters or fewer and recommendedOutreach 6,000 characters or fewer." });
         continue;
       }
 
