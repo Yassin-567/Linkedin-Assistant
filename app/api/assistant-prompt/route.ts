@@ -10,7 +10,10 @@ const headers = {
   "Cache-Control": "no-store, no-cache, must-revalidate",
   "Pragma": "no-cache",
   "Referrer-Policy": "no-referrer",
-  "X-Content-Type-Options": "nosniff"
+  "X-Content-Type-Options": "nosniff",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+  "Access-Control-Allow-Methods": "GET, OPTIONS"
 };
 const TOKEN_FORMAT = /^[A-Za-z0-9_-]{40,60}$/;
 const workflows = ["connections", "jobs", "leads", "record_update"] as const;
@@ -91,7 +94,7 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    const origin = process.env.APP_URL ? new URL(process.env.APP_URL).origin : request.nextUrl.origin;
+    const origin = request.nextUrl.origin;
     const prompt = buildGatewayPrompt({
       workflow: workflow as PromptWorkflow,
       mode,
@@ -117,4 +120,8 @@ export async function GET(request: NextRequest) {
     console.error("AI prompt gateway failed", error);
     return errorResponse(error instanceof Error ? error.message : "Could not generate the Inlinked prompt.", 503);
   }
+}
+
+export function OPTIONS() {
+  return new Response(null, { status: 204, headers });
 }
