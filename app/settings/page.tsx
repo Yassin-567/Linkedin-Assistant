@@ -117,7 +117,7 @@ export default function SettingsPage() {
     <nav aria-label="Settings sections" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20, padding: 5, border: "1px solid #e1e8e9", borderRadius: 12, background: "#fff" }}>
       <button type="button" onClick={() => setActiveTab("preferences")} aria-selected={activeTab === "preferences"} style={{ flex: 1, minWidth: 150, background: activeTab === "preferences" ? "#087b5b" : "transparent", color: activeTab === "preferences" ? "#fff" : "#52635b" }}>LinkedIn preferences</button>
       <button type="button" onClick={() => setActiveTab("jobs")} aria-selected={activeTab === "jobs"} style={{ flex: 1, minWidth: 150, background: activeTab === "jobs" ? "#087b5b" : "transparent", color: activeTab === "jobs" ? "#fff" : "#52635b" }}>Job preferences</button>
-      <button type="button" onClick={() => setActiveTab("cv")} aria-selected={activeTab === "cv"} style={{ flex: 1, minWidth: 150, background: activeTab === "cv" ? "#087b5b" : "transparent", color: activeTab === "cv" ? "#fff" : "#52635b" }}>CV import</button>
+      <button type="button" onClick={() => setActiveTab("cv")} aria-selected={activeTab === "cv"} style={{ flex: 1, minWidth: 150, background: activeTab === "cv" ? "#087b5b" : "transparent", color: activeTab === "cv" ? "#fff" : "#52635b" }}>AI Imports</button>
       <button type="button" onClick={() => setActiveTab("chatgpt")} aria-selected={activeTab === "chatgpt"} style={{ flex: 1, minWidth: 150, background: activeTab === "chatgpt" ? "#087b5b" : "transparent", color: activeTab === "chatgpt" ? "#fff" : "#52635b" }}>ChatGPT connection</button>
     </nav>
     {activeTab === "chatgpt" && <>
