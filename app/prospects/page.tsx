@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-type Lead = { id: string; name: string; company: string; url: string; status: string; followUp: string; notes: string; connected?: boolean; connectedOn?: string };
+type Lead = { id: string; name: string; company: string; url: string; status: string; followUp: string; notes: string; connected?: boolean; connectedOn?: string; researchTool?: string };
 const statuses = ["To research", "Ready to contact", "Contacted", "Replied", "Call booked", "Client", "Not a fit"];
 
 export default function Home() {
@@ -100,7 +100,7 @@ export default function Home() {
   }
   function exportCsv() {
     const q = (s:string) => '"' + s.replace(/"/g,'""') + '"';
-    const rows = [["Name","Company","LinkedIn URL","Status","Follow-up","Notes","Connected","Connected on"], ...leads.map(x => [x.name,x.company,x.url,x.status,x.followUp,x.notes,x.connected ? "Yes" : "No",x.connectedOn || ""])];
+    const rows = [["Name","Company","LinkedIn URL","Status","Follow-up","Notes","Connected","Connected on","AI research tool"], ...leads.map(x => [x.name,x.company,x.url,x.status,x.followUp,x.notes,x.connected ? "Yes" : "No",x.connectedOn || "",x.researchTool || "Unknown"])];
     const blob = new Blob([rows.map(row => row.map(q).join(",")).join("\n")], {type:"text/csv"});
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "linkedin-connections.csv"; a.click(); URL.revokeObjectURL(a.href);
   }
@@ -131,7 +131,7 @@ export default function Home() {
         <div className="wide form-footer"><span className="muted">* Required</span><button type="submit">+ Save connection</button></div>
       </form>
       <div className="toolbar"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search LinkedIn connections..."/><select value={filter} onChange={e=>setFilter(e.target.value)}><option>All</option>{statuses.map(s=><option key={s}>{s}</option>)}</select></div>
-      {shown.length ? <div className="lead-list">{shown.map(x=><article className="lead" key={x.id}><div><strong>{x.name}</strong><div>{x.company}</div>{x.connected && <span className="connected-tag">✓ Connected{x.connectedOn ? ` · ${x.connectedOn}` : ""}</span>}{x.followUp && <small>Follow up: {x.followUp}</small>}{x.notes && <p>{x.notes}</p>}{x.url && <a href={x.url} target="_blank" rel="noreferrer">Open LinkedIn ↗</a>}</div><div className="lead-controls"><select value={x.status} onChange={e=>void updateLead(x.id,{status:e.target.value})}>{statuses.map(s=><option key={s}>{s}</option>)}</select><button className="delete" onClick={()=>void removeLead(x.id)}>×</button></div></article>)}</div> : <div className="empty"><strong>{leads.length ? "No matching connections" : "Your connection list starts here"}</strong><p>Add a professional or decision-maker from any country or industry to track your next relationship-building step.</p></div>}
+      {shown.length ? <div className="lead-list">{shown.map(x=><article className="lead" key={x.id}><div><strong>{x.name}</strong><div>{x.company}</div><small className="muted">AI research tool: {x.researchTool || "Unknown"}</small>{x.connected && <span className="connected-tag">✓ Connected{x.connectedOn ? ` · ${x.connectedOn}` : ""}</span>}{x.followUp && <small>Follow up: {x.followUp}</small>}{x.notes && <p>{x.notes}</p>}{x.url && <a href={x.url} target="_blank" rel="noreferrer">Open LinkedIn ↗</a>}</div><div className="lead-controls"><select value={x.status} onChange={e=>void updateLead(x.id,{status:e.target.value})}>{statuses.map(s=><option key={s}>{s}</option>)}</select><button className="delete" onClick={()=>void removeLead(x.id)}>×</button></div></article>)}</div> : <div className="empty"><strong>{leads.length ? "No matching connections" : "Your connection list starts here"}</strong><p>Add a professional or decision-maker from any country or industry to track your next relationship-building step.</p></div>}
       <p className="storage-note">{cloudStorage ? "Synced to your private cloud storage and mirrored in this browser." : "Saved in this browser until you sign in to enable private database sync."} Export CSV regularly for backup.</p>
     </section>
     {account.connected&&<section className="panel"><h2>Paste from ChatGPT</h2><p className="muted">Ask ChatGPT to list LinkedIn connections one per line as <code>Name | Company | LinkedIn profile URL</code>, then paste them here (up to 50). Duplicates are skipped.</p><textarea rows={5} value={pasted} onChange={e=>setPasted(e.target.value)} placeholder={"Jane Smith | ABC Appliance Repairs | https://www.linkedin.com/in/jane-smith"}/><div className="row"><button onClick={()=>void importPasted()} disabled={pasteBusy||!pasted.trim()}>{pasteBusy?"Importing...":"Import pasted connections"}</button></div></section>}
