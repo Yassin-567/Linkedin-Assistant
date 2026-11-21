@@ -90,10 +90,6 @@ export default function SettingsPage() {
   }
 
 
-  async function copyText(value: string) {
-    try { await navigator.clipboard.writeText(value); setMessage("Copied endpoint. Replace the token placeholder before sending."); }
-    catch { setMessage("Copy was blocked. Select the endpoint text and copy it manually."); }
-  }
 
   return <main className="workspace">
     <header className="topbar"><div><div className="eyebrow">WORKSPACE CONFIGURATION</div><h1>Settings</h1><p className="muted">Manage research preferences, professional background and your AI prompt connection.</p></div><div className="row"><a className="button secondary" href="/">Back to workspace</a></div></header>
@@ -107,10 +103,7 @@ export default function SettingsPage() {
     <section className="panel">
       <div className="section-heading"><div><div className="eyebrow">CHATGPT INTEGRATION</div><h2>ChatGPT connection and prompt builder</h2><p className="muted">Manage one Access Token and generate job-discovery and LinkedIn connection-research prompts. The commercial Leads workspace has its own ChatGPT research prompt and save workflow.</p></div></div>
 
-      <label className="wide">Jobs to target per prompt
-        <input type="number" min={1} max={50} step={1} value={jobCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setJobCount(n); localStorage.setItem("inlinked_job_count", String(n)); } }} />
-        <small className="muted">Choose 1–50 for job discovery. ChatGPT searches publicly available web sources; it never pads the result list.</small>
-      </label>
+
       <ChatGptSettings />
     </section>
 
@@ -132,7 +125,7 @@ export default function SettingsPage() {
       {field("keywords", "Interests and search keywords", "Skills, services, topics or phrases that should guide discovery.")}
       {field("jobTitles", "People and job titles", "Examples: Founder, Owner, Managing Director, Recruiter, Engineer.")}
       {field("excludedKeywords", "Exclude keywords", "Profiles or companies containing these terms will be filtered out where possible.")}
-      <label className="wide">LinkedIn connections to target per research run<input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setProspectCount(n); } }} /><small className="muted">Choose 1–50. ChatGPT may return fewer when fewer qualified connection candidates are available. This preference is saved in this browser.</small></label>
+      <label className="wide">LinkedIn connections to target per research run<input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setProspectCount(n); } }} /><small className="muted">Choose 1–50. ChatGPT may return fewer when fewer qualified connection candidates are available. This target count is saved to your Inlinked account and loaded by the prompt gateway.</small></label>
       <label className="wide">Preferred language<input value={p.language} onChange={e => setP(old => ({ ...old, language: e.target.value }))} /></label>
       <label className="wide">About me / additional interests<textarea rows={5} value={p.profileSummary} onChange={e => setP(old => ({ ...old, profileSummary: e.target.value }))} placeholder="Add a short description of your background, skills, interests or the people you want to meet." /><small className="muted">This is your editable context for LinkedIn connection matching. Confirmed profile details below can update this summary.</small></label>
       <div className="wide form-footer"><span className="muted">{busy ? "Loading settings..." : message}</span><button disabled={busy || saving}>{saving ? "Saving..." : "Save preferences"}</button></div>
