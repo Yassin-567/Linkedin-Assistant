@@ -25,7 +25,7 @@ const defaults = {
 
 function cleanList(value: unknown, maxItems: number): string[] | null {
   if (!Array.isArray(value) || value.length > maxItems) return null;
-  if (!value.every(item => typeof item === "string" && item.trim().length > 0 && item.length <= 120)) return null;
+  if (!value.every(item => typeof item === "string" && item.trim().length > 0 && item.length <= 180)) return null;
   return Array.from(new Set(value.map(item => (item as string).trim())));
 }
 
