@@ -127,3 +127,13 @@ Commercial lead discovery is prompt-driven. Inlinked generates a profile-specifi
 Lead profiles and opportunities use separate PostgreSQL tables (`lead_profiles`, `business_leads`, `lead_activities`) and are isolated by authenticated user. Saved opportunities retain original public source URLs, evidence links, contact details when publicly verified, and separate direct demand from inferred signals and ideal-customer matches. ChatGPT-generated priority scores are research estimates, not verified buying intent, budget or revenue. Review original sources before contacting a prospect.
 
 **Existing database upgrade:** run `db/phase_9_leads_workspace.sql` once after the Phase 8 migration. This does not alter or migrate existing LinkedIn prospects or imported connections. Existing individual accounts remain the initial ownership model; agency multi-client workspaces and permissions are a later phase.
+
+## AI record updates and research attribution
+
+AI save requests for LinkedIn prospects, jobs and commercial Leads accept a top-level `researchTool` value (for example `ChatGPT`, `Claude`, `Gemini`, `Perplexity`, `Grok`, `Microsoft Copilot` or a custom label). This field identifies the AI application that performed the research and is intentionally separate from `sourcePlatform` / the original public source.
+
+`POST /api/assistant-update` uses the same long-lived Inlinked Access Token as the assistant save endpoints. It accepts 1–50 updates in an `updates` array. Each item contains `resource` (`linkedin_prospect`, `job` or `commercial_lead`), the saved record `id`, the new valid `status`, and optional `notes`. The endpoint verifies record ownership and returns `updated`, `notFound` and `invalid` counts. Only use it after the user confirms that the contact or application action actually happened.
+
+Assistant save responses now include saved record IDs. Context responses also expose recent `savedProspectRecords`, `savedJobRecords` and `savedLeadRecords` with IDs so older records can be updated by a later AI request.
+
+**Database upgrade:** apply `db/phase_10_ai_research_tool.sql` after Phase 9. Existing records keep their history and receive `research_tool = 'Unknown'` until new records are saved with an AI tool selected.
