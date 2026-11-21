@@ -50,7 +50,7 @@ Use the same long-lived Access Token with:
 
 `POST /api/assistant-update?access=<ACCESS_TOKEN>`
 
-This is an API route, not a normal page. In the app, find its path under **Settings → ChatGPT connection → Record update API endpoint**, or copy the full production URL: `https://inlinked.vercel.app/api/assistant-update`. It only accepts `POST`; opening the URL in a browser with `GET` will not display an endpoint page. The generated research prompts also include the update URL and instructions.
+This is an API route, not a normal page. In the app, open **Settings → ChatGPT connection → Dedicated Record Update Assistant Prompt** and copy that separate prompt. It contains the update endpoint and the same long-lived Access Token already used for research/save requests. Paste it once into the AI conversation where you want ongoing status tracking; then tell that assistant when you have actually applied, contacted someone, received a reply, booked a call or completed another action. The research prompts intentionally do not include update instructions. The full production endpoint is `https://inlinked.vercel.app/api/assistant-update`. It only accepts `POST`; opening the URL in a browser with `GET` will not display an endpoint page.
 
 Body (1–50 updates per request):
 
