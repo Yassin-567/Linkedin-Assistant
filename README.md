@@ -70,6 +70,22 @@ The app's bulk-save flow does not require a paid LinkedIn Assistant plan or a Li
 
 The previous prototype stored prospects and imported connections in private Vercel Blob JSON files, keyed by LinkedIn member ID. The new schema is ready for migration, but legacy Blob records are not automatically assigned to a Google account: they must be claimed by the original account owner before migration to avoid exposing one user's data to another. Browser-local prospects are migrated by the app on the first Google sign-in when no database prospects exist.
 
+## AI prompt gateway and temporary sessions (Phase 12)
+
+Use one public bootstrap endpoint to retrieve the selected AI prompt:
+
+`GET /api/assistant-prompt?type=jobs&mode=loose&ai=<PERMANENT_AI_TOKEN>`
+
+Supported `type` values are `connections`, `jobs`, `leads`, and `record_update`. Jobs support `standard`, `deep`, and `loose`; the other workflows currently use `mode=standard`. The Leads workflow automatically selects the account's active Lead Profile and its saved discovery engines.
+
+The permanent `ai_access_tokens` credential is checked only by this bootstrap route. A successful request generates a random session token, stores only its SHA-256 hash in `assistant_session_tokens`, and returns the complete prompt as plain text. The prompt includes the temporary token, the relevant prompt instructions, all Context/Save/Update endpoint references and confidentiality instructions. Session tokens expire 15 minutes after issuance.
+
+All AI Context, Save and Update routes use the same temporary token in an `Authorization: Bearer <SESSION_TOKEN>` header. They do not accept the permanent AI token. Regenerating or revoking the permanent credential also revokes active prompt sessions. Opening the bootstrap URL again creates a new independent 15-minute session.
+
+The bootstrap URL itself contains the permanent credential and must be treated as a password. Anyone who receives it can open it in a browser, view the returned prompt and create temporary sessions. The confidentiality instructions are model guidance, not a technical guarantee that a model cannot disclose its context. Responses are marked no-store and no-referrer.
+
+**Existing database upgrade:** apply `db/phase_12_ai_prompt_gateway.sql` after Phase 11. Fresh installations should use the updated `db/schema.sql`.
+
 ## Local development
 
 ```bash
@@ -88,7 +104,7 @@ The job prompt searches public job boards, employer career pages, public LinkedI
 
 - `GET/PUT /api/job-preferences`: authenticated per-user job preferences.
 - `GET/POST/PATCH/DELETE /api/jobs`: signed-in user's saved jobs and application status.
-- `POST /api/assistant-jobs-save`: saves 1–50 vacancies using the same long-lived Access Token as lead research.
+- `POST /api/assistant-jobs-save`: saves 1–50 vacancies using the temporary session token issued by the AI prompt gateway.
 - `GET /api/assistant-context?scope=jobs`: returns job preferences and already-saved source URLs to ChatGPT.
 
 Job records keep the original source URL, application URL, title, employer, description, salary, workplace type, employment type, location, country, seniority, posting date, source platform, match reason, recommended outreach message and evidence links when these facts are available. Missing details stay blank rather than being invented. Source URLs are normalized for de-duplication.
@@ -105,8 +121,8 @@ The new `/leads` workspace is an independent business opportunity and customer-d
 - **Opportunity Signal Discovery** searches for public indications of operational problems, expansion or outsourcing needs. These are hypotheses, not confirmed purchase requests.
 - **Ideal Customer Discovery** finds businesses matching a profile even when they have not publicly expressed buying intent.
 - `GET/POST/PATCH/DELETE /api/lead-profiles`: manage private profile preferences.
-- `GET /api/assistant-leads-context?profileId=<PROFILE_ID>`: returns the selected Lead Profile preferences and already-saved company/source exclusions to ChatGPT using the long-lived Access Token.
-- `POST /api/assistant-leads-save`: saves 1–50 researched commercial leads to the selected profile using the same Access Token; duplicate companies and source URLs are skipped.
+- `GET /api/assistant-leads-context?profileId=<PROFILE_ID>`: returns the selected Lead Profile preferences and already-saved company/source exclusions to ChatGPT using a temporary session token.
+- `POST /api/assistant-leads-save`: saves 1–50 researched commercial leads to the selected profile using the same temporary session token; duplicate companies and source URLs are skipped.
 - `GET/POST/PATCH/DELETE /api/leads`: save and manage commercial opportunities, evidence, scoring, pipeline stages and confirmed won value.
 
 Commercial lead discovery is prompt-driven. Inlinked generates a profile-specific AI research prompt; ChatGPT uses its own native web search and browsing, then submits qualified records and a personalized first-contact message to the authenticated Inlinked save API. Inlinked itself does not run searches.

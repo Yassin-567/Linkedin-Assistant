@@ -13,9 +13,9 @@ const noStore = {
   "Referrer-Policy": "no-referrer"
 };
 
-// One long-lived Access Token per Inlinked account.
-// It is stored as a SHA-256 hash and works directly with Context and Save.
-// Regenerating or revoking it invalidates the previous token immediately.
+// One long-lived permanent AI credential per Inlinked account.
+// It is stored as a SHA-256 hash and is accepted only by the prompt bootstrap endpoint.
+// The gateway exchanges it for 15-minute sessions used by Context, Save and Update.
 export async function GET() {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: noStore });
@@ -64,6 +64,12 @@ export async function POST(request: Request) {
         WHERE user_id = ${user.userId} AND revoked_at IS NULL
         RETURNING token_hash
       ),
+      revoked_prompt_sessions AS (
+        UPDATE assistant_session_tokens
+        SET revoked_at = now()
+        WHERE user_id = ${user.userId} AND revoked_at IS NULL
+        RETURNING token_hash
+      ),
       issued AS (
         INSERT INTO ai_access_tokens(token_hash, user_id)
         VALUES (${tokenHash}, ${user.userId})
@@ -79,7 +85,7 @@ export async function POST(request: Request) {
       origin: new URL(base).origin,
       vercelShareToken: process.env.INLINKLED_VERCEL_SHARE_TOKEN || "",
       expiresAt: null,
-      message: "Your Access Token does not expire automatically. It works directly with the Context and Save endpoints until you revoke or regenerate it. Keep it private; it is shown only once."
+      message: "Your permanent AI token is used only to open prompt links. The prompt gateway issues 15-minute session tokens for Context, Save and Update. Keep it private; it is shown only once."
     }, { headers: noStore });
   } catch (error) {
     console.error("Access Token generation failed", error);
@@ -95,6 +101,7 @@ export async function DELETE() {
     const sql = db();
     await sql`UPDATE ai_access_tokens SET revoked_at = now() WHERE user_id = ${user.userId} AND revoked_at IS NULL`;
     await sql`UPDATE assistant_scoped_tokens SET revoked_at = now() WHERE user_id = ${user.userId} AND revoked_at IS NULL`;
+    await sql`UPDATE assistant_session_tokens SET revoked_at = now() WHERE user_id = ${user.userId} AND revoked_at IS NULL`;
     return NextResponse.json({ ok: true, enabled: false }, { headers: noStore });
   } catch (error) {
     console.error("Access Token revocation failed", error);

@@ -1,79 +1,27 @@
 # Connecting ChatGPT to Inlinked
 
-ChatGPT researches public sources externally and saves qualified LinkedIn prospects to Inlinked, including a personalized first-contact message for every person. Inlinked itself no longer has an in-app LinkedIn search or AI Intelligence feature. One long-lived, per-user Access Token is used for context retrieval, saves and record updates.
-
-ChatGPT must use Firecrawl's browser-interaction capability to execute the HTTP requests. It must apply your saved preferences and exclude your excluded keywords, existing connections and saved prospects. Without Firecrawl, use the paste fallback at the bottom.
+Inlinked now uses a prompt gateway. You share one URL with the AI assistant; opening it returns the full selected prompt and creates a temporary 15-minute session. The permanent AI token is used only to open the gateway. Context, Save and Update requests use the temporary session token.
 
 ## Quick start
 
 1. Sign in to Inlinked and open **Settings → ChatGPT connection**.
-2. Choose **Research now** or **Recurring (scheduled)**.
-3. Generate an **Access Token**. It is shown once; keep it private.
-4. Copy the generated prompt into ChatGPT.
+2. Generate or load your permanent AI token.
+3. Select the workflow and search mode, then copy its prompt URL.
+4. Give the URL to the AI assistant. When the assistant opens it, Inlinked returns the complete prompt and a new 15-minute session token.
+5. The assistant uses the same temporary token for the workflow's Context, Save and Update endpoints.
 
-Both prompt types use exactly the same Access Token. Recurring tasks do not need a credentials exchange or a separate permanent token.
+You can also open the link in any ordinary browser. The response is plain text. Each successful visit creates a new session. Revoke or regenerate the permanent token to prevent future exchanges and revoke active sessions.
 
-## Access Token
+## Prompt URL formats
 
-- Generate or regenerate: `POST /api/assistant-access` (signed-in Inlinked users only).
-- Check status: `GET /api/assistant-access`.
-- Revoke: `DELETE /api/assistant-access`.
-- The token is stored in the database as a SHA-256 hash.
-- It is associated with one Inlinked user and can only read that user's search context and save prospects to that user's account.
-- It has no automatic expiry. Regenerating or revoking it invalidates the previous token immediately.
-- The raw token is shown only when generated. If you lose it, regenerate it.
+- Jobs: `/api/assistant-prompt?type=jobs&mode=standard&ai=<PERMANENT_AI_TOKEN>`
+- Deep jobs: `/api/assistant-prompt?type=jobs&mode=deep&ai=<PERMANENT_AI_TOKEN>`
+- Loose jobs: `/api/assistant-prompt?type=jobs&mode=loose&ai=<PERMANENT_AI_TOKEN>`
+- LinkedIn Connections: `/api/assistant-prompt?type=connections&mode=standard&ai=<PERMANENT_AI_TOKEN>`
+- Commercial Leads: `/api/assistant-prompt?type=leads&mode=standard&ai=<PERMANENT_AI_TOKEN>`
+- Record updates: `/api/assistant-prompt?type=record_update&mode=standard&ai=<PERMANENT_AI_TOKEN>`
 
-## Context and Save endpoints
-
-Use the same Access Token directly with both endpoints. No Credentials endpoint or token exchange is involved.
-
-| Purpose | Request | Authentication |
-|---|---|---|
-| Read profile, preferences and exclusions | `GET /api/assistant-context?access=<ACCESS_TOKEN>` | Access Token |
-| Save prospects | `POST /api/assistant-save?access=<ACCESS_TOKEN>` | Same Access Token |
-| Update saved record status, notes or outreach recommendation | `POST /api/assistant-update?access=<ACCESS_TOKEN>` | Same Access Token |
-
-Both endpoints also accept `Authorization: Bearer <ACCESS_TOKEN>` instead of the query parameter. The generated ChatGPT prompt uses the `access` query parameter.
-
-Save body (1 to 50 leads; personal `linkedin.com/in/` profiles only):
-
-```json
-{"leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug","recommendedOutreach":"Personalized LinkedIn connection message based on verified profile evidence and my professional context."}]}
-```
-
-Response: `total`, `saved`, `duplicates`, `invalid` and a per-lead `results` array. Each prospect stores `recommendedOutreach` separately from status and notes. Prospects start at status "To research".
-
-
-## Update saved records
-
-Use the same long-lived Access Token with:
-
-`POST /api/assistant-update?access=<ACCESS_TOKEN>`
-
-This is an API route, not a normal page. In the app, open **Settings → ChatGPT connection → Dedicated Record Update Assistant Prompt** and copy that separate prompt. It contains the update endpoint and the same long-lived Access Token already used for research/save requests. Paste it once into the AI conversation where you want ongoing status tracking; then tell that assistant when you have actually applied, contacted someone, received a reply, booked a call or completed another action. The research prompts intentionally do not include update instructions. The full production endpoint is `https://inlinked.vercel.app/api/assistant-update`. It only accepts `POST`; opening the URL in a browser with `GET` will not display an endpoint page.
-
-Body (1–50 updates per request):
-
-```json
-{"updates":[{"resource":"job","id":"saved-record-uuid","status":"Applied","notes":"Application submitted through the employer website."},{"resource":"linkedin_prospect","id":"saved-prospect-uuid","recommendedOutreach":"Revised personalized message draft."},{"resource":"commercial_lead","id":"saved-lead-uuid","status":"Contacted"}]}
-```
-
-Allowed resources are `linkedin_prospect`, `job`, and `commercial_lead`. Each update must include at least one of `status`, `notes` or `recommendedOutreach`; status is optional when updating only the recommendation. LinkedIn prospect statuses include `Connected`; setting it marks the prospect as connected and records today's date if none exists. `recommendedOutreach` updates the stored message draft independently. The response reports `updated`, `notFound`, `invalid` and per-item results. Every record is checked against the user owning the Access Token.
-
-The assistant save endpoints return the database ID for each saved record. Context responses also include recent saved record IDs: `savedProspectRecords` in normal LinkedIn context, `savedJobRecords` in `scope=jobs` context, and `savedLeadRecords` in commercial Lead context. Match a record unambiguously by its name/company/title/source URL before using its ID. Ask the user to clarify when more than one record could match.
-
-Only send an update after the user confirms that the action actually happened. A drafted message, an opened company website, or an opened application page does not mean that the prospect was contacted or the job was applied for. Mark a LinkedIn prospect `Connected` only after the connection request has been accepted or the user confirms they are now connected; a sent or pending request is `Contacted`, not `Connected`.
-
-## AI research tool attribution
-
-Generated prompts no longer ask you to select an AI application. Instead, they instruct the assistant to identify the application currently hosting the conversation and set its name automatically in the top-level `researchTool` field. If it cannot reliably identify the application, it must use `Unknown`. Inlinked stores this separately from `sourcePlatform` / the original website or job board and displays it on saved records. The prompt must not confuse the AI application with the search provider or the source website. Older records show `Unknown`.
-
-## Security
-
-- Treat the Access Token like a password. Anyone who has it can read your search context and save prospects to your Inlinked account.
-- The raw token is not stored in the database; only its SHA-256 hash is stored.
-- Do not paste prompts into public chats, repositories, documents or search engines.
-- If a token is exposed, revoke it or generate a new one in **Settings → ChatGPT connection**. Previously copied prompts then stop working.
+The Leads workflow automatically uses the active saved Lead Profile. Save and activate the intended profile before opening its link.
 
 ## Without an HTTP tool
 
@@ -82,7 +30,7 @@ Ask ChatGPT for structured JSON with one `recommendedOutreach` message per prosp
 
 ## Jobs: public-web job discovery
 
-Use the same long-lived Access Token used for lead research. The generated job prompt first calls:
+Use the same temporary session token used for lead research. The generated job prompt first calls:
 
 `GET /api/assistant-context?scope=jobs&access=<ACCESS_TOKEN>`
 

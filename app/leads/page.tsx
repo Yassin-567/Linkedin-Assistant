@@ -69,9 +69,6 @@ export default function LeadsPage() {
   const [profileMessage, setProfileMessage] = useState("");
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(false);
-  const [engineSelection, setEngineSelection] = useState<string[]>(["direct_demand", "opportunity_signal", "ideal_customer"]);
-  const [locationOverride, setLocationOverride] = useState("");
-  const [queryOverride, setQueryOverride] = useState("");
   const [searchMessage, setSearchMessage] = useState("");
   const [pipelineSearch, setPipelineSearch] = useState("");
   const [pipelineStatus, setPipelineStatus] = useState("All");
@@ -92,7 +89,6 @@ export default function LeadsPage() {
           const active = rows.find(x => x.isActive) || rows[0];
           setSelectedId(active.id); setProfileName(active.name); setProfileDescription(active.description || "");
           setPreferences({ ...defaultPreferences, ...active.preferences });
-          setEngineSelection(active.preferences.discoveryEngines?.length ? active.preferences.discoveryEngines : defaultPreferences.discoveryEngines);
           setEditing(false);
         } else {
           setEditing(true);
@@ -144,13 +140,12 @@ export default function LeadsPage() {
     setSelectedId(id);
     setProfileName(profile.name); setProfileDescription(profile.description || "");
     setPreferences({ ...defaultPreferences, ...profile.preferences });
-    setEngineSelection(profile.preferences.discoveryEngines?.length ? profile.preferences.discoveryEngines : defaultPreferences.discoveryEngines);
     setEditing(false); setSearchMessage(""); setProfileMessage("");
   }
 
   function newProfile() {
     setSelectedId(""); setProfileName(""); setProfileDescription("");
-    setPreferences(defaultPreferences); setEngineSelection([...defaultPreferences.discoveryEngines]);
+    setPreferences(defaultPreferences);
     setEditing(true); setLeads([]); setProfileMessage("Create a profile for one business, service or customer segment.");
   }
 
@@ -171,7 +166,6 @@ export default function LeadsPage() {
       const values = old[key];
       return { ...old, [key]: values.includes(value) ? values.filter(x => x !== value) : [...values, value] };
     });
-    if (key === "discoveryEngines") setEngineSelection(old => old.includes(value) ? old.filter(x => x !== value) : [...old, value]);
   }
 
   async function saveProfile(event: React.FormEvent) {
@@ -193,7 +187,6 @@ export default function LeadsPage() {
         return next.sort((a, b) => Number(b.isActive) - Number(a.isActive));
       });
       setSelectedId(saved.id); setPreferences({ ...defaultPreferences, ...saved.preferences });
-      setEngineSelection(saved.preferences.discoveryEngines || defaultPreferences.discoveryEngines);
       setEditing(false); setProfileMessage("Profile saved. Your preferences will be included in future ChatGPT research prompts.");
     } catch (error) {
       setProfileMessage(error instanceof Error ? error.message : "Could not save profile.");
@@ -310,36 +303,15 @@ export default function LeadsPage() {
         <div>
           <div className="eyebrow">CHATGPT-POWERED PUBLIC RESEARCH</div>
           <h2>Find potential customers</h2>
-          <p className="muted">Generate a research prompt for ChatGPT. It will search public sources, verify evidence and save qualified commercial leads directly into this pipeline.</p>
+          <p className="muted">Copy the commercial-lead prompt link instead of copying the prompt text. The gateway uses the active Lead Profile and its saved discovery preferences.</p>
         </div>
       </div>
-      <div className="lead-form">
-        <div className="wide">
-          <strong className="small-heading">Discovery engines for this research</strong>
-          <div className="option-grid">{engines.map(engine => <label className="option-card" key={engine.id}>
-            <input type="checkbox" checked={engineSelection.includes(engine.id)}
-              onChange={() => setEngineSelection(old => old.includes(engine.id) ? old.filter(x => x !== engine.id) : [...old, engine.id])}/>
-            <span><strong>{engine.label}</strong><small>{engine.hint}</small></span>
-          </label>)}</div>
-        </div>
-        <label>Location override
-          <input value={locationOverride} onChange={event => setLocationOverride(event.target.value)} placeholder="Leave blank to use saved target locations"/>
-        </label>
-        <label>Extra search context
-          <input value={queryOverride} onChange={event => setQueryOverride(event.target.value)} placeholder="e.g. owner-managed firms, urgent projects, small teams"/>
-        </label>
-        <div className="wide form-footer">
-          <span className="muted">{selectedId ? "Using profile: " + (profiles.find(x => x.id === selectedId)?.name || profileName) : "Create and save a profile first."}</span>
-        </div>
-        <LeadChatGptPrompt
-          profileId={selectedId}
-          profileName={profiles.find(x => x.id === selectedId)?.name || profileName}
-          engines={engineSelection}
-          locationOverride={locationOverride}
-          queryOverride={queryOverride}
-        />
-      </div>
-      <p className="footnote">ChatGPT uses its own web research for discovery. It distinguishes direct requests from inferred opportunities and ideal-customer matches. It does not access private profiles or messages, and it must not invent buying intent, contacts or budgets.</p>
+      <LeadChatGptPrompt
+        profileId={selectedId}
+        profileName={profiles.find(x => x.id === selectedId)?.name || profileName}
+        profileSaved={Boolean(selectedId) && !editing}
+      />
+      <p className="footnote">ChatGPT researches public sources, distinguishes direct requests from inferred opportunities and ideal-customer matches, then saves qualified leads with personalized outreach drafts. It does not access private profiles or messages, and it must not invent buying intent, contacts or budgets.</p>
     </section>
 
     <section className="panel">
