@@ -1,6 +1,6 @@
 # Connecting ChatGPT to Inlinked
 
-ChatGPT researches prospects and saves them to your Prospects list. It uses one long-lived, per-user Inlinked Access Token for both context retrieval and prospect saving. The token does not expire automatically. It remains valid until you revoke or regenerate it.
+ChatGPT researches public sources externally and saves qualified LinkedIn prospects to Inlinked, including a personalized first-contact message for every person. Inlinked itself no longer has an in-app LinkedIn search or AI Intelligence feature. One long-lived, per-user Access Token is used for context retrieval, saves and record updates.
 
 ChatGPT must use Firecrawl's browser-interaction capability to execute the HTTP requests. It must apply your saved preferences and exclude your excluded keywords, existing connections and saved prospects. Without Firecrawl, use the paste fallback at the bottom.
 
@@ -31,17 +31,17 @@ Use the same Access Token directly with both endpoints. No Credentials endpoint 
 |---|---|---|
 | Read profile, preferences and exclusions | `GET /api/assistant-context?access=<ACCESS_TOKEN>` | Access Token |
 | Save prospects | `POST /api/assistant-save?access=<ACCESS_TOKEN>` | Same Access Token |
-| Update saved record status/notes | `POST /api/assistant-update?access=<ACCESS_TOKEN>` | Same Access Token |
+| Update saved record status, notes or outreach recommendation | `POST /api/assistant-update?access=<ACCESS_TOKEN>` | Same Access Token |
 
 Both endpoints also accept `Authorization: Bearer <ACCESS_TOKEN>` instead of the query parameter. The generated ChatGPT prompt uses the `access` query parameter.
 
 Save body (1 to 50 leads; personal `linkedin.com/in/` profiles only):
 
 ```json
-{"leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug"}]}
+{"leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug","recommendedOutreach":"Personalized LinkedIn connection message based on verified profile evidence and my professional context."}]}
 ```
 
-Response: `total`, `saved`, `duplicates`, `invalid` and a per-lead `results` array. Prospects are stored with status "To research".
+Response: `total`, `saved`, `duplicates`, `invalid` and a per-lead `results` array. Each prospect stores `recommendedOutreach` separately from status and notes. Prospects start at status "To research".
 
 
 ## Update saved records
@@ -55,10 +55,10 @@ This is an API route, not a normal page. In the app, open **Settings → ChatGPT
 Body (1–50 updates per request):
 
 ```json
-{"updates":[{"resource":"job","id":"saved-record-uuid","status":"Applied","notes":"Application submitted through the employer website."},{"resource":"linkedin_prospect","id":"saved-prospect-uuid","status":"Contacted"},{"resource":"commercial_lead","id":"saved-lead-uuid","status":"Contacted"}]}
+{"updates":[{"resource":"job","id":"saved-record-uuid","status":"Applied","notes":"Application submitted through the employer website."},{"resource":"linkedin_prospect","id":"saved-prospect-uuid","recommendedOutreach":"Revised personalized message draft."},{"resource":"commercial_lead","id":"saved-lead-uuid","status":"Contacted"}]}
 ```
 
-Allowed resources are `linkedin_prospect`, `job`, and `commercial_lead`. The status must exactly match that workspace's existing status choices. LinkedIn prospect statuses include `Connected`; setting it also marks the saved prospect as connected and records today as the connection date when no date exists. Notes are optional. The response reports `updated`, `notFound`, `invalid` and per-item results. Every record is checked against the user owning the Access Token.
+Allowed resources are `linkedin_prospect`, `job`, and `commercial_lead`. Each update must include at least one of `status`, `notes` or `recommendedOutreach`; status is optional when updating only the recommendation. LinkedIn prospect statuses include `Connected`; setting it marks the prospect as connected and records today's date if none exists. `recommendedOutreach` updates the stored message draft independently. The response reports `updated`, `notFound`, `invalid` and per-item results. Every record is checked against the user owning the Access Token.
 
 The assistant save endpoints return the database ID for each saved record. Context responses also include recent saved record IDs: `savedProspectRecords` in normal LinkedIn context, `savedJobRecords` in `scope=jobs` context, and `savedLeadRecords` in commercial Lead context. Match a record unambiguously by its name/company/title/source URL before using its ID. Ask the user to clarify when more than one record could match.
 
@@ -77,7 +77,7 @@ Generated prompts no longer ask you to select an AI application. Instead, they i
 
 ## Without an HTTP tool
 
-Ask ChatGPT to list prospects as `Name | Company | LinkedIn profile URL`, one per line, then paste them into **Prospects → Paste from ChatGPT**. Duplicates are skipped.
+Ask ChatGPT for structured JSON with one `recommendedOutreach` message per prospect. Use the manual import fallback in the Prospects workspace where available; verify that the message is included before importing. Never claim the records were saved automatically unless the API confirms it.
 
 
 ## Jobs: public-web job discovery
@@ -119,7 +119,7 @@ The prompt first calls GET /api/assistant-leads-context?profileId=PROFILE_ID&acc
 
 The save body contains a top-level profileId and a leads array (1–50 records). Every record must contain a title or company, an original public sourceUrl, and a recognized discoveryEngine. Optional fields include contact details, website, location, public evidence URLs, opportunity summary, source metadata, conservative confidence and prioritisation scores. Unknown information should be blank or null, never invented.
 
-The context response includes the selected profile's preferences and previously saved company, website and source URL exclusions. The save endpoint verifies token ownership and profile ownership, validates public HTTP(S) source URLs, sanitizes scores, and skips duplicates. A successful response reports total, saved, duplicates, invalid and per-record statuses.
+The context response includes the selected profile's preferences, prior saved-record IDs and existing recommendations. The save prompt instructs the AI to create a personalized message for every qualified commercial lead. The save endpoint verifies token ownership and profile ownership, validates public HTTP(S) source URLs, sanitizes scores, stores recommendedOutreach, and skips duplicates. A successful response reports total, saved, duplicates, invalid and per-record statuses.
 
 The discovery engines must remain distinct:
 - Direct Demand: public requests, recommendations or explicit searches for a service.
@@ -127,3 +127,13 @@ The discovery engines must remain distinct:
 - Ideal Customers: businesses matching the customer profile even without evidence they are currently buying.
 
 Do not access private messages, closed groups, private profiles or login-restricted pages. Do not message prospects. ChatGPT must report the actual API result and must never say a lead was saved unless Inlinked confirms it.
+
+
+## Personalized recommendations
+
+Every AI research prompt now requires a `recommendedOutreach` message for each saved record:
+- LinkedIn connections: short, natural connection request grounded in verified profile facts and your manually maintained professional context.
+- Jobs: tailored recruiter or hiring-team introduction based on the vacancy requirements and your confirmed experience.
+- Commercial Leads: a concise, business-relevant first message using the selected Lead Profile, verified contact details and public evidence.
+
+The messages are drafts only. Inlinked does not send them. Each record card shows an editable recommendation field with a Copy message action. Existing records initially have an empty recommendation; ask an AI assistant to generate one and save it through the update endpoint.
