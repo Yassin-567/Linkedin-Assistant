@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // POST /api/assistant-save
-// Authorization: Bearer <permanent AI Auth Token or 10-minute access token>
+// Authorization: Bearer <15-minute temporary AI session token>
 // Body: {"leads":[{"name":"...","company":"...","linkedin":"https://www.linkedin.com/in/slug"}]}  (1-50 leads)
 
 type Candidate = { name?: unknown; company?: unknown; linkedin?: unknown; url?: unknown; researchTool?: unknown; recommendedOutreach?: unknown };
