@@ -75,7 +75,7 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
 
   const scheduleReady = kind !== "scheduled" || !scheduleEndEnabled || Boolean(scheduleEndDate);
   const promptLink = useMemo(() => {
-    if (!token || !origin || (scheduledAvailable && kind === "scheduled" && !scheduleReady)) return "";
+    if (!token || !origin || (workflow !== "record_update" && kind === "scheduled" && !scheduleReady)) return "";
     const url = new URL("/api/assistant-prompt", origin);
     url.searchParams.set("type", workflow);
     url.searchParams.set("mode", workflow === "jobs" ? jobMode : "standard");
