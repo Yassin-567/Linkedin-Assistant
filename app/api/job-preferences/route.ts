@@ -140,3 +140,23 @@ export async function PUT(request: NextRequest) {
     return fail("Could not save job preferences.", 503);
   }
 }
+
+export async function PATCH(request: NextRequest) {
+  const user = await currentUser();
+  if (!user) return fail("Sign in required.", 401);
+  const body = await request.json().catch(() => null);
+  const targetCount = body?.targetCount;
+  if (!Number.isInteger(targetCount) || targetCount < 1 || targetCount > 50) {
+    return fail("Choose a target between 1 and 50 jobs.", 400);
+  }
+  try {
+    const sql = db();
+    await sql`INSERT INTO job_search_preferences(user_id, target_count)
+      VALUES(${user.userId}, ${targetCount})
+      ON CONFLICT(user_id) DO UPDATE SET target_count = EXCLUDED.target_count, updated_at = now()`;
+    return NextResponse.json({ ok: true, targetCount }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    console.error("Job target count update failed", error);
+    return fail("Could not save the job target count.", 503);
+  }
+}
