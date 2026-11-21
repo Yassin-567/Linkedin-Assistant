@@ -73,32 +73,32 @@ export async function POST(request: NextRequest) {
 
       let rows: any;
       if (resource === "linkedin_prospect") {
-        rows = await sql\`
+        rows = await sql`
           UPDATE prospects
-          SET status = \${status},
-              notes = CASE WHEN \${notesProvided} THEN \${notes} ELSE notes END,
+          SET status = ${status},
+              notes = CASE WHEN ${notesProvided} THEN ${notes} ELSE notes END,
               updated_at = now()
-          WHERE id = \${id}::uuid AND user_id = \${auth.userId}
+          WHERE id = ${id}::uuid AND user_id = ${auth.userId}
           RETURNING id::text, status, updated_at AS "updatedAt"
-        \`;
+        `;
       } else if (resource === "job") {
-        rows = await sql\`
+        rows = await sql`
           UPDATE jobs
-          SET status = \${status},
-              notes = CASE WHEN \${notesProvided} THEN \${notes} ELSE notes END,
+          SET status = ${status},
+              notes = CASE WHEN ${notesProvided} THEN ${notes} ELSE notes END,
               updated_at = now()
-          WHERE id = \${id}::uuid AND user_id = \${auth.userId}
+          WHERE id = ${id}::uuid AND user_id = ${auth.userId}
           RETURNING id::text, status, updated_at AS "updatedAt"
-        \`;
+        `;
       } else {
-        rows = await sql\`
+        rows = await sql`
           UPDATE business_leads
-          SET status = \${status},
-              notes = CASE WHEN \${notesProvided} THEN \${notes} ELSE notes END,
+          SET status = ${status},
+              notes = CASE WHEN ${notesProvided} THEN ${notes} ELSE notes END,
               updated_at = now()
-          WHERE id = \${id}::uuid AND user_id = \${auth.userId}
+          WHERE id = ${id}::uuid AND user_id = ${auth.userId}
           RETURNING id::text, status, updated_at AS "updatedAt"
-        \`;
+        `;
       }
 
       if (!rows.length) {
