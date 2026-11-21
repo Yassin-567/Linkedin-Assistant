@@ -70,7 +70,13 @@ export async function GET(request: NextRequest) {
     let jobTarget = 30;
     let leadProfile: { id: string; name: string; preferences: Record<string, unknown> } | undefined;
 
-    if (workflow === "connections") {\n      const rows: any = await sql`SELECT connection_target_count FROM user_preferences WHERE user_id = ${userId} LIMIT 1`;\n      const value = Number(rows[0]?.connection_target_count || 50);\n      connectionTarget = Number.isInteger(value) && value >= 1 && value <= 50 ? value : 50;\n    }\n\n    if (workflow === "jobs") {
+    if (workflow === "connections") {
+      const rows: any = await sql`SELECT connection_target_count FROM user_preferences WHERE user_id = ${userId} LIMIT 1`;
+      const value = Number(rows[0]?.connection_target_count || 50);
+      connectionTarget = Number.isInteger(value) && value >= 1 && value <= 50 ? value : 50;
+    }
+
+    if (workflow === "jobs") {
       const rows: any = await sql`SELECT target_count FROM job_search_preferences WHERE user_id = ${userId} LIMIT 1`;
       const value = Number(rows[0]?.target_count || 30);
       jobTarget = Number.isInteger(value) && value >= 1 && value <= 50 ? value : 30;
