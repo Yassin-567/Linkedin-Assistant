@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   if (!body || !Array.isArray(body.jobs) || body.jobs.length < 1 || body.jobs.length > 50) return fail("Provide between 1 and 50 jobs.", 400);
   try {
-    return NextResponse.json({ ok: true, ...(await saveJobBatch(db(), user.userId, body.jobs.map((job: any) => ({ ...job, researchTool: job?.researchTool ?? body.researchTool }))) }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ ok: true, ...(await saveJobBatch(db(), user.userId, body.jobs.map((job: any) => ({ ...job, researchTool: job?.researchTool ?? body.researchTool })))) }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Manual job import failed", error);
     return fail("Could not import this batch.", 503);
