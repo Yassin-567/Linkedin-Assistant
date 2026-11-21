@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 // Authorization: Bearer <permanent AI Auth Token or 10-minute access token>
 // Body: {"leads":[{"name":"...","company":"...","linkedin":"https://www.linkedin.com/in/slug"}]}  (1-50 leads)
 
-type Candidate = { name?: unknown; company?: unknown; linkedin?: unknown; url?: unknown; researchTool?: unknown };
+type Candidate = { name?: unknown; company?: unknown; linkedin?: unknown; url?: unknown; researchTool?: unknown; recommendedOutreach?: unknown };
 const noStore = { "Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache", "Referrer-Policy": "no-referrer", "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Max-Age": "86400" };
 const fail = (error: string, status: number, extra: Record<string, unknown> = {}) => NextResponse.json({ error, ...extra }, { status, headers: noStore });
 
@@ -40,7 +40,8 @@ export async function POST(request: NextRequest) {
       const error = !name || !company || !url || name.length > 200 || company.length > 300
         ? "Provide a name, company and a personal LinkedIn profile URL (linkedin.com/in/...)." : null;
       const researchTool = (typeof x?.researchTool === "string" ? x.researchTool : typeof body.researchTool === "string" ? body.researchTool : "Unknown").trim().slice(0,80) || "Unknown";
-      return { index, name, company, url, researchTool, error };
+      const recommendedOutreach = typeof x?.recommendedOutreach === "string" ? x.recommendedOutreach.trim().slice(0,6000) : "";
+      return { index, name, company, url, researchTool, recommendedOutreach, error };
     });
     if (!prepared.some(x => !x.error)) return fail("No valid prospects were provided.", 400, { results: prepared });
 
@@ -52,10 +53,10 @@ export async function POST(request: NextRequest) {
       if (x.error) { invalid++; results.push({ index: x.index, status: "invalid", name: x.name, error: x.error }); continue; }
       if (seen.has(x.url)) { duplicates++; results.push({ index: x.index, status: "duplicate", name: x.name, company: x.company, url: x.url }); continue; }
       seen.add(x.url);
-      const rows: any = await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,status,follow_up,notes,discovery_source,saved_via,research_tool)
-        VALUES(${auth.userId},${x.name.slice(0, 200)},${x.company.slice(0, 300)},${x.url},${x.url},'To research','','Added through AI research.','ChatGPT research','ChatGPT AI Token',${x.researchTool})
+      const rows: any = await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,status,follow_up,notes,recommended_outreach,discovery_source,saved_via,research_tool)
+        VALUES(${auth.userId},${x.name.slice(0, 200)},${x.company.slice(0, 300)},${x.url},${x.url},'To research','','Added through AI research.',${x.recommendedOutreach},'ChatGPT research','ChatGPT AI Token',${x.researchTool})
         ON CONFLICT(user_id,normalized_linkedin_url) WHERE normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url<>'' DO NOTHING RETURNING id::text`;
-      if (rows.length) { saved++; results.push({ index: x.index, id: String(rows[0].id), status: "saved", name: x.name, company: x.company, url: x.url, researchTool: x.researchTool }); }
+      if (rows.length) { saved++; results.push({ index: x.index, id: String(rows[0].id), status: "saved", name: x.name, company: x.company, url: x.url, researchTool: x.researchTool, recommendedOutreach: x.recommendedOutreach }); }
       else { duplicates++; results.push({ index: x.index, status: "duplicate", name: x.name, company: x.company, url: x.url }); }
     }
     return NextResponse.json({ ok: true, total: prepared.length, saved, duplicates, invalid, results }, { headers: noStore });

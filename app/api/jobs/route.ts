@@ -20,7 +20,7 @@ export async function GET() {
         location, country, seniority, posted_at AS "postedAt", posted_at_text AS "postedAtText",
         source_platform AS "sourcePlatform", research_tool AS "researchTool", source_type AS "sourceType",
         source_url AS "sourceUrl", application_url AS "applicationUrl",
-        match_reason AS "matchReason", evidence_urls AS "evidenceUrls",
+        match_reason AS "matchReason", recommended_outreach AS "recommendedOutreach", evidence_urls AS "evidenceUrls",
         source_metadata AS "sourceMetadata", status, notes,
         discovered_at AS "discoveredAt", created_at AS "createdAt"
       FROM jobs WHERE user_id = ${user.userId}
@@ -53,9 +53,11 @@ export async function PATCH(request: NextRequest) {
   if (!validId(body?.id)) return fail("A valid job ID is required.", 400);
   const status = typeof body.status === "string" && statuses.includes(body.status) ? body.status : "Saved";
   const notes = typeof body.notes === "string" ? body.notes.trim().slice(0, 5000) : "";
+  const outreachProvided = Object.prototype.hasOwnProperty.call(body, "recommendedOutreach");
+  const recommendedOutreach = typeof body.recommendedOutreach === "string" ? body.recommendedOutreach.trim().slice(0, 6000) : "";
   try {
     const sql = db();
-    const rows: any = await sql`UPDATE jobs SET status=${status}, notes=${notes}, updated_at=now()
+    const rows: any = await sql`UPDATE jobs SET status=${status}, notes=${notes}, recommended_outreach=CASE WHEN ${outreachProvided} THEN ${recommendedOutreach} ELSE recommended_outreach END, updated_at=now()
       WHERE id=${body.id}::uuid AND user_id=${user.userId} RETURNING id`;
     if (!rows.length) return fail("Job not found in your account.", 404);
     return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });

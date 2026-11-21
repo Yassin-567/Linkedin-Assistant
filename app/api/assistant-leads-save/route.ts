@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
           discovery_engine, buying_intent, confidence, project_type, budget_text,
           estimated_value_min, estimated_value_max, value_currency, source_platform, source_type, research_tool,
           source_url, normalized_source_url, published_at, evidence, scores, source_metadata,
-          status, notes
+          status, notes, recommended_outreach
         ) VALUES (
           ${auth.userId}, ${body.profileId}::uuid, ${title}, ${company},
           ${clean(input.contactName, 200)}, ${clean(input.contactRole, 200)}, ${website}, ${profileUrl},
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
           ${clean(input.sourcePlatform, 100) || "ChatGPT web research"},
           ${clean(input.sourceType, 80) || "public_web"}, ${researchTool}, ${source.raw}, ${source.normalized},
           ${publishedAt}, ${JSON.stringify(evidence)}::jsonb, ${JSON.stringify(scores)}::jsonb,
-          ${JSON.stringify(metadata)}::jsonb, 'New', ''
+          ${JSON.stringify(metadata)}::jsonb, 'New', '', ${clean(input.recommendedOutreach, 6000)}
         )
         ON CONFLICT DO NOTHING RETURNING id::text
       `;

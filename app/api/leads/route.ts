@@ -38,7 +38,7 @@ async function fetchLead(userId: string, id: string) {
     estimated_value_min AS "estimatedValueMin", estimated_value_max AS "estimatedValueMax",
     value_currency AS "valueCurrency", source_platform AS "sourcePlatform", research_tool AS "researchTool", source_type AS "sourceType",
     source_url AS "sourceUrl", published_at AS "publishedAt", evidence, scores,
-    source_metadata AS "sourceMetadata", status, notes, next_follow_up AS "nextFollowUp",
+    source_metadata AS "sourceMetadata", status, notes, recommended_outreach AS "recommendedOutreach", next_follow_up AS "nextFollowUp",
     won_value AS "wonValue", won_currency AS "wonCurrency", discovered_at AS "discoveredAt",
     created_at AS "createdAt", updated_at AS "updatedAt"
     FROM business_leads WHERE id = ${id}::uuid AND user_id = ${userId} LIMIT 1`;
@@ -72,7 +72,7 @@ async function insertLead(userId: string, input: any) {
     location, country, opportunity_summary, service_requested, discovery_engine, buying_intent, confidence,
     project_type, budget_text, estimated_value_min, estimated_value_max, value_currency, source_platform, research_tool,
     source_type, source_url, normalized_source_url, published_at, evidence, scores, source_metadata,
-    status, notes, next_follow_up
+    status, notes, recommended_outreach, next_follow_up
   ) VALUES (
     ${userId}, ${profileId}::uuid, ${title}, ${company}, ${clean(input.contactName,200)}, ${clean(input.contactRole,200)},
     ${clean(input.website,1000)}, ${clean(input.profileUrl,1000)}, ${clean(input.email,320)}, ${clean(input.phone,80)},
@@ -83,7 +83,7 @@ async function insertLead(userId: string, input: any) {
     ${clean(input.sourcePlatform,100) || "Manual"}, ${clean(input.researchTool,80) || "Unknown"}, ${clean(input.sourceType,80) || "manual"},
     ${source.raw}, ${source.normalized}, ${publishedAt},
     ${JSON.stringify(evidence)}::jsonb, ${JSON.stringify(scoreData)}::jsonb, ${JSON.stringify(metadata)}::jsonb,
-    ${status}, ${clean(input.notes,5000)}, ${clean(input.nextFollowUp,10) || null}::date
+    ${status}, ${clean(input.notes,5000)}, ${clean(input.recommendedOutreach,6000)}, ${clean(input.nextFollowUp,10) || null}::date
   ) ON CONFLICT DO NOTHING RETURNING id::text`;
   if (!rows.length) return { status: "duplicate" as const };
   return { status: "saved" as const, lead: await fetchLead(userId, String(rows[0].id)) };
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
       estimated_value_min AS "estimatedValueMin", estimated_value_max AS "estimatedValueMax",
       value_currency AS "valueCurrency", source_platform AS "sourcePlatform", research_tool AS "researchTool", source_type AS "sourceType",
       source_url AS "sourceUrl", published_at AS "publishedAt", evidence, scores,
-      source_metadata AS "sourceMetadata", status, notes, next_follow_up AS "nextFollowUp",
+      source_metadata AS "sourceMetadata", status, notes, recommended_outreach AS "recommendedOutreach", next_follow_up AS "nextFollowUp",
       won_value AS "wonValue", won_currency AS "wonCurrency", discovered_at AS "discoveredAt",
       created_at AS "createdAt", updated_at AS "updatedAt"
       FROM business_leads
@@ -154,12 +154,14 @@ export async function PATCH(request: NextRequest) {
   if (!validId(body?.id)) return fail("A valid lead ID is required.", 400);
   const status = statuses.includes(body.status) ? body.status : "New";
   const notes = clean(body.notes, 5000);
+  const recommendedOutreach = Object.prototype.hasOwnProperty.call(body, "recommendedOutreach") ? clean(body.recommendedOutreach, 6000) : null;
   const followUp = clean(body.nextFollowUp, 10);
   const wonValue = body.wonValue === null || body.wonValue === "" || body.wonValue === undefined ? null : Number(body.wonValue);
   if (wonValue !== null && (!Number.isFinite(wonValue) || wonValue < 0)) return fail("Won value must be a non-negative number.", 400);
   try {
     const sql = db();
     const rows: any = await sql`UPDATE business_leads SET status = ${status}, notes = ${notes},
+      recommended_outreach = COALESCE(${recommendedOutreach}, recommended_outreach),
       next_follow_up = ${followUp || null}::date, won_value = ${wonValue},
       won_currency = ${clean(body.wonCurrency,12)}, updated_at = now()
       WHERE id = ${body.id}::uuid AND user_id = ${user.userId} RETURNING id::text`;
