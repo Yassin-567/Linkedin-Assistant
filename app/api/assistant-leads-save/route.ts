@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
+      const researchTool = clean(input.researchTool || body.researchTool, 80) || "Unknown";
       const confidenceValue = clean(input.confidence, 40);
       const confidence = ["High", "Medium", "Low", "Unverified"].includes(confidenceValue) ? confidenceValue : "Unverified";
       const projectTypeValue = clean(input.projectType, 40);
@@ -145,7 +146,7 @@ export async function POST(request: NextRequest) {
           ${clean(input.budgetText, 300)}, ${numberOrNull(input.estimatedValueMin)},
           ${numberOrNull(input.estimatedValueMax)}, ${clean(input.valueCurrency, 12)},
           ${clean(input.sourcePlatform, 100) || "ChatGPT web research"},
-          ${clean(input.sourceType, 80) || "public_web"}, ${source.raw}, ${source.normalized},
+          ${clean(input.sourceType, 80) || "public_web"}, ${researchTool}, ${source.raw}, ${source.normalized},
           ${publishedAt}, ${JSON.stringify(evidence)}::jsonb, ${JSON.stringify(scores)}::jsonb,
           ${JSON.stringify(metadata)}::jsonb, 'New', ''
         )
