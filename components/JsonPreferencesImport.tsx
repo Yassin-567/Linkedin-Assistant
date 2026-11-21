@@ -15,8 +15,8 @@ const JOB_PROMPT = [
   "For anything I have not specified, use an empty array, empty string or null as appropriate. Do not infer a salary, location, employment type or work mode from my CV.",
   "Use concise list items. Every list item must be non-empty and no longer than 180 characters.",
   "Use only these workModes values: remote, hybrid, on-site.",
-  "minimumSalary must be a non-negative number or null. targetCount must be an integer from 1 to 50.",
-  "All include... fields must be booleans. language is a short text value.",
+  "minimumSalary must be a non-negative number or null. Leave it null when no minimum has been specified.",
+  "Only include a source toggle when I have explicitly set it. Use an empty language string when no language preference was given.",
   "",
   "Exact JSON shape:",
   "{",
@@ -26,13 +26,13 @@ const JOB_PROMPT = [
   '    "keywords": [],',
   '    "countries": [],',
   '    "locations": [],',
-  '    "workModes": ["remote", "hybrid", "on-site"],',
+  '    "workModes": [],',
   '    "employmentTypes": [],',
   '    "seniorityLevels": [],',
   '    "excludedKeywords": [],',
   '    "salaryCurrency": "",',
   '    "minimumSalary": null,',
-  '    "language": "English",',
+  '    "language": "",',
   '    "includeLinkedIn": true,',
   '    "includeSocialMedia": true,',
   '    "includeCompanySites": true,',
@@ -145,12 +145,12 @@ function parseImport(raw: string, kind: ImportKind): Parsed {
       seniorityLevels: listValue(input.seniorityLevels, "seniorityLevels", 30),
       excludedKeywords: listValue(input.excludedKeywords, "excludedKeywords", 100)
     };
-    if (input.workModes !== undefined) result.workModes = workModes;
+    if (workModes.length > 0) result.workModes = workModes;
     const currency = optionalText(input.salaryCurrency, "salaryCurrency", 10);
     const language = optionalText(input.language, "language", 60);
     if (currency !== undefined) result.salaryCurrency = currency.toUpperCase();
     if (language !== undefined) result.language = language || "English";
-    if (minimumSalary !== undefined || input.minimumSalary === null) result.minimumSalary = minimumSalary ?? null;
+    if (minimumSalary !== undefined) result.minimumSalary = minimumSalary;
     if (targetCount !== undefined) result.targetCount = targetCount;
     for (const key of ["includeLinkedIn", "includeSocialMedia", "includeCompanySites", "includeJobBoards"]) {
       if (input[key] !== undefined) {
@@ -191,7 +191,8 @@ function parseImport(raw: string, kind: ImportKind): Parsed {
   if (language !== undefined) result.language = language || "English";
   if (profileSummary !== undefined) result.profileSummary = profileSummary;
   if (!Object.entries(result).some(([key, value]) =>
-    key === "profileSummary" || key === "linkedinProfileUrl" || (Array.isArray(value) && value.length > 0)
+    ((key === "profileSummary" || key === "linkedinProfileUrl") && typeof value === "string" && value.trim().length > 0) ||
+    (Array.isArray(value) && value.length > 0)
   )) {
     throw new Error("The JSON contains no LinkedIn preference values to import.");
   }
