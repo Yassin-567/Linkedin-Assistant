@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS prospects (
   updated_at timestamptz NOT NULL DEFAULT now(),
   discovery_source text NOT NULL DEFAULT 'Unknown',
   saved_via text NOT NULL DEFAULT 'Unknown',
+  research_tool text NOT NULL DEFAULT 'Unknown',
   industry text NOT NULL DEFAULT ''
 );
 
@@ -184,6 +185,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   posted_at timestamptz,
   posted_at_text text NOT NULL DEFAULT '',
   source_platform text NOT NULL DEFAULT 'Other',
+  research_tool text NOT NULL DEFAULT 'Unknown',
   source_type text NOT NULL DEFAULT 'other',
   source_url text NOT NULL,
   normalized_source_url text NOT NULL,
