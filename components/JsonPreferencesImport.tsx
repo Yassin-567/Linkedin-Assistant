@@ -127,10 +127,6 @@ function parseImport(raw: string, kind: ImportKind): Parsed {
     if (minimumSalary !== undefined && (!Number.isFinite(minimumSalary) || minimumSalary < 0)) {
       throw new Error("minimumSalary must be a non-negative number or null.");
     }
-    const targetCount = input.targetCount === undefined ? undefined : Number(input.targetCount);
-    if (targetCount !== undefined && (!Number.isInteger(targetCount) || targetCount < 1 || targetCount > 50)) {
-      throw new Error("targetCount must be an integer between 1 and 50.");
-    }
     const result: Record<string, unknown> = {
       targetRoles: listValue(input.targetRoles, "targetRoles", 80),
       keywords: listValue(input.keywords, "keywords", 100),
@@ -146,12 +142,6 @@ function parseImport(raw: string, kind: ImportKind): Parsed {
     if (currency !== undefined) result.salaryCurrency = currency.toUpperCase();
     if (language !== undefined && language) result.language = language;
     if (minimumSalary !== undefined) result.minimumSalary = minimumSalary;
-    if (targetCount !== undefined) result.targetCount = targetCount;
-      if (input[key] !== undefined) {
-        if (typeof input[key] !== "boolean") throw new Error(key + " must be true or false.");
-        result[key] = input[key];
-      }
-    }
     if (!Object.values(result).some(value => Array.isArray(value) ? value.length > 0 : value !== "" && value !== null)) {
       throw new Error("The JSON contains no job preference values to import.");
     }
