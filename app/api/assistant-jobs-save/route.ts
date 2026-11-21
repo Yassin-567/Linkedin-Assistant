@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await resolveAssistantAuth(request);
     if (!auth) return fail("AI token is missing, invalid or revoked. Send it as Authorization: Bearer <token>.", 401);
-    const result = await saveJobBatch(db(), auth.userId, body.jobs);
+    const result = await saveJobBatch(db(), auth.userId, body.jobs.map((job: any) => ({ ...job, researchTool: job?.researchTool ?? body.researchTool })));
     return NextResponse.json({ ok: true, ...result }, { headers });
   } catch (error) {
     console.error("Assistant job save failed", error);
