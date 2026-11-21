@@ -27,6 +27,8 @@ export default function LeadChatGptPrompt({
   const [enabled, setEnabled] = useState(false);
   const [checking, setChecking] = useState(true);
   const [targetCount, setTargetCount] = useState(20);
+  const [researchTool, setResearchTool] = useState("ChatGPT");
+  const [customResearchTool, setCustomResearchTool] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -63,13 +65,15 @@ export default function LeadChatGptPrompt({
     setMessage("Existing Access Token loaded in this browser. It was not regenerated.");
   }
 
+  const activeResearchTool = researchTool === "Other" ? customResearchTool.trim() || "Other" : researchTool;
+
   const prompt = useMemo(() => {
     if (!token || !origin || !profileId || engines.length === 0) return "";
     return buildCommercialLeadPrompt({
       token, origin, deploymentShareToken: shareToken, profileId, profileName,
-      targetCount, engines, locationOverride, queryOverride
+      targetCount, engines, locationOverride, queryOverride, researchTool: activeResearchTool
     });
-  }, [token, origin, shareToken, profileId, profileName, targetCount, engines, locationOverride, queryOverride]);
+  }, [token, origin, shareToken, profileId, profileName, targetCount, engines, locationOverride, queryOverride, activeResearchTool]);
 
   async function copyPrompt() {
     if (!prompt) return;
@@ -83,6 +87,13 @@ export default function LeadChatGptPrompt({
 
   return <div className="lead-chatgpt-prompt wide">
     <div className="lead-form">
+      <label>Which AI application will perform this research?
+        <select value={researchTool} onChange={event => setResearchTool(event.target.value)}>
+          <option>ChatGPT</option><option>Claude</option><option>Gemini</option><option>Perplexity</option><option>Grok</option><option>Microsoft Copilot</option><option>Other</option>
+        </select>
+        <small className="muted">This is stored separately from the original public source platform.</small>
+      </label>
+      {researchTool === "Other" && <label>AI application name<input value={customResearchTool} onChange={event => setCustomResearchTool(event.target.value)} maxLength={80} placeholder="Enter the AI application name" /></label>}
       <label>Number of commercial leads to target
         <input type="number" min={1} max={50} step={1} value={targetCount}
           onChange={event => {
