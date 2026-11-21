@@ -20,7 +20,8 @@ const CV_EXTRACTION_PROMPT = [
   "- Do not put my previous job titles into a lead decision-maker field. In Inlinked, lead job titles are the titles of people I want to find (for example Founder or Managing Director), not my own titles.",
   "- Do not infer target countries, cities, remote/hybrid/on-site preference, salary, employment type, exclusions, or prospect decision-maker titles from the CV. These settings should remain unchanged.",
   "- If something is unclear or absent, use an empty string or empty array. Do not guess.",
-  "- Keep each list relevant and reasonably short.",
+  "- Follow the exact item-count limits in the validator: experienceTitles 50, skills 100, tools 100, industries 50, certifications 50, languages 30, job targetRoles 80, job keywords 100, seniorityLevels 30, lead industries 50, lead keywords 100, and notes 30.",
+  "- Every list item, including every note, must be a non-empty string of no more than 180 characters. Do not output longer items; shorten them without losing their meaning.",
   "",
   "Exact JSON schema:",
   "{",
@@ -47,7 +48,7 @@ const CV_EXTRACTION_PROMPT = [
   '  "notes": []',
   "}",
   "",
-  "All list values must be arrays of strings. Keep each item concise. Return the JSON only."
+  "All list values must be arrays of strings. Notes must contain no more than 30 items. Each list item and each note must be 180 characters or fewer. Use empty arrays or empty strings for unknown information. Return exactly the JSON object and nothing else."
 ].join("\n");
 
 type CvImportData = {
@@ -88,8 +89,8 @@ function textValue(value: unknown, label: string, max = 4000): string {
 function listValue(value: unknown, label: string, maxItems: number): string[] {
   if (value === undefined || value === null) return [];
   if (!Array.isArray(value) || value.length > maxItems) throw new Error(label + " must be a list of no more than " + maxItems + " items.");
-  if (!value.every(item => typeof item === "string" && item.trim().length > 0 && item.trim().length <= 120)) {
-    throw new Error(label + " must contain non-empty text items of 120 characters or fewer.");
+  if (!value.every(item => typeof item === "string" && item.trim().length > 0 && item.trim().length <= 180)) {
+    throw new Error(label + " must contain non-empty text items of 180 characters or fewer.");
   }
   return Array.from(new Set(value.map(item => (item as string).trim())));
 }
