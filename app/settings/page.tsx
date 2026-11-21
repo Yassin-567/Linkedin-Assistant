@@ -13,7 +13,6 @@ type ProfileFields = { name: string; headline: string; company: string; about: s
 type ProfileSource = Record<string, string>;
 const defaults: Prefs = { linkedinProfileUrl: "", countries: [], industries: [], keywords: [], jobTitles: [], excludedKeywords: [], language: "English", profileSummary: "" };
 const emptyProfile: ProfileFields = { name: "", headline: "", company: "", about: "", skills: "", experience: "", education: "" };
-const assistantSaveExample = JSON.stringify({ leads: [{ name: "Full name", company: "Company name", linkedin: "https://www.linkedin.com/in/profile-slug/" }] }, null, 2);
 const profileLabels: Record<keyof ProfileFields, string> = {
   name: "Full name", headline: "Professional headline", company: "Current company",
   about: "About / professional summary", skills: "Skills", experience: "Experience", education: "Education"
@@ -38,12 +37,9 @@ export default function SettingsPage() {
   const [verifiedAt, setVerifiedAt] = useState("");
   const [activeTab, setActiveTab] = useState<"preferences" | "jobs" | "cv" | "chatgpt">("preferences");
   const [prospectCount, setProspectCount] = useState(50);
-  const [jobCount, setJobCount] = useState(30);
 
   useEffect(() => {
     const savedCount = Number(localStorage.getItem("inlinked_prospect_count"));
-    const savedJobCount = Number(localStorage.getItem("inlinked_job_count"));
-    if (Number.isInteger(savedJobCount) && savedJobCount >= 1 && savedJobCount <= 50) setJobCount(savedJobCount);
     if (Number.isInteger(savedCount) && savedCount >= 1 && savedCount <= 50) setProspectCount(savedCount);
     Promise.all([
       fetch("/api/preferences", { cache: "no-store" }),
@@ -119,37 +115,12 @@ export default function SettingsPage() {
         <input type="number" min={1} max={50} step={1} value={jobCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setJobCount(n); localStorage.setItem("inlinked_job_count", String(n)); } }} />
         <small className="muted">Choose 1–50 for job discovery. ChatGPT searches publicly available web sources; it never pads the result list.</small>
       </label>
-      <ChatGptSettings prospectCount={prospectCount} jobCount={jobCount} />
+      <ChatGptSettings />
     </section>
 
     <section className="panel">
-      <div className="section-heading"><div><div className="eyebrow">API REFERENCE</div><h2>Context and Save endpoints</h2><p className="muted">Use the same long-lived Access Token for both endpoints. It does not expire automatically and remains valid until revoked or regenerated.</p></div></div>
-      <div className="lead-form">
-        <label className="wide">1. Read your search context
-          <pre className="prompt-box">GET https://inlinked.vercel.app/api/assistant-context?access=YOUR_ACCESS_TOKEN</pre>
-          <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-context?access=YOUR_ACCESS_TOKEN")}>Copy GET URL</button>
-          <small className="muted">GET only. Alternatively send the same token in the Authorization: Bearer YOUR_ACCESS_TOKEN header.</small>
-        </label>
-        <label className="wide">2. Save LinkedIn connections
-          <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-save?access=YOUR_ACCESS_TOKEN
-Content-Type: application/json
-
-{assistantSaveExample}</pre>
-          <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-save?access=YOUR_ACCESS_TOKEN")}>Copy POST URL</button>
-          <small className="muted">POST only. Send the same token in the Authorization: Bearer header if you prefer. Accepts 1–50 leads.</small>
-        </label>
-        <label className="wide">3. Read job-search context
-          <pre className="prompt-box">GET https://inlinked.vercel.app/api/assistant-context?scope=jobs&access=YOUR_ACCESS_TOKEN</pre>
-          <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-context?scope=jobs&access=YOUR_ACCESS_TOKEN")}>Copy job context URL</button>
-          <small className="muted">Returns independent job preferences and source URLs already saved in Jobs.</small>
-        </label>
-        <label className="wide">4. Save jobs
-          <pre className="prompt-box">POST https://inlinked.vercel.app/api/assistant-jobs-save?access=YOUR_ACCESS_TOKEN<br />Content-Type: application/json<br /><br />Send JSON with a top-level "jobs" array. Each job needs a title and original sourceUrl.</pre>
-          <button type="button" className="secondary" onClick={() => void copyText("https://inlinked.vercel.app/api/assistant-jobs-save?access=YOUR_ACCESS_TOKEN")}>Copy jobs save URL</button>
-          <small className="muted">POST only. Accepts 1–50 job records. The original source URL is required; duplicates are skipped.</small>
-        </label>
-      </div>
-      {message && <p className="muted" role="status">{message}</p>}
+      <div className="section-heading"><div><div className="eyebrow">PROMPT GATEWAY</div><h2>How the connection works</h2><p className="muted">Copy a workflow link from the ChatGPT connection panel. The permanent AI token is used only to open that link. Inlinked then returns the selected research prompt and a temporary 15-minute session token. Context, Save and Update APIs accept the temporary token, not the permanent credential.</p></div></div>
+      <p className="footnote">The prompt link is a secret: anyone who has it can open it from a browser and create a temporary session for this account. Regenerating or revoking the permanent AI token invalidates future prompt-link requests and revokes active sessions.</p>
     </section>
     </>}
 
