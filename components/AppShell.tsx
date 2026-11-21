@@ -9,11 +9,9 @@ const items = [
   { label: "Dashboard", href: "/", icon: "⌂" },
   { label: "LinkedIn Connections", href: "/prospects", icon: "◎" },
   { label: "Jobs", href: "/jobs", icon: "▤" },
-  { label: "Find Connections", href: "/search", icon: "⌕" },
   { label: "Leads", href: "/leads", icon: "◉" },
   { label: "Outreach", href: "/outreach", icon: "✉" },
   { label: "Analytics", href: "/analytics", icon: "▥" },
-  { label: "AI Intelligence", href: "/intelligence", icon: "✦" },
   { label: "Imported Connections", href: "/connections", icon: "↗" },
   { label: "Settings", href: "/settings", icon: "⚙" },
 ];

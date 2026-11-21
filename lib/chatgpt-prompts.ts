@@ -17,7 +17,7 @@ type Options = {
   scheduleEndDate?: string;
 };
 
-const LEAD_EXAMPLE = '{"researchTool":"AI application name or Unknown","leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug/"}]}';
+const LEAD_EXAMPLE = '{"researchTool":"AI application name or Unknown","leads":[{"name":"Full name","company":"Company name","linkedin":"https://www.linkedin.com/in/profile-slug/","recommendedOutreach":"A concise, personalized LinkedIn connection message grounded in verified profile facts and my professional context."}]}';
 
 export function buildChatGptPrompt({
   kind, token, origin, deploymentShareToken, prospectCount,
@@ -71,22 +71,22 @@ export function buildChatGptPrompt({
     "",
     "## Mandatory workflow",
     "1. Before public research, retrieve the latest Inlinked context by making an HTTP GET request to the exact Context endpoint URL above. Inspect the actual HTTP status and response body. Do not begin public research unless context retrieval succeeds.",
-    "2. Read the latest owner profile, LinkedIn URL, LinkedIn search preferences, exclusions, uploaded connection URLs and already-saved connection candidate URLs. Also read exclusions.savedProspectRecords (ID, name, company, status and LinkedIn URL) to identify existing records for later updates. Use the owner profile only as context about me; never confuse my details with a prospect's facts.",
+    "2. Read owner.profileSummary and owner.profile as my professional background and value context, plus LinkedIn research preferences, exclusions, uploaded connection URLs and saved prospects. Read exclusions.savedProspectRecords (ID, name, company, status, connection state, existing recommendedOutreach and LinkedIn URL). Use my background to personalize messages, but never confuse my details with a prospect's facts.",
     "3. Apply my saved countries, industries, keywords, job titles, excluded keywords and language by default. My latest instructions in this chat override saved preferences when they conflict.",
     "4. EXCLUDE every person whose LinkedIn profile URL appears in exclusions.uploadedConnectionProfileUrls. These are people I am already connected to. Also exclude every URL in exclusions.savedProspectProfileUrls so you do not return people already in my LinkedIn Connections list.",
     "5. Compare URLs after normalizing case and removing trailing slashes. Deduplicate within each search batch too.",
-    "6. Research connection candidates independently using current public sources. Verify each person's name, current role, company and relevance. Do not treat search snippets as verified facts. Never invent missing information.",
-    "7. Prioritize professionals and decision-makers relevant to my networking goals. Explain briefly why each connection candidate is relevant. For larger targets, split discovery into multiple focused query batches and keep a running deduplicated count; do not mistake one query's result count for the requested total of connection candidates.",
+    "6. Research connection candidates independently using current public sources. Verify each person's name, current role, company and relevance from accessible evidence. Do not treat search snippets as verified facts. Never invent missing information.",
+    "7. Prioritize professionals and decision-makers relevant to my networking goals. For every candidate, write one genuinely personalized LinkedIn connection message in recommendedOutreach. Use my owner.profileSummary/profile fields and verified facts about the person, their role and company; explain a relevant reason to connect. Keep it concise, natural, respectful and appropriate as a first connection request. Do not invent shared interests, experience, business problems or relationships, and do not use generic mass-outreach copy. If evidence is thin, use a cautious message based only on confirmed facts. For larger targets, split discovery into multiple focused query batches and keep a running deduplicated count.",
     "8. Only save LinkedIn connection candidates that pass all checks and have a valid personal LinkedIn URL under linkedin.com/in/. Do not save company pages, search pages, uploaded connections, existing saved LinkedIn connection candidates, or uncertain matches.",
     "9. Save all qualified LinkedIn connection candidates in ONE HTTP POST request to the exact LinkedIn Connections save endpoint URL above. Set Content-Type: application/json and send a JSON body with a top-level researchTool field set to your self-identified AI application name (or Unknown) and a leads array in this format:",
     LEAD_EXAMPLE,
-    "10. The endpoint accepts up to 50 connection candidates per request and returns each saved record ID. Read the actual POST status and response body. The response uses the fields total, saved, duplicates and invalid (not duplicate). Report these exact returned values accurately. Never claim a connection candidate was saved unless the API confirms it.",
+    "10. The endpoint accepts up to 50 connection candidates per request, saves recommendedOutreach with each record, and returns each saved record ID. Read the actual POST status and response body. The response uses total, saved, duplicates and invalid. Report these exact returned values accurately. Never claim a candidate or recommendation was saved unless the API confirms it.",
     "11. If context retrieval fails, do not guess the preferences or exclusions. If saving fails, report the actual error and do not claim the prospects were saved.",
     "13. Stop the Firecrawl browser-interaction session after the final API response has been inspected. If a session fails to initialize, retry once using a completely fresh firecrawl_interact session started directly on the Context endpoint URL; do not use a prior scrapeId.",
     "",
     "## Output",
     `- State the selected LinkedIn connection target (${prospectCount}) and the actual number researched, qualified and submitted.`,
-    "- Return a concise research report with each connection candidate name, role, company, location, LinkedIn URL, evidence/source links and a short reason for fit.",
+    "- Return a concise report with each connection candidate name, role, company, location, LinkedIn URL, evidence/source links, reason for fit and the exact recommendedOutreach message saved for that person.",
     "- Clearly separate verified facts from uncertain details.",
     "- Finish with the exact save results returned by the API, including HTTP status, total, saved, duplicates, invalid and any errors. Do not rename or infer API response fields.",
     "",
@@ -136,7 +136,7 @@ type JobPromptOptions = {
   scheduleEndDate?: string;
 };
 
-const JOB_EXAMPLE = `{"researchTool":"AI application name or Unknown","jobs":[{"title":"Job title","company":"Employer","description":"Full description when publicly available","salaryText":"Salary as advertised, if available","salaryMin":null,"salaryMax":null,"salaryCurrency":"GBP","workplaceType":"remote","employmentType":"Full-time","location":"Location","country":"United Kingdom","seniority":"Mid-level","postedAt":null,"postedAtText":"Posted 3 days ago","sourcePlatform":"Company careers page","sourceType":"company_careers","sourceUrl":"https://employer.example/jobs/123","applicationUrl":"https://employer.example/apply/123","matchReason":"Why this matches my preferences","evidenceUrls":["https://employer.example/jobs/123"],"sourceMetadata":{}}]}`;
+const JOB_EXAMPLE = `{"researchTool":"AI application name or Unknown","jobs":[{"title":"Job title","company":"Employer","description":"Full description when publicly available","salaryText":"Salary as advertised, if available","salaryMin":null,"salaryMax":null,"salaryCurrency":"GBP","workplaceType":"remote","employmentType":"Full-time","location":"Location","country":"United Kingdom","seniority":"Mid-level","postedAt":null,"postedAtText":"Posted 3 days ago","sourcePlatform":"Company careers page","sourceType":"company_careers","sourceUrl":"https://employer.example/jobs/123","applicationUrl":"https://employer.example/apply/123","matchReason":"Why this matches my preferences","recommendedOutreach":"A concise, tailored application message grounded in the job requirements and my confirmed experience.","evidenceUrls":["https://employer.example/jobs/123"],"sourceMetadata":{}}]}`;
 
 export function buildJobChatGptPrompt({
   kind, token, origin, jobCount, searchDepth = "standard", deploymentShareToken,
@@ -175,7 +175,7 @@ export function buildJobChatGptPrompt({
     "For every HTTP request to Inlinked, use [$firecrawl](app://asdk_app_6a314a73f8ac819195b0d55e36b9c609) and its browser-interaction capability to execute the actual GET or POST request with the exact URL, method, headers and JSON body. Do not substitute a scrape-only read for an HTTP request.",
     "Initialize one fresh browser-interaction session for the job-context GET, then keep that same live session for the final job-save POST. Execute these two Inlinked requests sequentially. Stop the session after the save response is verified or a fatal connection error occurs.",
     "Important distinction: Firecrawl is OPTIONAL for public job discovery. ChatGPT's own native web search remains primary. Firecrawl is used here for the private Inlinked context/save API workflow. If Firecrawl is unavailable or the preview connection cannot be completed, do not claim the API call succeeded; return the valid jobs JSON for manual import instead.",
-    "Before public research, retrieve the job context. If the context request fails or returns 401, stop and report the actual error. Read savedJobRecords (ID, title, employer, status and source URL) to identify existing vacancies for later updates. Do not guess preferences.",
+    "Before public research, retrieve the job context. If the context request fails or returns 401, stop and report the actual error. Read owner.profileSummary and owner.profile as the candidate's confirmed professional context, plus savedJobRecords (ID, title, employer, status, existing recommendedOutreach and source URL). Use only confirmed candidate experience when composing messages.",
     "",
     "## Research mission",
     "Find up to " + jobCount + " NEW, relevant, genuine job vacancies that are currently open or have a credible current application route. Treat " + jobCount + " as a target, not a quota. Do not invent or pad results.",
@@ -231,6 +231,9 @@ export function buildJobChatGptPrompt({
     "For LinkedIn: you may discover public indexed job URLs and use visible search-result metadata. Do not automate access to protected LinkedIn pages, scrape logged-in content, reuse cookies/sessions, bypass login or other access controls, or copy restricted page bodies. If details are inaccessible, say so, retain only information supported by the public listing/snippet, link to the original post and seek fuller details from the employer's public careers page.",
     "For social media: only use content that is publicly accessible through normal search or browsing. Do not try to access private groups, closed accounts or private messages.",
     "Never infer salary, employment type, seniority, posted date or remote status when the source does not state it. Leave unknown values blank/null and explain limitations.",
+    "",
+    "## Personalized job outreach recommendation",
+    "For every vacancy, write a recommendedOutreach message suitable for the best realistic first contact: a short recruiter/hiring-team note or application introduction. Tailor it to the actual role, employer and stated requirements using owner.profileSummary and confirmed profile fields. Be honest about transferable skills and gaps. Never claim an unconfirmed qualification, software tool or experience. Do not invent a contact name or email. Include a subject only inside the text when useful.",
     "",
     "## Save to Inlinked",
     "Save up to 50 jobs per POST request using the exact endpoint above. Send a JSON body with a top-level researchTool field set to your self-identified AI application name (or Unknown) and a jobs array. Send only jobs that meet the checks. Include all fields supported by the example; omit unknown facts or use null/empty text rather than guessing.",
