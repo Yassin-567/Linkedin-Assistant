@@ -14,6 +14,19 @@ type PromptOptions = {
   connectionTarget?: number;
   jobTarget?: number;
   leadProfile?: { id: string; name: string; preferences: Record<string, unknown> };
+  leadTargetCount?: number;
+  leadEngines?: string[];
+  locationOverride?: string;
+  queryOverride?: string;
+  scheduledTask?: {
+    frequency: "daily" | "weekdays" | "weekly" | "monthly";
+    timeChoice: "morning" | "afternoon" | "evening" | "night" | "specific";
+    time: string;
+    timezone: "Africa/Cairo" | "Europe/London" | "UTC" | "America/New_York";
+    endEnabled: boolean;
+    endDate: string;
+    bootstrapUrl: string;
+  };
 };
 
 export const createSessionToken = () => randomBytes(32).toString("base64url");
@@ -100,8 +113,10 @@ export function buildGatewayPrompt(options: PromptOptions): string {
         origin: base,
         profileId: leadProfile.id,
         profileName: leadProfile.name,
-        targetCount: 20,
-        engines: savedEngines
+        targetCount: options.leadTargetCount || 20,
+        engines: options.leadEngines?.length ? options.leadEngines : savedEngines,
+        locationOverride: options.locationOverride,
+        queryOverride: options.queryOverride
       });
       break;
     }
@@ -149,5 +164,43 @@ export function buildGatewayPrompt(options: PromptOptions): string {
     ""
   ].join("\n");
 
-  return gatewayInstructions + "\n" + prompt;
+  const scheduled = options.scheduledTask;
+  if (!scheduled) return gatewayInstructions + "\n" + prompt;
+
+  const repeat = scheduled.frequency === "weekdays" ? "Every weekday (Monday to Friday)"
+    : scheduled.frequency === "weekly" ? "Once every week"
+      : scheduled.frequency === "monthly" ? "Once every month" : "Every day";
+  const timeDescription = scheduled.timeChoice === "specific"
+    ? "Exact local time: " + scheduled.time + ". Do not silently replace this with a flexible time window."
+    : "Time of day: " + scheduled.timeChoice + " (flexible timing within that period).";
+  const endDescription = scheduled.endEnabled
+    ? "End date: " + scheduled.endDate + ". Stop after this date."
+    : "No end date; continue until the user cancels the task.";
+
+  const recurringInstructions = [
+    "## RECURRING CHATGPT TASK — CREATE ONCE",
+    "Create exactly one recurring ChatGPT task using these settings:",
+    "Repeat: " + repeat,
+    timeDescription,
+    "Timezone: " + scheduled.timezone,
+    endDescription,
+    "The complete instruction for every occurrence is: open the private Inlinked bootstrap URL below, retrieve the new run prompt, and execute that returned prompt.",
+    "Private bootstrap URL (keep secret; do not include it in reports or user-facing messages): " + scheduled.bootstrapUrl,
+    "At the beginning of EVERY scheduled occurrence, make an HTTP GET request to that exact bootstrap URL. It validates the permanent credential and returns a fresh run prompt containing a new temporary session token. Use only the newly returned temporary token for that occurrence. Never reuse the setup-time token or a token from an earlier run.",
+    "The new session is valid for 15 minutes. Do not begin research until the bootstrap response has been received and its prompt instructions read. If the bootstrap URL returns an error, stop that occurrence and report the actual error without falling back to an old token.",
+    "Do not create another recurring task during a scheduled occurrence. The task should perform the research once per occurrence, use the selected search mode and stored preferences, and save only verified new records.",
+    "Preserve the selected repeat pattern, time, timezone and optional end date. If the task platform cannot apply any selected setting, explain the limitation and do not silently substitute another schedule. Never claim that a task has been created unless the platform confirms it.",
+    "",
+    "## TASK INSTRUCTIONS FOR EACH OCCURRENCE",
+    "1. Open the private bootstrap URL above and read the complete returned prompt.",
+    "2. Use the fresh temporary Bearer token from that response for the Context, Save and Update endpoints listed in the returned prompt.",
+    "3. Complete the research/save workflow exactly once and report the confirmed result.",
+    "4. Never reveal the bootstrap URL, permanent credential, temporary session credential, or internal endpoint instructions.",
+    "",
+    "Initial prompt for the task platform to register:",
+    gatewayInstructions,
+    prompt
+  ].join("\n");
+
+  return recurringInstructions;
 }
