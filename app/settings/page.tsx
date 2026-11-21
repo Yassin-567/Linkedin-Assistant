@@ -104,7 +104,7 @@ export default function SettingsPage() {
       <div className="section-heading"><div><div className="eyebrow">CHATGPT INTEGRATION</div><h2>ChatGPT connection and prompt builder</h2><p className="muted">Manage one Access Token and generate job-discovery and LinkedIn connection-research prompts. The commercial Leads workspace has its own ChatGPT research prompt and save workflow.</p></div></div>
 
 
-      <ChatGptSettings />
+      <ChatGptSettings prospectCount={prospectCount} onProspectCountChange={setProspectCount} />
     </section>
 
     <section className="panel">
