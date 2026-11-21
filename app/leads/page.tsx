@@ -309,6 +309,7 @@ export default function LeadsPage() {
       <LeadChatGptPrompt
         profileId={selectedId}
         profileName={profiles.find(x => x.id === selectedId)?.name || profileName}
+        profileSaved={Boolean(selectedId) && !editing}
       />
       <p className="footnote">ChatGPT researches public sources, distinguishes direct requests from inferred opportunities and ideal-customer matches, then saves qualified leads with personalized outreach drafts. It does not access private profiles or messages, and it must not invent buying intent, contacts or budgets.</p>
     </section>
