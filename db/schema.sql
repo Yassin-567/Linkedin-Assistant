@@ -100,6 +100,9 @@ ALTER TABLE ai_access_tokens ADD COLUMN IF NOT EXISTS token_encrypted text;
 CREATE INDEX IF NOT EXISTS ai_access_tokens_user_active_idx
   ON ai_access_tokens(user_id, created_at DESC)
   WHERE revoked_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS ai_access_tokens_one_active_per_user_idx
+  ON ai_access_tokens(user_id)
+  WHERE revoked_at IS NULL;
 
 -- Short-lived AI sessions issued by the permanent-token prompt gateway.
 CREATE TABLE IF NOT EXISTS assistant_session_tokens (
