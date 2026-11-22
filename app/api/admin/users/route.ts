@@ -124,17 +124,65 @@ export async function PATCH(request: NextRequest) {
           )
         RETURNING id::text AS id, email, name, account_status AS "accountStatus"
       ),
+      revoked_ai_access AS (
+        UPDATE ai_access_tokens token
+        SET revoked_at = now(), token_encrypted = NULL
+        FROM updated
+        WHERE token.user_id = updated.id
+          AND ${action} IN ('ban', 'logout')
+          AND token.revoked_at IS NULL
+        RETURNING token.token_hash
+      ),
+      revoked_assistant_sessions AS (
+        UPDATE assistant_session_tokens token
+        SET revoked_at = now()
+        FROM updated
+        WHERE token.user_id = updated.id
+          AND ${action} IN ('ban', 'logout')
+          AND token.revoked_at IS NULL
+        RETURNING token.token_hash
+      ),
+      revoked_scoped_tokens AS (
+        UPDATE assistant_scoped_tokens token
+        SET revoked_at = now()
+        FROM updated
+        WHERE token.user_id = updated.id
+          AND ${action} IN ('ban', 'logout')
+          AND token.revoked_at IS NULL
+        RETURNING token.token_hash
+      ),
+      revoked_legacy_tokens AS (
+        UPDATE assistant_tokens token
+        SET expires_at = now(),
+            batches_remaining = 0,
+            read_used_at = COALESCE(read_used_at, now())
+        FROM updated
+        WHERE token.user_id = updated.id
+          AND ${action} IN ('ban', 'logout')
+          AND token.expires_at > now()
+        RETURNING token.token_hash
+      ),
       audit AS (
         INSERT INTO admin_audit_log(admin_email, target_user_id, action, details)
         SELECT
           ${admin.email},
           updated.id,
           ${action},
-          jsonb_build_object('targetEmail', updated.email, 'accountStatus', updated."accountStatus")
+          jsonb_build_object(
+            'targetEmail', updated.email,
+            'accountStatus', updated."accountStatus",
+            'aiCredentialsRevoked', ${action} IN ('ban', 'logout')
+          )
         FROM updated
         RETURNING id
       )
-      SELECT updated.*, (SELECT COUNT(*)::int FROM audit) AS "auditRecorded"
+      SELECT
+        updated.*,
+        (SELECT COUNT(*)::int FROM audit) AS "auditRecorded",
+        (SELECT COUNT(*)::int FROM revoked_ai_access) AS "revokedAiAccessTokens",
+        (SELECT COUNT(*)::int FROM revoked_assistant_sessions) AS "revokedAssistantSessions",
+        (SELECT COUNT(*)::int FROM revoked_scoped_tokens) AS "revokedScopedTokens",
+        (SELECT COUNT(*)::int FROM revoked_legacy_tokens) AS "revokedLegacyTokens"
       FROM updated
     `;
 

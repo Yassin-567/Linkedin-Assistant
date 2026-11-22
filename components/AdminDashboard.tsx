@@ -85,9 +85,9 @@ export default function AdminDashboard({ adminEmail }: { adminEmail: string }) {
     const actionText: Record<string, string> = {
       freeze: "Freeze this account? The user can still sign in, but all InLinked features and AI access will be blocked.",
       unfreeze: "Unfreeze this account and restore its saved workspace and AI integration?",
-      ban: "Ban this account? The user will be blocked from signing in and all current sessions will be invalidated.",
-      unban: "Unban this account? The user will be able to sign in again.",
-      logout: "Log this user out of every active InLinked session?"
+      ban: "Ban this account? The user will be blocked from signing in, all sessions and AI credentials will be revoked. A new AI Access Token will be needed if the account is later unbanned.",
+      unban: "Unban this account? The user will be able to sign in again. They can generate a new AI Access Token in Settings.",
+      logout: "Log this user out of all InLinked sessions and revoke their permanent AI Access Token? They will need to generate a new AI connection after signing in again."
     };
     if (!window.confirm(actionText[action] + "\n\n" + user.email)) return;
 
