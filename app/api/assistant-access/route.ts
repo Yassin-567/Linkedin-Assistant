@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/app-auth";
 import { db } from "@/lib/db";
-import { hashToken } from "@/lib/assistant-auth";
+import { decryptPermanentToken, encryptPermanentToken, hashToken } from "@/lib/assistant-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export async function GET() {
   try {
     const sql = db();
     const rows: any = await sql`
-      SELECT created_at
+      SELECT created_at, token_encrypted
       FROM ai_access_tokens
       WHERE user_id = ${user.userId} AND revoked_at IS NULL
       ORDER BY created_at DESC
@@ -32,6 +32,7 @@ export async function GET() {
     return NextResponse.json({
       enabled: rows.length > 0,
       createdAt: rows[0]?.created_at || null,
+      accessToken: rows[0]?.token_encrypted ? decryptPermanentToken(String(rows[0].token_encrypted)) : null,
       vercelShareToken: process.env.INLINKLED_VERCEL_SHARE_TOKEN || ""
     }, { headers: noStore });
   } catch (error) {
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
     const sql = db();
     const accessToken = randomBytes(32).toString("base64url");
     const tokenHash = hashToken(accessToken);
+    const encryptedToken = encryptPermanentToken(accessToken);
 
     // Rotate the token atomically: revoke previous tokens and issue the new one
     // in one database statement, so a failed insert cannot leave the account disconnected.
@@ -71,8 +73,8 @@ export async function POST(request: Request) {
         RETURNING token_hash
       ),
       issued AS (
-        INSERT INTO ai_access_tokens(token_hash, user_id)
-        VALUES (${tokenHash}, ${user.userId})
+        INSERT INTO ai_access_tokens(token_hash, user_id, token_encrypted)
+        VALUES (${tokenHash}, ${user.userId}, ${encryptedToken})
         RETURNING created_at
       )
       SELECT created_at FROM issued
@@ -90,6 +92,40 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Access Token generation failed", error);
     return NextResponse.json({ error: "Could not generate the Access Token." }, { status: 503, headers: noStore });
+  }
+}
+
+// Backfill an existing browser-held token into encrypted account storage without
+// rotating it. The token must match the currently active database hash.
+export async function PATCH(request: Request) {
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: noStore });
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const accessToken = typeof body.accessToken === "string" ? body.accessToken.trim() : "";
+    if (!/^[A-Za-z0-9_-]{40,60}$/.test(accessToken)) {
+      return NextResponse.json({ error: "A valid permanent AI token is required." }, { status: 400, headers: noStore });
+    }
+
+    const sql = db();
+    const encryptedToken = encryptPermanentToken(accessToken);
+    const rows: any = await sql`
+      UPDATE ai_access_tokens
+      SET token_encrypted = ${encryptedToken}
+      WHERE user_id = ${user.userId}
+        AND token_hash = ${hashToken(accessToken)}
+        AND revoked_at IS NULL
+      RETURNING created_at
+    `;
+    if (!rows.length) {
+      return NextResponse.json({ error: "This token does not match the active token on your account. Nothing was changed." }, { status: 409, headers: noStore });
+    }
+
+    return NextResponse.json({ ok: true, createdAt: rows[0].created_at }, { headers: noStore });
+  } catch (error) {
+    console.error("Permanent AI token recovery save failed", error);
+    return NextResponse.json({ error: "Could not securely save the token for browser recovery." }, { status: 503, headers: noStore });
   }
 }
 
