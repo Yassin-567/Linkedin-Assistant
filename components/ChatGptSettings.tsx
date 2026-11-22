@@ -56,10 +56,37 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
         if (response.status === 401) throw new Error("Please sign in to manage your permanent AI token.");
         if (!response.ok) throw new Error(data.error || "Could not check the permanent AI token.");
         setStatus({ enabled: Boolean(data.enabled), createdAt: data.createdAt || "" });
+
         if (!data.enabled) {
           setToken("");
           localStorage.removeItem("inlinked_access_token");
+          return;
         }
+
+        // Restore the exact same credential from encrypted database storage on every signed-in browser.
+        const recovered = typeof data.accessToken === "string" ? data.accessToken : "";
+        if (recovered) {
+          setToken(recovered);
+          localStorage.setItem("inlinked_access_token", recovered);
+          return;
+        }
+
+        // Backfill tokens created before this recovery feature, if this browser still holds the original.
+        if (saved) {
+          const upgrade = await fetch("/api/assistant-access", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ accessToken: saved })
+          });
+          const upgradeData = await upgrade.json();
+          if (!upgrade.ok) throw new Error(upgradeData.error || "The saved browser token could not be linked to the active account token.");
+          setToken(saved);
+          setMessage("Your existing permanent token has been securely saved to your account. It will now restore on other browsers too.");
+          return;
+        }
+
+        setToken("");
+        setMessage("A permanent token is active, but it was created before cross-browser recovery was enabled. To fix this once, use Regenerate permanent token. After that, the same token will restore on every browser where you sign in.");
       })
       .catch(error => setMessage(error instanceof Error ? error.message : "Could not check the permanent AI token."));
 
@@ -103,10 +130,24 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
       setMessage("Paste a valid existing Inlinked permanent AI token.");
       return;
     }
-    setToken(value);
-    localStorage.setItem("inlinked_access_token", value);
-    setTokenDraft("");
-    setMessage("Existing permanent AI token loaded. It was not regenerated.");
+    setBusy("recover");
+    try {
+      const response = await fetch("/api/assistant-access", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessToken: value })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not save this token to your account.");
+      setToken(value);
+      localStorage.setItem("inlinked_access_token", value);
+      setTokenDraft("");
+      setMessage("Existing permanent token securely saved to your account. It was not regenerated.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save the existing token.");
+    } finally {
+      setBusy("");
+    }
   }
 
   async function generateToken() {
@@ -308,7 +349,7 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
 
     <section className="panel">
       <h2>{workflow === "record_update" ? "2. Permanent AI token" : kind === "scheduled" ? "4. Permanent AI token" : "3. Permanent AI token"}</h2>
-      <p className="muted">This permanent credential only opens the prompt gateway. The gateway issues a separate 15-minute session token for Context, Save and Update.</p>
+      <p className="muted">This permanent credential is stored in your account database as a validation hash plus an encrypted recovery copy. When you sign in on another browser, Inlinked restores the same token. It does not expire or rotate automatically; only your explicit Regenerate or Revoke action changes it.</p>
       <div className="row" style={{ justifyContent: "flex-start", flexWrap: "wrap" }}>
         <button type="button" onClick={() => void generateToken()} disabled={Boolean(busy)}>
           {busy === "generate" ? "Generating..." : status.enabled ? "Regenerate permanent token" : "Generate permanent token"}
@@ -330,7 +371,7 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
               </label>
               <button type="button" className="secondary" onClick={() => void loadExistingToken()} disabled={!tokenDraft.trim()}>Load existing token</button>
             </div>
-          : <p className="footnote">Generate a permanent token first. It is stored as a SHA-256 hash and shown only when generated.</p>}
+          : <p className="footnote">Generate a permanent token first. Inlinked keeps a SHA-256 validation hash and an encrypted recovery copy in your account database, so you can restore it after signing in on another browser.</p>}
     </section>
 
     <section className="panel">
