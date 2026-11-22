@@ -100,6 +100,14 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
 
   const scheduledAvailable = workflow !== "record_update";
   const scheduleReady = kind !== "scheduled" || !scheduleEndEnabled || Boolean(scheduleEndDate);
+  const ultimateLink = useMemo(() => {
+    if (!token || !origin) return "";
+    const url = new URL("/api/assistant-prompt", origin);
+    url.searchParams.set("type", "ultimate");
+    url.searchParams.set("ai", token);
+    return url.toString();
+  }, [token, origin]);
+
   const promptLink = useMemo(() => {
     if (!token || !origin || (scheduledAvailable && kind === "scheduled" && !scheduleReady)) return "";
     const url = new URL("/api/assistant-prompt", origin);
@@ -221,6 +229,16 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
       setMessage(error instanceof Error ? error.message : "Could not save the job target.");
     } finally {
       setSavingCount("");
+    }
+  }
+
+  async function copyUltimateLink() {
+    if (!ultimateLink) return;
+    try {
+      await navigator.clipboard.writeText(ultimateLink);
+      setMessage("Ultimate URL copied. Send this one private URL to your AI assistant; it contains the workflow directory.");
+    } catch {
+      setMessage("Your browser blocked copying. Select and copy the Ultimate URL manually.");
     }
   }
 
@@ -370,6 +388,17 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
               <button type="button" className="secondary" onClick={() => void loadExistingToken()} disabled={!tokenDraft.trim()}>Load existing token</button>
             </div>
           : <p className="footnote">Generate a permanent token first. Inlinked keeps a SHA-256 validation hash and an encrypted recovery copy in your account database, so you can restore it after signing in on another browser.</p>}
+    </section>
+
+    <section className="panel">
+      <h2>Ultimate URL — AI capability directory</h2>
+      <p className="muted">Copy this single private URL and give it to your AI assistant once. It explains which Inlinked URL to use for Jobs, LinkedIn Connections, Commercial Leads, Record Updates and supported recurring searches. The assistant chooses the relevant workflow when you give it a task.</p>
+      <label className="wide">Ultimate URL<input type="text" readOnly value={ultimateLink} placeholder="Generate or load your permanent AI token first." /></label>
+      <div className="row" style={{ justifyContent: "flex-start", flexWrap: "wrap" }}>
+        <button type="button" onClick={() => void copyUltimateLink()} disabled={!ultimateLink || Boolean(busy)}>Copy Ultimate URL</button>
+        {ultimateLink && <a className="button secondary" href={ultimateLink} target="_blank" rel="noreferrer">Open directory</a>}
+      </div>
+      <p className="footnote">The AI can choose a target count from 1–50 for each research run. Actual job applications still take place on the employer's application site; the Update workflow can mark a job as Applied after you confirm that you applied.</p>
     </section>
 
     <section className="panel">
