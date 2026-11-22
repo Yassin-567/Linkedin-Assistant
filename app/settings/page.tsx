@@ -97,11 +97,11 @@ export default function SettingsPage() {
 
   return <main className={isFrozen ? "workspace frozen-readonly" : "workspace"}>
     <header className="topbar"><div><div className="eyebrow">WORKSPACE CONFIGURATION</div><h1>Settings</h1><p className="muted">Manage research preferences, professional background and your AI prompt connection.</p></div><div className="row"><a className="button secondary" href="/">Back to workspace</a></div></header>
-    <nav aria-label="Settings sections" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20, padding: 5, border: "1px solid #e1e8e9", borderRadius: 12, background: "#fff" }}>
-      <button type="button" onClick={() => setActiveTab("preferences")} aria-selected={activeTab === "preferences"} style={{ flex: 1, minWidth: 150, background: activeTab === "preferences" ? "#087b5b" : "transparent", color: activeTab === "preferences" ? "#fff" : "#52635b" }}>LinkedIn research preferences</button>
-      <button type="button" onClick={() => setActiveTab("jobs")} aria-selected={activeTab === "jobs"} style={{ flex: 1, minWidth: 150, background: activeTab === "jobs" ? "#087b5b" : "transparent", color: activeTab === "jobs" ? "#fff" : "#52635b" }}>Job preferences</button>
-      <button type="button" onClick={() => setActiveTab("cv")} aria-selected={activeTab === "cv"} style={{ flex: 1, minWidth: 150, background: activeTab === "cv" ? "#087b5b" : "transparent", color: activeTab === "cv" ? "#fff" : "#52635b" }}>AI Imports</button>
-      {!isFrozen && <button type="button" onClick={() => setActiveTab("chatgpt")} aria-selected={activeTab === "chatgpt"} style={{ flex: 1, minWidth: 150, background: activeTab === "chatgpt" ? "#087b5b" : "transparent", color: activeTab === "chatgpt" ? "#fff" : "#52635b" }}>ChatGPT connection</button>}
+    <nav className="settings-tabs" aria-label="Settings sections">
+      <button className="settings-tab" type="button" onClick={() => setActiveTab("preferences")} aria-selected={activeTab === "preferences"}>LinkedIn preferences</button>
+      <button className="settings-tab" type="button" onClick={() => setActiveTab("jobs")} aria-selected={activeTab === "jobs"}>Job preferences</button>
+      <button className="settings-tab" type="button" onClick={() => setActiveTab("cv")} aria-selected={activeTab === "cv"}>AI imports</button>
+      {!isFrozen && <button className="settings-tab" type="button" onClick={() => setActiveTab("chatgpt")} aria-selected={activeTab === "chatgpt"}>ChatGPT connection</button>}
     </nav>
     {!isFrozen && activeTab === "chatgpt" && <>
     <section className="panel">
