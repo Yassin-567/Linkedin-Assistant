@@ -38,7 +38,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     fetch("/api/auth/me", { cache: "no-store" })
       .then((response) => response.json())
-      .then((data) => { if (!cancelled) setAccount(data); })
+      .then((data) => { if (data.accountStatus === "frozen") { try { localStorage.removeItem("inlinked_access_token"); localStorage.removeItem("inlinked_permanent_token"); localStorage.removeItem("inlinked_quick_session"); } catch {} } if (!cancelled) setAccount(data); })
       .catch(() => { if (!cancelled) setAccount({ connected: false }); });
     return () => { cancelled = true; };
   }, []);
