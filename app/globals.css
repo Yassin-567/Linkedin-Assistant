@@ -757,3 +757,6 @@ footer { color: var(--muted-2); font-size: 12px; }
   .settings-tabs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
   .settings-tab { min-width: 0; }
 }
+
+/* Frozen users may still navigate read-only settings sections. */
+.frozen-readonly .settings-tab { display: inline-flex !important; }
