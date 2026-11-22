@@ -41,7 +41,6 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
   const [scheduleEndDate, setScheduleEndDate] = useState("");
 
   useEffect(() => {
-    setOrigin(window.location.origin);
     const saved = localStorage.getItem("inlinked_access_token") || localStorage.getItem("inlinked_permanent_token") || "";
     if (saved) {
       setToken(saved);
@@ -56,6 +55,8 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
         if (response.status === 401) throw new Error("Please sign in to manage your permanent AI token.");
         if (!response.ok) throw new Error(data.error || "Could not check the permanent AI token.");
         setStatus({ enabled: Boolean(data.enabled), createdAt: data.createdAt || "" });
+        // Always build prompt links against the single production gateway, never this browser's host.
+        setOrigin(typeof data.origin === "string" && data.origin ? data.origin : "https://inlinked.vercel.app");
 
         if (!data.enabled) {
           setToken("");
