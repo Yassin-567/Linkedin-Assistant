@@ -26,11 +26,12 @@ export async function GET(request: NextRequest) {
     const profile=await profileResponse.json();
     if(!profileResponse.ok||!profile.sub||!profile.email||profile.email_verified!==true) return fail("Google did not return a verified email address.");
     const sql=db();
-    const rows:any=await sql`INSERT INTO app_users (google_sub,email,name,picture) VALUES (${profile.sub},${profile.email.toLowerCase()},${profile.name||""},${profile.picture||null}) ON CONFLICT (google_sub) DO UPDATE SET email=EXCLUDED.email,name=EXCLUDED.name,picture=EXCLUDED.picture,updated_at=now() RETURNING id,email,name,picture`;
-    const user=rows[0] as {id:string;email:string;name:string;picture?:string};
+    const rows:any=await sql`INSERT INTO app_users (google_sub,email,name,picture) VALUES (${profile.sub},${profile.email.toLowerCase()},${profile.name||""},${profile.picture||null}) ON CONFLICT (google_sub) DO UPDATE SET email=EXCLUDED.email,name=EXCLUDED.name,picture=EXCLUDED.picture,updated_at=now() RETURNING id,email,name,picture,account_status,session_version`;
+    const user=rows[0] as {id:string;email:string;name:string;picture?:string;account_status:string;session_version:number};
+    if (user.account_status === "banned") return fail("This account has been banned. Contact the InLinked administrator.");
     await sql`INSERT INTO user_preferences (user_id) VALUES (${user.id}) ON CONFLICT (user_id) DO NOTHING`;
     const response=NextResponse.redirect(new URL("/",request.url));
-    response.cookies.set(APP_COOKIE_NAME,sealAppSession({userId:user.id,email:user.email,name:user.name,picture:user.picture||undefined,expiresAt:Date.now()+7*24*60*60*1000}),{httpOnly:true,secure:process.env.NODE_ENV==="production",sameSite:"lax",path:"/",maxAge:7*24*60*60});
+    response.cookies.set(APP_COOKIE_NAME,sealAppSession({userId:user.id,email:user.email,name:user.name,picture:user.picture||undefined,sessionVersion:Number(user.session_version||0),expiresAt:Date.now()+7*24*60*60*1000}),{httpOnly:true,secure:process.env.NODE_ENV==="production",sameSite:"lax",path:"/",maxAge:7*24*60*60});
     response.cookies.delete("google_oauth_state");
     return response;
   } catch(error) { console.error("Google OAuth callback failed",error); return fail("Could not complete sign-in. Please try again."); }

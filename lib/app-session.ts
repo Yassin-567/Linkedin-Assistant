@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 export const APP_COOKIE_NAME = "assistant_app_session";
-export type AppSession = { userId: string; email: string; name: string; picture?: string; expiresAt: number };
+export type AppSession = { userId: string; email: string; name: string; picture?: string; expiresAt: number; sessionVersion?: number };
 
 function key() {
   const secret = process.env.SESSION_SECRET;

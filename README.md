@@ -86,6 +86,16 @@ The bootstrap URL itself contains the permanent credential and must be treated a
 
 **Existing database upgrade:** apply `db/phase_12_ai_prompt_gateway.sql` after Phase 11. Fresh installations should use the updated `db/schema.sql`.
 
+## Owner-only admin panel (Phase 13)
+
+The owner account `yassinalaa3310@gmail.com` can open `/admin`. Admin access is checked on the server for both the page and its API; hiding the navigation item is not the security boundary.
+
+The user table shows each account's latest saved job (the app does not currently store a separate current-employer field), total saved jobs, commercial leads, LinkedIn prospects and imported LinkedIn connections. The owner can freeze/unfreeze accounts, ban/unban accounts, or invalidate all active InLinked sessions. Administrative actions are written to `admin_audit_log`.
+
+A frozen user can sign in but cannot use the workspace or AI prompt/token workflows. Their data and encrypted permanent AI token are preserved; unfreezing restores access without requiring a new LinkedIn connection. Bans block sign-in and invalidate existing sessions. The owner account is protected from these actions.
+
+**Existing database upgrade:** apply `db/phase_13_admin_controls.sql` after Phase 12. The canonical `db/schema.sql` also includes the Phase 13 tables and columns for fresh installations.
+
 ## Local development
 
 ```bash

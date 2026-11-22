@@ -133,8 +133,9 @@ export async function GET(request: NextRequest) {
       const sql = db();
       const permanentHash = hashToken(permanentToken);
       const owners: any = await sql`
-        SELECT user_id FROM ai_access_tokens
-        WHERE token_hash = ${permanentHash} AND revoked_at IS NULL
+        SELECT t.user_id FROM ai_access_tokens t
+        JOIN app_users u ON u.id = t.user_id AND u.account_status = 'active'
+        WHERE t.token_hash = ${permanentHash} AND t.revoked_at IS NULL
         LIMIT 1
       `;
       if (!owners.length) {
@@ -230,8 +231,9 @@ export async function GET(request: NextRequest) {
     const sql = db();
     const permanentHash = hashToken(permanentToken);
     const owners: any = await sql`
-      SELECT user_id FROM ai_access_tokens
-      WHERE token_hash = ${permanentHash} AND revoked_at IS NULL
+      SELECT t.user_id FROM ai_access_tokens t
+      JOIN app_users u ON u.id = t.user_id AND u.account_status = 'active'
+      WHERE t.token_hash = ${permanentHash} AND t.revoked_at IS NULL
       LIMIT 1
     `;
     if (!owners.length) return errorResponse("The permanent AI token is invalid or has been revoked.", 401);

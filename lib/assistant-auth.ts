@@ -63,16 +63,19 @@ export async function resolveAssistantAuth(request: NextRequest): Promise<Assist
   const sql = db();
   const hash = hashToken(token);
   const rows: any = await sql`
-    SELECT user_id, workflow, search_mode, expires_at
-    FROM assistant_session_tokens
-    WHERE token_hash = ${hash}
-      AND revoked_at IS NULL
-      AND expires_at > now()
+    SELECT t.user_id, t.workflow, t.search_mode, t.expires_at
+    FROM assistant_session_tokens t
+    JOIN app_users u ON u.id = t.user_id AND u.account_status = 'active'
+    WHERE t.token_hash = ${hash}
+      AND t.revoked_at IS NULL
+      AND t.expires_at > now()
     LIMIT 1
   `;
   if (!rows.length) return null;
 
-  await sql`UPDATE assistant_session_tokens SET last_used_at = now() WHERE token_hash = ${hash}`;
+  await sql`UPDATE assistant_session_tokens SET last_used_at = now()
+    WHERE token_hash = ${hash}
+      AND EXISTS (SELECT 1 FROM app_users u WHERE u.id = assistant_session_tokens.user_id AND u.account_status = 'active')`;
   return {
     userId: String(rows[0].user_id),
     kind: "session",

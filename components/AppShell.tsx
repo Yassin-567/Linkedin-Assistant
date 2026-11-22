@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-type Account = { connected: boolean; profile?: { name?: string; email?: string } };
+type Account = {
+  connected: boolean;
+  accountStatus?: "active" | "frozen" | "banned";
+  isAdmin?: boolean;
+  profile?: { name?: string; email?: string };
+};
+
 const items = [
   { label: "Dashboard", href: "/", icon: "⌂" },
   { label: "LinkedIn Connections", href: "/prospects", icon: "◎" },
@@ -15,6 +21,11 @@ const items = [
   { label: "Imported Connections", href: "/connections", icon: "↗" },
   { label: "Settings", href: "/settings", icon: "⚙" },
 ];
+
+async function signOut() {
+  await fetch("/api/auth/logout", { method: "POST" });
+  window.location.href = "/login";
+}
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -33,7 +44,32 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   if (pathname === "/login") return <>{children}</>;
+
+  if (account.connected && account.accountStatus === "frozen") {
+    return (
+      <div className="app-shell">
+        <div className="app-main">
+          <main className="workspace">
+            <section className="panel frozen-account-panel">
+              <div className="eyebrow">ACCOUNT RESTRICTED</div>
+              <h1>Your InLinked account is temporarily frozen</h1>
+              <p className="muted">
+                You can sign in, but workspace features are disabled while this restriction is active.
+                Your saved jobs, leads, prospects, imported connections and settings are preserved.
+              </p>
+              <p className="frozen-account-email">{account.profile?.email || "Signed-in account"}</p>
+              <button onClick={signOut}>Sign out</button>
+            </section>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   const displayName = account.profile?.name || account.profile?.email || "Workspace account";
+  const navigationItems = account.isAdmin
+    ? [...items, { label: "Admin Panel", href: "/admin", icon: "◆" }]
+    : items;
 
   return (
     <div className="app-shell">
@@ -44,7 +80,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </Link>
         <div className="sidebar-label">WORKSPACE</div>
         <nav className="sidebar-nav" aria-label="Main navigation">
-          {items.map((item) => {
+          {navigationItems.map((item) => {
             const active = pathname === item.href;
             return <Link key={item.label} href={item.href} className={active ? "nav-link active" : "nav-link"} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}>
               <span className="nav-icon" aria-hidden="true">{item.icon}</span><span>{item.label}</span>{active && <span className="nav-indicator" />}
@@ -56,7 +92,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <span className="account-avatar">{account.connected ? displayName.charAt(0).toUpperCase() : "?"}</span>
             <span className="account-copy"><strong>{account.connected ? displayName : "Not signed in"}</strong><small>{account.connected ? "Google account connected" : "Sign in to sync your data"}</small></span>
           </div>
-          {account.connected ? <button className="sidebar-signout" onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); window.location.href = "/login"; }}>Sign out</button> : <a className="sidebar-signin" href="/api/auth/google">Sign in with Google</a>}
+          {account.connected ? <button className="sidebar-signout" onClick={signOut}>Sign out</button> : <a className="sidebar-signin" href="/api/auth/google">Sign in with Google</a>}
         </div>
       </aside>
       <div className="app-main">
