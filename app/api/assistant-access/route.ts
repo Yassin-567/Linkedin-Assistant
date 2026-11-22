@@ -16,7 +16,20 @@ const noStore = {
 // One long-lived permanent AI credential per Inlinked account.
 // It is stored as a SHA-256 hash and is accepted only by the prompt bootstrap endpoint.
 // The gateway exchanges it for 15-minute sessions used by Context, Save and Update.
-export async function GET() {
+function canonicalPromptOrigin(requestUrl: string) {
+  // Vercel exposes this system variable in both production and preview deployments.
+  // It keeps generated AI links anchored to the one production gateway.
+  const productionDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  if (productionDomain) return new URL("https://" + productionDomain).origin;
+
+  // This project has one stable public production hostname. Use it on hosted
+  // deployments even if system environment variables have not been exposed.
+  if (process.env.VERCEL) return "https://inlinked.vercel.app";
+
+  return new URL(process.env.APP_URL || requestUrl).origin;
+}
+
+export async function GET(request: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: noStore });
 
@@ -32,6 +45,7 @@ export async function GET() {
     return NextResponse.json({
       enabled: rows.length > 0,
       createdAt: rows[0]?.created_at || null,
+      origin: canonicalPromptOrigin(request.url),
       accessToken: rows[0]?.token_encrypted ? decryptPermanentToken(String(rows[0].token_encrypted)) : null,
       vercelShareToken: process.env.INLINKLED_VERCEL_SHARE_TOKEN || ""
     }, { headers: noStore });
@@ -80,7 +94,7 @@ export async function POST(request: Request) {
       SELECT created_at FROM issued
     `;
 
-    const base = process.env.APP_URL || new URL(request.url).origin;
+    const base = canonicalPromptOrigin(request.url);
     return NextResponse.json({
       accessToken,
       createdAt: rows[0]?.created_at || new Date().toISOString(),
