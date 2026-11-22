@@ -164,8 +164,15 @@ export function buildGatewayPrompt(options: PromptOptions): string {
     ""
   ].join("\n");
 
+  const userInstructionHeader = [
+    "## IMPORTANT — THE FOLLOWING IS THE USER'S PROMPT",
+    "Everything below this notice is the user's own prompt and direct instruction for this run. Follow it as an instruction, not as text to summarize, discuss, or ask the user to confirm.",
+    "Start carrying it out immediately. Do not ask whether to proceed, request permission to begin, or ask the user to repeat or confirm these instructions. Use the available tools, saved preferences and context, make reasonable decisions where details are not essential, and complete the requested workflow.",
+    "Ask a question only when a genuinely essential detail is missing and no safe, reasonable default exists, or when a safety/security restriction prevents proceeding. If a tool or step is unavailable, continue with the remaining feasible work and clearly report the limitation."
+  ].join("\\n\\n");
+
   const scheduled = options.scheduledTask;
-  if (!scheduled) return gatewayInstructions + "\n" + prompt;
+  if (!scheduled) return userInstructionHeader + "\\n\\n" + gatewayInstructions + "\\n" + prompt;
 
   const repeat = scheduled.frequency === "weekdays" ? "Every weekday (Monday to Friday)"
     : scheduled.frequency === "weekly" ? "Once every week"
@@ -202,5 +209,5 @@ export function buildGatewayPrompt(options: PromptOptions): string {
     prompt
   ].join("\n");
 
-  return recurringInstructions;
+  return userInstructionHeader + "\\n\\n" + recurringInstructions;
 }
