@@ -41,11 +41,7 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
   const [scheduleEndDate, setScheduleEndDate] = useState("");
 
   useEffect(() => {
-    const saved = localStorage.getItem("inlinked_access_token") || localStorage.getItem("inlinked_permanent_token") || "";
-    if (saved) {
-      setToken(saved);
-      localStorage.setItem("inlinked_access_token", saved);
-    }
+    const savedLegacyToken = localStorage.getItem("inlinked_access_token") || localStorage.getItem("inlinked_permanent_token") || "";
     localStorage.removeItem("inlinked_permanent_token");
     localStorage.removeItem("inlinked_quick_session");
 
@@ -68,21 +64,22 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
         const recovered = typeof data.accessToken === "string" ? data.accessToken : "";
         if (recovered) {
           setToken(recovered);
-          localStorage.setItem("inlinked_access_token", recovered);
+          localStorage.removeItem("inlinked_access_token");
           return;
         }
 
         // Backfill tokens created before this recovery feature, if this browser still holds the original.
-        if (saved) {
+        if (savedLegacyToken) {
           const upgrade = await fetch("/api/assistant-access", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ accessToken: saved })
+            body: JSON.stringify({ accessToken: savedLegacyToken })
           });
           const upgradeData = await upgrade.json();
           if (!upgrade.ok) throw new Error(upgradeData.error || "The saved browser token could not be linked to the active account token.");
-          setToken(saved);
-          setMessage("Your existing permanent token has been securely saved to your account. It will now restore on other browsers too.");
+          setToken(savedLegacyToken);
+          localStorage.removeItem("inlinked_access_token");
+          setMessage("Your existing permanent token has been securely saved to your account. It will now restore directly from the database on other browsers too.");
           return;
         }
 
@@ -141,7 +138,7 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not save this token to your account.");
       setToken(value);
-      localStorage.setItem("inlinked_access_token", value);
+      localStorage.removeItem("inlinked_access_token");
       setTokenDraft("");
       setMessage("Existing permanent token securely saved to your account. It was not regenerated.");
     } catch (error) {
@@ -161,7 +158,7 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
       if (!response.ok) throw new Error(data.error || "Could not generate the permanent AI token.");
       const nextToken = String(data.accessToken || "");
       setToken(nextToken);
-      localStorage.setItem("inlinked_access_token", nextToken);
+      localStorage.removeItem("inlinked_access_token");
       setStatus({ enabled: true, createdAt: data.createdAt || new Date().toISOString() });
       setMessage("Permanent AI token generated. Use it only in private prompt links.");
     } catch (error) {
