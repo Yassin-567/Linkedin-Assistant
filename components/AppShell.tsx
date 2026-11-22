@@ -145,7 +145,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <div className={account.accountStatus === "frozen" ? "app-page frozen-readonly" : "app-page"}>
-          {account.accountStatus === "frozen" && <section className="frozen-readonly-banner" role="status"><strong>Read-only access</strong><span>Your account is frozen. You can view and export existing records, but cannot add, edit, delete, import or run AI workflows.</span></section>}
+          {account.accountStatus === "frozen" && <section className="frozen-readonly-banner" role="status"><strong>Read-only access</strong><span>Your account is frozen. You can view and search existing records, but cannot add, edit, delete, import or run AI workflows.</span></section>}
           {children}
         </div>
       </div>
