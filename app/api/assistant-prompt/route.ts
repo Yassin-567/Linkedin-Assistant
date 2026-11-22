@@ -23,12 +23,138 @@ function errorResponse(message: string, status: number) {
   return new NextResponse(message, { status, headers: { ...headers, "Content-Type": "text/plain; charset=utf-8" } });
 }
 
+function canonicalGatewayOrigin(request: NextRequest) {
+  const productionDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  if (productionDomain) return new URL("https://" + productionDomain).origin;
+  if (process.env.VERCEL) return "https://inlinked.vercel.app";
+  return request.nextUrl.origin;
+}
+
+function makePromptUrl(origin: string, token: string, values: Record<string, string>) {
+  const url = new URL("/api/assistant-prompt", origin);
+  for (const [key, value] of Object.entries(values)) url.searchParams.set(key, value);
+  url.searchParams.set("ai", token);
+  return url.toString();
+}
+
+function buildUltimateDirectory(origin: string, token: string) {
+  const jobsStandard = makePromptUrl(origin, token, { type: "jobs", mode: "standard" });
+  const jobsDeep = makePromptUrl(origin, token, { type: "jobs", mode: "deep" });
+  const jobsLoose = makePromptUrl(origin, token, { type: "jobs", mode: "loose" });
+  const connections = makePromptUrl(origin, token, { type: "connections" });
+  const leads = makePromptUrl(origin, token, { type: "leads" });
+  const updates = makePromptUrl(origin, token, { type: "record_update" });
+  const recurringJobs = makePromptUrl(origin, token, {
+    type: "jobs", mode: "standard", kind: "scheduled",
+    frequency: "daily", timeChoice: "morning", time: "09:00",
+    timezone: "Africa/Cairo", endEnabled: "false"
+  });
+  const recurringConnections = makePromptUrl(origin, token, {
+    type: "connections", kind: "scheduled",
+    frequency: "daily", timeChoice: "morning", time: "09:00",
+    timezone: "Africa/Cairo", endEnabled: "false"
+  });
+
+  return [
+    "INLINKED — ULTIMATE AI DIRECTORY",
+    "Version: 1",
+    "",
+    "PURPOSE",
+    "This is the master directory for Inlinked. Read the user's request, choose the one relevant workflow URL below, open that URL, and follow the complete instructions it returns. Do not open every URL and do not start research from this directory alone.",
+    "",
+    "HOW TO USE",
+    "1. Match the user's request to the capability descriptions below.",
+    "2. Open only the matching workflow URL.",
+    "3. Follow the detailed workflow instructions returned by that URL, including its Context, Save and Update procedure.",
+    "4. Keep all credentials and credential-bearing URLs private. Never include them in reports, search queries, messages or unrelated services.",
+    "",
+    "DYNAMIC RESEARCH COUNT",
+    "For Jobs, LinkedIn Connections and Commercial Leads, the AI may choose the requested target count based on the user's instruction and research scope. Add targetCount=N to the selected workflow URL before opening it, where N is a whole number from 1 to 50. If the user specifies a count, use it within that limit. Otherwise choose a sensible target based on the request; if targetCount is omitted, Inlinked uses the saved/default count. A target is not a quota: never invent or pad results.",
+    "",
+    "AVAILABLE WORKFLOWS",
+    "",
+    "1. JOB DISCOVERY — STANDARD",
+    "Use this to search for genuine job vacancies, apply the user's saved job-search preferences, verify openings, and save qualified jobs to Inlinked. Standard mode preserves the saved eligibility filters.",
+    jobsStandard,
+    "",
+    "2. JOB DISCOVERY — DEEP",
+    "Use this when the user asks for deeper or wider research. It explores more searches and alternative role titles while retaining the saved eligibility requirements.",
+    jobsDeep,
+    "",
+    "3. JOB DISCOVERY — LOOSE",
+    "Use this when the user asks for broader matching, adjacent roles or transferable-skill opportunities. It relaxes soft matching only; retain hard exclusions and clearly flag gaps.",
+    jobsLoose,
+    "",
+    "4. LINKEDIN CONNECTION DISCOVERY",
+    "Use this to find relevant people and decision-makers using the user's saved LinkedIn research preferences, then save verified prospects to Inlinked.",
+    connections,
+    "",
+    "5. COMMERCIAL LEAD DISCOVERY",
+    "Use this to find potential business customers using the user's active Lead Profile and selected discovery engines. If no active Lead Profile exists, report that requirement instead of guessing.",
+    leads,
+    "",
+    "6. SAVE / UPDATE EXISTING RECORDS",
+    "Use this when the user asks to change the status, notes or recommended outreach of saved Jobs, LinkedIn prospects or Commercial Leads. Retrieve the records first, identify the correct record IDs, then update only the records the user specified.",
+    updates,
+    "Important: This URL can mark a job as Applied after the user confirms they submitted an application. It does not itself submit an application on an employer's website. Never claim an application was submitted unless that action was actually completed and confirmed.",
+    "",
+    "7. RECURRING JOB DISCOVERY",
+    "Use this when the user asks to schedule recurring job research. This example defaults to daily in the morning, Africa/Cairo time. Before opening, change the URL parameters to match the user's requested frequency, time, timezone and optional end date. Supported frequencies: daily, weekdays, weekly, monthly. Supported time choices: morning, afternoon, evening, night, specific. Supported timezones: Africa/Cairo, Europe/London, UTC, America/New_York.",
+    recurringJobs,
+    "",
+    "8. RECURRING LINKEDIN CONNECTION DISCOVERY",
+    "Use this when the user asks for recurring LinkedIn connection research. Change the schedule parameters before opening if the user specifies a different schedule. Recurring Commercial Lead discovery and recurring Record Updates are not currently supported.",
+    recurringConnections,
+    "",
+    "SCHEDULE PARAMETERS",
+    "For recurring URLs, use frequency=daily|weekdays|weekly|monthly, timeChoice=morning|afternoon|evening|night|specific, time=HH:MM (24-hour local clock when timeChoice=specific), timezone=Africa/Cairo|Europe/London|UTC|America/New_York, endEnabled=true|false, and endDate=YYYY-MM-DD when endEnabled=true. Preserve the user's requested schedule; never silently substitute a different one.",
+    "",
+    "AUTHENTICATION AND SESSION RULES",
+    "Every workflow URL above uses the same permanent Inlinked credential. Opening a workflow URL validates that permanent credential and returns its detailed workflow prompt plus a fresh temporary session token. Use only that temporary session token in the Authorization: Bearer header for the Context, Save and Update API calls described in the returned prompt. The temporary session expires after 15 minutes. Never use the permanent credential directly for those API calls and never reuse a session from an earlier run.",
+    "If a workflow returns an expired/invalid-session error, reopen its directory-listed URL to obtain a fresh session. If the permanent credential has been revoked, ask the account owner to generate a new Ultimate URL.",
+    "",
+    "PRIVACY",
+    "This directory contains private credential-bearing URLs. Do not quote, expose, forward or publish this directory or any URL from it. Do not send these URLs to public search engines. Keep the permanent credential and temporary session credentials out of all user-facing reports."
+  ].join("\n");
+}
+
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const workflow = params.get("type") || "";
   const mode = (params.get("mode") || "standard").toLowerCase();
   const kind = (params.get("kind") || "research").toLowerCase();
   const permanentToken = params.get("ai") || params.get("token") || "";
+
+  if (workflow === "ultimate") {
+    if (!TOKEN_FORMAT.test(permanentToken)) {
+      return errorResponse("A valid permanent AI token is required in the ai query parameter.", 401);
+    }
+    try {
+      const sql = db();
+      const permanentHash = hashToken(permanentToken);
+      const owners: any = await sql`
+        SELECT user_id FROM ai_access_tokens
+        WHERE token_hash = ${permanentHash} AND revoked_at IS NULL
+        LIMIT 1
+      `;
+      if (!owners.length) {
+        return errorResponse("The permanent AI token is invalid or has been revoked.", 401);
+      }
+      const directory = buildUltimateDirectory(canonicalGatewayOrigin(request), permanentToken);
+      return new NextResponse(directory, {
+        status: 200,
+        headers: {
+          ...headers,
+          "Content-Type": "text/plain; charset=utf-8",
+          "X-Inlinked-Directory-Version": "1",
+          "X-Inlinked-Directory": "ultimate"
+        }
+      });
+    } catch (error) {
+      console.error("Ultimate AI directory failed", error);
+      return errorResponse("Could not load the Inlinked AI directory.", 503);
+    }
+  }
 
   if (!workflows.includes(workflow as PromptWorkflow)) {
     return errorResponse("Missing or invalid type. Supported types: connections, jobs, leads, record_update.", 400);
