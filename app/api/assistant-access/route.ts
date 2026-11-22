@@ -65,16 +65,11 @@ export async function POST(request: Request) {
     const tokenHash = hashToken(accessToken);
     const encryptedToken = encryptPermanentToken(accessToken);
 
-    // Rotate the token atomically: revoke previous tokens and issue the new one
-    // in one database statement, so a failed insert cannot leave the account disconnected.
+    // Revoke every session and replace the active permanent token in one
+    // statement. The partial unique index is the conflict target: updating the
+    // existing active row avoids the insert-vs-revoke uniqueness race.
     const rows: any = await sql`
-      WITH revoked_access AS (
-        UPDATE ai_access_tokens
-        SET revoked_at = now()
-        WHERE user_id = ${user.userId} AND revoked_at IS NULL
-        RETURNING token_hash
-      ),
-      revoked_sessions AS (
+      WITH revoked_sessions AS (
         UPDATE assistant_scoped_tokens
         SET revoked_at = now()
         WHERE user_id = ${user.userId} AND revoked_at IS NULL
@@ -85,13 +80,16 @@ export async function POST(request: Request) {
         SET revoked_at = now()
         WHERE user_id = ${user.userId} AND revoked_at IS NULL
         RETURNING token_hash
-      ),
-      issued AS (
-        INSERT INTO ai_access_tokens(token_hash, user_id, token_encrypted)
-        VALUES (${tokenHash}, ${user.userId}, ${encryptedToken})
-        RETURNING created_at
       )
-      SELECT created_at FROM issued
+      INSERT INTO ai_access_tokens(token_hash, user_id, token_encrypted)
+      VALUES (${tokenHash}, ${user.userId}, ${encryptedToken})
+      ON CONFLICT (user_id) WHERE revoked_at IS NULL
+      DO UPDATE SET
+        token_hash = EXCLUDED.token_hash,
+        token_encrypted = EXCLUDED.token_encrypted,
+        created_at = now(),
+        revoked_at = NULL
+      RETURNING created_at
     `;
 
     const base = canonicalPromptOrigin(request.url);
