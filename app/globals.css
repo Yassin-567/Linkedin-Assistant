@@ -408,3 +408,10 @@ button.method-card:hover:not(:disabled) { background: #f7fbf9; transform: none; 
   .admin-audit-row { align-items:flex-start; flex-direction:column; gap:8px; }
   .admin-audit-row > div:last-child { justify-items:start; text-align:left; }
 }
+
+
+/* Frozen accounts retain read access to saved records, but no write controls or AI credentials. */
+.frozen-readonly-banner { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:0 0 18px; padding:13px 16px; border:1px solid #ecd9a8; border-radius:11px; background:#fff8e7; color:#76530d; font-size:12px; }
+.frozen-readonly-banner strong { font-size:12px; }
+.frozen-readonly form, .frozen-readonly button, .frozen-readonly .lead-controls, .frozen-readonly .recommended-outreach textarea, .frozen-readonly .recommended-outreach button, .frozen-readonly .upload-box, .frozen-readonly input[type=file], .frozen-readonly select { display:none !important; }
+.frozen-readonly .toolbar input, .frozen-readonly .admin-toolbar input { display:block !important; }

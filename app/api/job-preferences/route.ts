@@ -52,7 +52,7 @@ function toPreferences(row: any) {
 }
 
 export async function GET() {
-  const user = await currentUser();
+  const user = await currentUser({ allowFrozen: true });
   if (!user) return fail("Sign in required.", 401);
   try {
     const sql = db();

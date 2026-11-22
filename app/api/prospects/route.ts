@@ -13,7 +13,7 @@ function profileUrl(v:unknown):string|null {
 }
 const pick=(v:unknown,allowed:string[],fallback:string)=>typeof v==="string"&&allowed.includes(v)?v:fallback;
 export async function GET() {
- const user=await currentUser(); if(!user)return fail("Sign in required.",401);
+ const user=await currentUser({ allowFrozen: true }); if(!user)return fail("Sign in required.",401);
  try { const sql=db(); const leads=await sql`SELECT id::text,name,company,linkedin_url AS url,industry,status,follow_up AS "followUp",notes,recommended_outreach AS "recommendedOutreach",connected,connected_on AS "connectedOn",discovery_source AS "discoverySource",saved_via AS "savedVia",research_tool AS "researchTool",created_at AS "createdAt",updated_at AS "updatedAt" FROM prospects WHERE user_id=${user.userId} ORDER BY created_at DESC LIMIT 1000`; return NextResponse.json({leads},{headers:{"Cache-Control":"private,no-store"}}); }
  catch(e){console.error("Prospect read failed",e);return fail("Could not load prospects.",503);}
 }

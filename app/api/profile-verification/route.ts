@@ -10,7 +10,7 @@ const clean = (value: unknown, max = 3000) => typeof value === "string" ? value.
 const headers = { "Cache-Control": "private,no-store" };
 
 export async function GET() {
-  const user = await currentUser();
+  const user = await currentUser({ allowFrozen: true });
   if (!user) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   try {
     const sql = db();

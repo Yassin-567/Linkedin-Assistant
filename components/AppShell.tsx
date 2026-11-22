@@ -45,27 +45,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   if (pathname === "/login") return <>{children}</>;
 
-  if (account.connected && account.accountStatus === "frozen") {
-    return (
-      <div className="app-shell">
-        <div className="app-main">
-          <main className="workspace">
-            <section className="panel frozen-account-panel">
-              <div className="eyebrow">ACCOUNT RESTRICTED</div>
-              <h1>Your InLinked account is temporarily frozen</h1>
-              <p className="muted">
-                You can sign in, but workspace features are disabled while this restriction is active.
-                Your saved jobs, leads, prospects, imported connections and settings are preserved.
-              </p>
-              <p className="frozen-account-email">{account.profile?.email || "Signed-in account"}</p>
-              <button onClick={signOut}>Sign out</button>
-            </section>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
   const displayName = account.profile?.name || account.profile?.email || "Workspace account";
   const navigationItems = account.isAdmin
     ? [...items, { label: "Admin Panel", href: "/admin", icon: "◆" }]
@@ -101,7 +80,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <span className="mobile-brand">Inlinked</span>
           <span className={account.connected ? "mobile-account connected" : "mobile-account"} aria-label={account.connected ? "Account connected" : "Not signed in"} />
         </header>
-        <div className="app-page">{children}</div>
+        <div className={account.accountStatus === "frozen" ? "app-page frozen-readonly" : "app-page"}>{account.accountStatus === "frozen" && <section className="frozen-readonly-banner" role="status"><strong>Read-only access</strong><span>Your account is frozen. You can view and export existing records, but cannot add, edit, delete, import or run AI workflows.</span></section>}{children}</div>
       </div>
     </div>
   );

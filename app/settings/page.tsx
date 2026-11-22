@@ -37,12 +37,16 @@ export default function SettingsPage() {
   const [verifiedAt, setVerifiedAt] = useState("");
   const [activeTab, setActiveTab] = useState<"preferences" | "jobs" | "cv" | "chatgpt">("preferences");
   const [prospectCount, setProspectCount] = useState(50);
+  const [isFrozen, setIsFrozen] = useState(false);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/preferences", { cache: "no-store" }),
-      fetch("/api/profile-verification", { cache: "no-store" })
-    ]).then(async ([preferencesResponse, profileResponse]) => {
+      fetch("/api/profile-verification", { cache: "no-store" }),
+      fetch("/api/auth/me", { cache: "no-store" })
+    ]).then(async ([preferencesResponse, profileResponse, accountResponse]) => {
+      const accountData = await accountResponse.json();
+      setIsFrozen(accountData.accountStatus === "frozen");
       if (preferencesResponse.status === 401 || profileResponse.status === 401) { location.href = "/login"; return; }
       const [preferencesData, profileData] = await Promise.all([preferencesResponse.json(), profileResponse.json()]);
       if (preferencesResponse.ok) { setP({ ...defaults, ...preferencesData.preferences }); const target = Number(preferencesData.preferences?.connectionTargetCount || 50); if (Number.isInteger(target) && target >= 1 && target <= 50) setProspectCount(target); }
@@ -91,15 +95,15 @@ export default function SettingsPage() {
 
 
 
-  return <main className="workspace">
+  return <main className={isFrozen ? "workspace frozen-readonly" : "workspace"}>
     <header className="topbar"><div><div className="eyebrow">WORKSPACE CONFIGURATION</div><h1>Settings</h1><p className="muted">Manage research preferences, professional background and your AI prompt connection.</p></div><div className="row"><a className="button secondary" href="/">Back to workspace</a></div></header>
     <nav aria-label="Settings sections" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20, padding: 5, border: "1px solid #e1e8e9", borderRadius: 12, background: "#fff" }}>
       <button type="button" onClick={() => setActiveTab("preferences")} aria-selected={activeTab === "preferences"} style={{ flex: 1, minWidth: 150, background: activeTab === "preferences" ? "#087b5b" : "transparent", color: activeTab === "preferences" ? "#fff" : "#52635b" }}>LinkedIn research preferences</button>
       <button type="button" onClick={() => setActiveTab("jobs")} aria-selected={activeTab === "jobs"} style={{ flex: 1, minWidth: 150, background: activeTab === "jobs" ? "#087b5b" : "transparent", color: activeTab === "jobs" ? "#fff" : "#52635b" }}>Job preferences</button>
       <button type="button" onClick={() => setActiveTab("cv")} aria-selected={activeTab === "cv"} style={{ flex: 1, minWidth: 150, background: activeTab === "cv" ? "#087b5b" : "transparent", color: activeTab === "cv" ? "#fff" : "#52635b" }}>AI Imports</button>
-      <button type="button" onClick={() => setActiveTab("chatgpt")} aria-selected={activeTab === "chatgpt"} style={{ flex: 1, minWidth: 150, background: activeTab === "chatgpt" ? "#087b5b" : "transparent", color: activeTab === "chatgpt" ? "#fff" : "#52635b" }}>ChatGPT connection</button>
+      {!isFrozen && <button type="button" onClick={() => setActiveTab("chatgpt")} aria-selected={activeTab === "chatgpt"} style={{ flex: 1, minWidth: 150, background: activeTab === "chatgpt" ? "#087b5b" : "transparent", color: activeTab === "chatgpt" ? "#fff" : "#52635b" }}>ChatGPT connection</button>}
     </nav>
-    {activeTab === "chatgpt" && <>
+    {!isFrozen && activeTab === "chatgpt" && <>
     <section className="panel">
       <div className="section-heading"><div><div className="eyebrow">CHATGPT INTEGRATION</div><h2>ChatGPT connection and prompt builder</h2><p className="muted">Manage one Access Token and generate job-discovery and LinkedIn connection-research prompts. The commercial Leads workspace has its own ChatGPT research prompt and save workflow.</p></div></div>
 

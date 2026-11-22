@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 export async function GET() {
-  const user = await currentUser();
+  const user = await currentUser({ allowFrozen: true });
   if (!user) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   try {
     const sql = db();

@@ -8,7 +8,7 @@ function linkedinProfileUrl(v:unknown):string|null{
  try{const u=new URL(v.trim());const host=u.hostname.toLowerCase();const parts=u.pathname.split("/").filter(Boolean);if(!(host==="linkedin.com"||host.endsWith(".linkedin.com"))||parts.length!==2||parts[0].toLowerCase()!=="in")return null;return "https://www.linkedin.com/in/"+parts[1];}catch{return null;}
 }
 export async function GET(){
- const user=await currentUser();if(!user)return NextResponse.json({error:"Sign in required."},{status:401});
+ const user=await currentUser({ allowFrozen: true });if(!user)return NextResponse.json({error:"Sign in required."},{status:401});
  try{const sql=db();const rows:any=await sql`SELECT countries,industries,keywords,job_titles,excluded_keywords,language,linkedin_profile_url,connection_target_count,(SELECT profile_summary FROM app_users WHERE id=${user.userId}) AS profile_summary FROM user_preferences WHERE user_id=${user.userId}`;const x=rows[0] as any;if(!x)return NextResponse.json({error:"Preferences not found."},{status:404});
  return NextResponse.json({preferences:{linkedinProfileUrl:x.linkedin_profile_url||"",countries:x.countries||[],industries:x.industries||[],keywords:x.keywords||[],jobTitles:x.job_titles||[],excludedKeywords:x.excluded_keywords||[],language:x.language||"English",connectionTargetCount:Number(x.connection_target_count||50),profileSummary:x.profile_summary||""}},{headers:{"Cache-Control":"private,no-store"}});
  }catch(e){console.error("Preferences read failed",e);return NextResponse.json({error:"Could not load preferences. Check database setup."},{status:503});}

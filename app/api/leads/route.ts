@@ -90,7 +90,7 @@ async function insertLead(userId: string, input: any) {
 }
 
 export async function GET(request: NextRequest) {
-  const user = await currentUser();
+  const user = await currentUser({ allowFrozen: true });
   if (!user) return fail("Sign in required.", 401);
   const profileId = clean(request.nextUrl.searchParams.get("profileId"), 50);
   const status = clean(request.nextUrl.searchParams.get("status"), 40);
