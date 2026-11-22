@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/app-auth";
 import { db } from "@/lib/db";
 export const runtime = "nodejs";
-const statuses = ["To research","Ready to contact","Contacted","Connected","Replied","Call booked","Client","Not a fit"];
+const statuses = ["To research","Ready to contact","Connection Sent","Connected","Contacted","Replied","Call booked","Client","Not a fit"];
 const sources = ["Unknown","Google/Serper","LinkedIn","Manual","ChatGPT research","Referral","Other"];
 const methods = ["Unknown","Find Leads","Manual entry","ChatGPT AI Token","ChatGPT temporary link","CSV import"];
 const fail = (error:string,status:number) => NextResponse.json({error},{status,headers:{"Cache-Control":"no-store"}});

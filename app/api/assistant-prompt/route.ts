@@ -94,7 +94,7 @@ function buildUltimateDirectory(origin: string, token: string) {
     leads,
     "",
     "6. SAVE / UPDATE EXISTING RECORDS",
-    "Use this when the user asks to change the status, notes or recommended outreach of saved Jobs, LinkedIn prospects or Commercial Leads. Retrieve the records first, identify the correct record IDs, then update only the records the user specified.",
+    "Use this when the user asks to change the status, notes or recommended outreach of saved Jobs, LinkedIn prospects or Commercial Leads. Retrieve the records first, identify the correct record IDs, then update only the records the user specified. For LinkedIn prospects, use Connection Sent after the user confirms an invitation was sent, Connected after acceptance, and Contacted for a direct message or other direct outreach.",
     updates,
     "Important: This URL can mark a job as Applied after the user confirms they submitted an application. It does not itself submit an application on an employer's website. Never claim an application was submitted unless that action was actually completed and confirmed.",
     "",

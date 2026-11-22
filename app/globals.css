@@ -2,7 +2,7 @@ main { width: min(1050px, calc(100% - 36px)); margin: 40px auto; }
 .workspace { width: min(1050px, calc(100% - 36px)); margin: 40px auto; }
 .topbar, .section-heading, .row { display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; }
 .eyebrow { color:#087b5b; font-size:11px; font-weight:800; letter-spacing:1.5px; }
-.stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:18px 0; }
+.stats { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin:18px 0; }
 .stat, .panel { background:white; border:1px solid #e1e8e9; border-radius:14px; padding:20px; margin-bottom:15px; }
 .stat span { display:block; color:#71808a; font-size:12px; margin-bottom:8px; }
 .stat strong { font-size:25px; }

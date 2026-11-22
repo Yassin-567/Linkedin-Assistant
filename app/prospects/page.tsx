@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 
 type Lead = { id: string; name: string; company: string; url: string; status: string; followUp: string; notes: string; connected?: boolean; connectedOn?: string; researchTool?: string; recommendedOutreach?: string };
-const statuses = ["To research", "Ready to contact", "Contacted", "Connected", "Replied", "Call booked", "Client", "Not a fit"];
+const statuses = ["To research", "Ready to contact", "Connection Sent", "Connected", "Contacted", "Replied", "Call booked", "Client", "Not a fit"];
 
 export default function Home() {
   const [account, setAccount] = useState<{connected:boolean; profile?:{name?:string;email?:string}}>({connected:false});
@@ -117,6 +117,7 @@ export default function Home() {
     <section className="stats">
       <div className="stat"><span>Total connections</span><strong>{leads.length}</strong></div>
       <div className="stat"><span>Ready to contact</span><strong>{leads.filter(x=>x.status==="Ready to contact").length}</strong></div>
+      <div className="stat"><span>Connection requests sent</span><strong>{leads.filter(x=>x.status==="Connection Sent").length}</strong></div>
       <div className="stat"><span>Awaiting replies</span><strong>{leads.filter(x=>x.status==="Contacted").length}</strong></div>
       <div className="stat"><span>Clients won</span><strong>{leads.filter(x=>x.status==="Client").length}</strong></div>
     </section>

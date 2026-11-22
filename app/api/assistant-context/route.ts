@@ -110,7 +110,13 @@ export async function GET(request: NextRequest) {
         preserveUserPreferencesUnlessTheUserOverridesThem: true,
         treatProfileFieldsAsContextNotAsClaimsAboutTheProspect: true,
         distinguishUserProvidedDetailsFromPubliclyIndexedDetails: true,
-        doNotInventMissingProfileInformation: true
+        doNotInventMissingProfileInformation: true,
+        availableLinkedInProspectStatuses: ["To research", "Ready to contact", "Connection Sent", "Connected", "Contacted", "Replied", "Call booked", "Client", "Not a fit"],
+        linkedinStatusMeanings: {
+          "Connection Sent": "A LinkedIn connection invitation was actually sent and is awaiting acceptance.",
+          "Connected": "The invitation was accepted or the person is confirmed as a first-degree connection.",
+          "Contacted": "A direct message or other direct outreach was actually sent; it does not mean a connection invitation is pending."
+        }
       },
       owner: {
         linkedinProfileUrl: row.linkedin_profile_url || "",
