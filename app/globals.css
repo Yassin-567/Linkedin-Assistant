@@ -720,3 +720,40 @@ footer { color: var(--muted-2); font-size: 12px; }
   .login-brand { margin-bottom: 40px; }
   .login-copy h1 { font-size: 28px; }
 }
+
+
+/* Settings navigation and readable supporting text */
+.settings-tabs {
+  display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 20px; padding: 5px;
+  border: 1px solid var(--line); border-radius: 9px; background: #fff;
+}
+.settings-tab {
+  flex: 1 1 160px; min-height: 39px; padding: 8px 12px;
+  border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: var(--muted); font-size: 12px; font-weight: 600;
+}
+.settings-tab:hover:not(:disabled) { border-color: transparent; background: #f3f5f8; color: var(--navy); box-shadow: none; }
+.settings-tab[aria-selected="true"] { border-color: #d7dfe8; background: var(--navy-soft); color: var(--navy-deep); }
+.settings-tab[aria-selected="true"]:hover { background: var(--navy-soft); }
+.admin-owner { border-color: var(--line); border-radius: 9px; box-shadow: none; }
+.admin-table { font-size: 13px; }
+.admin-table th { font-size: 11px; letter-spacing: .45px; }
+.admin-table td { font-size: 13px; }
+.admin-user-cell strong,.admin-job-cell strong { font-size: 13px; }
+.admin-user-cell small,.admin-job-cell small,.admin-muted-cell { font-size: 12px; }
+.admin-action { min-height: 32px; padding: 7px 9px; font-size: 11px; }
+.admin-audit-row span,.admin-audit-row small { font-size: 12px; }
+.result-kicker { font-size: 11px; }
+.lead-result-main > small { font-size: 12px; }
+.lead-score-row span { font-size: 11px; }
+.lead-score-row strong { font-size: 12px; }
+.option-card small { font-size: 12px; }
+.job-meta { font-size: 12px; }
+.job-chip { font-size: 11px; }
+.job-expanded strong,.job-expanded p,.job-expanded ul { font-size: 12px; }
+.job-actions a,.job-actions .text-button { font-size: 12px; }
+.connected-tag { font-size: 11px; }
+@media (max-width: 760px) {
+  .settings-tabs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .settings-tab { min-width: 0; }
+}
