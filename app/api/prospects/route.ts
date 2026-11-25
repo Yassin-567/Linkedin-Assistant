@@ -143,7 +143,7 @@ export async function PATCH(request: NextRequest) {
       connected = CASE WHEN ${status} = 'Connected' THEN true ELSE ${!!body.connected} END,
       connected_at = CASE
         WHEN ${hasConnectedAt} THEN NULLIF(${connectedAt}, '')::timestamptz
-        WHEN status <> 'Connected' AND ${status} = 'Connected' THEN COALESCE(connected_at, now())
+        WHEN ${hasConnectedOn} AND ${connectedOn} <> COALESCE(connected_on, '') THEN NULL
         ELSE connected_at
       END,
       connected_on = CASE
@@ -153,7 +153,6 @@ export async function PATCH(request: NextRequest) {
       END,
       connection_sent_at = CASE
         WHEN ${hasConnectionSentAt} THEN NULLIF(${connectionSentAt}, '')::timestamptz
-        WHEN status <> 'Connection Sent' AND ${status} = 'Connection Sent' THEN COALESCE(connection_sent_at, now())
         ELSE connection_sent_at
       END,
       discovery_source = CASE WHEN ${hasDiscoverySource} THEN ${pick(body.discoverySource, sources)} ELSE discovery_source END,
