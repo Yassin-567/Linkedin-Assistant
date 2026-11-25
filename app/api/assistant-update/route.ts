@@ -130,10 +130,12 @@ export async function POST(request: NextRequest) {
         id: String(rows[0].id),
         status: "updated",
         currentStatus: rows[0].status,
-        recommendedOutreach: rows[0].recommendedOutreach || "",\n        ...(resource === "job" ? { appliedAt: rows[0].appliedAt || "" } : {}),
+        recommendedOutreach: rows[0].recommendedOutreach || "",
+        ...(resource === "job" ? { appliedAt: rows[0].appliedAt || "" } : {}),
         ...(resource === "linkedin_prospect" ? {
           connected: Boolean(rows[0].connected),
-          connectedOn: rows[0].connectedOn || "",\n          connectionSentAt: rows[0].connectionSentAt || ""
+          connectedOn: rows[0].connectedOn || "",
+          connectionSentAt: rows[0].connectionSentAt || ""
         } : {}),
         updatedAt: rows[0].updatedAt
       });
