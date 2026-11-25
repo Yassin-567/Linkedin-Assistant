@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       const connectionSentAt = typeof input.connectionSentAt === "string" ? input.connectionSentAt.trim() : "";
       const appliedAtProvided = Object.prototype.hasOwnProperty.call(input, "appliedAt");
       const appliedAt = typeof input.appliedAt === "string" ? input.appliedAt.trim() : "";
-      const validTimestamp = (value: string) => !value || !Number.isNaN(new Date(value).getTime());
+      const validTimestamp = (value: string) => !value || !Number.isNaN(new Date(value).getTime());\nconst validDate = (value: string) => !value || (/^\\d{4}-\\d{2}-\\d{2}$/.test(value) && !Number.isNaN(new Date(value + "T00:00:00Z").getTime()) && new Date(value + "T00:00:00Z").toISOString().slice(0, 10) === value);
 
       if (!Object.prototype.hasOwnProperty.call(statuses, resource) ||
           !validId(id) ||
