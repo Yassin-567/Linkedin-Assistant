@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/app-auth";
 import { db } from "@/lib/db";
+import { getBillingState } from "@/lib/billing";
 
 export const runtime = "nodejs";
 
@@ -67,6 +68,17 @@ export async function POST(request: NextRequest) {
 
   try {
     const sql = db();
+    const billing = await getBillingState(user.userId);
+    if (billing.plan === "free") {
+      const countRows: any = await sql`SELECT COUNT(*)::int AS count FROM prospects WHERE user_id = \${user.userId}`;
+      if (Number(countRows[0]?.count || 0) >= 100) {
+        return NextResponse.json({
+          error: "The Free plan includes up to 100 LinkedIn prospects. Upgrade to Pro to continue adding prospects.",
+          code: "PROSPECT_LIMIT_REACHED",
+          upgradeUrl: "/billing"
+        }, { status: 402, headers: { "Cache-Control": "no-store" } });
+      }
+    }
     const rows: any = await sql`INSERT INTO prospects (
       user_id, name, company, linkedin_url, normalized_linkedin_url, industry, status,
       follow_up, notes, recommended_outreach, connected, connected_on, connected_at,
