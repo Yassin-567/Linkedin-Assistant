@@ -64,7 +64,6 @@ export async function PATCH(request: NextRequest) {
       status = ${status},
       applied_at = CASE
         WHEN ${hasAppliedAt} THEN NULLIF(${appliedAt}, '')::timestamptz
-        WHEN ${status} = 'Applied' AND jobs.status <> 'Applied' THEN COALESCE(applied_at, now())
         ELSE applied_at
       END,
       notes = ${notes},
@@ -73,7 +72,7 @@ export async function PATCH(request: NextRequest) {
       WHERE id = ${body.id}::uuid AND user_id = ${user.userId}
       RETURNING id::text, applied_at AS "appliedAt"`;
     if (!rows.length) return fail("Job not found in your account.", 404);
-    return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ ok: true, appliedAt: rows[0].appliedAt || null }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Job update failed", error);
     return fail("Could not update this job.", 503);
