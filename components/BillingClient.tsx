@@ -50,18 +50,16 @@ export default function BillingClient() {
         if (cancelled) return;
         if (!paddle) throw new Error("Paddle.js could not be initialized.");
         paddleRef.current = paddle;
-        const preview: any = await paddle.PricePreview({
-          items: [
-            { priceId: PADDLE_MONTHLY_PRICE_ID, quantity: 1 },
-            { priceId: PADDLE_YEARLY_PRICE_ID, quantity: 1 }
-          ]
-        });
-        const lineItems = preview?.data?.details?.lineItems || [];
-        const monthly = lineItems.find((item: any) => item?.price?.id === PADDLE_MONTHLY_PRICE_ID);
-        const yearly = lineItems.find((item: any) => item?.price?.id === PADDLE_YEARLY_PRICE_ID);
+        // Preview each recurring interval separately; Paddle transactions require a single billing interval.
+        const [monthlyPreview, yearlyPreview] = await Promise.all([
+          paddle.PricePreview({ items: [{ priceId: PADDLE_MONTHLY_PRICE_ID, quantity: 1 }] }),
+          paddle.PricePreview({ items: [{ priceId: PADDLE_YEARLY_PRICE_ID, quantity: 1 }] })
+        ]);
+        const monthlyLine = monthlyPreview?.data?.details?.lineItems?.[0];
+        const yearlyLine = yearlyPreview?.data?.details?.lineItems?.[0];
         if (!cancelled) setPrices({
-          monthly: String(monthly?.formattedTotals?.total || ""),
-          yearly: String(yearly?.formattedTotals?.total || "")
+          monthly: String(monthlyLine?.formattedTotals?.total || ""),
+          yearly: String(yearlyLine?.formattedTotals?.total || "")
         });
       } catch {
         if (!cancelled) setPaddleUnavailable(true);
@@ -83,7 +81,7 @@ export default function BillingClient() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not create checkout.");
-      paddleRef.current.Checkout.open({ transactionId: data.transactionId });
+      paddleRef.current.Checkout.open({ transactionId: data.transactionId, customer: { email: data.email } });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not open checkout.");
     } finally { setBusy(""); }
