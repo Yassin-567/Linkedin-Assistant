@@ -18,8 +18,8 @@ function profileUrl(value: unknown): string | null {
   if (typeof value !== "string" || !value.trim()) return null;
   try {
     const url = new URL(value.trim());
-    if (!/(^|\\.)linkedin\\.com$/i.test(url.hostname) || !url.pathname.toLowerCase().startsWith("/in/")) return null;
-    return "https://www.linkedin.com" + url.pathname.replace(/\\/$/, "").toLowerCase();
+    if (!/(^|\\.)linkedin\.com$/i.test(url.hostname) || !url.pathname.toLowerCase().startsWith("/in/")) return null;
+    return "https://www.linkedin.com" + url.pathname.replace(/\/$/, "").toLowerCase();
   } catch {
     return null;
   }
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
   const connectedOn = clean(body.connectedOn, 30);
   if (connectedAt && !validTimestamp(connectedAt)) return fail("Use a valid connection date and time.", 400);
   if (connectionSentAt && !validTimestamp(connectionSentAt)) return fail("Use a valid connection-request date and time.", 400);
-  if (connectedOn && !/^\\d{4}-\\d{2}-\\d{2}$/.test(connectedOn)) return fail("Use a valid connection date.", 400);
+  if (connectedOn && !/^\d{4}-\d{2}-\d{2}$/.test(connectedOn)) return fail("Use a valid connection date.", 400);
   if (!name || !company) return fail("Contact name and company are required.", 400);
   if (body.url && !url) return fail("Use a valid LinkedIn personal profile URL, or leave it blank.", 400);
 
@@ -121,7 +121,7 @@ export async function PATCH(request: NextRequest) {
   const connectedOn = clean(body.connectedOn, 30);
   if (connectedAt && !validTimestamp(connectedAt)) return fail("Use a valid connection date and time.", 400);
   if (connectionSentAt && !validTimestamp(connectionSentAt)) return fail("Use a valid connection-request date and time.", 400);
-  if (connectedOn && !/^\\d{4}-\\d{2}-\\d{2}$/.test(connectedOn)) return fail("Use a valid connection date.", 400);
+  if (connectedOn && !/^\d{4}-\d{2}-\d{2}$/.test(connectedOn)) return fail("Use a valid connection date.", 400);
 
   const hasRecommendedOutreach = Object.prototype.hasOwnProperty.call(body, "recommendedOutreach");
   const hasDiscoverySource = Object.prototype.hasOwnProperty.call(body, "discoverySource");
