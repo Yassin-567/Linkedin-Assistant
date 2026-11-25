@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     const sql = db();
     const billing = await getBillingState(user.userId);
     if (billing.plan === "free") {
-      const countRows: any = await sql`SELECT COUNT(*)::int AS count FROM prospects WHERE user_id = \${user.userId}`;
+      const countRows: any = await sql`SELECT COUNT(*)::int AS count FROM prospects WHERE user_id = ${user.userId}`;
       if (Number(countRows[0]?.count || 0) >= 100) {
         return NextResponse.json({
           error: "The Free plan includes up to 100 LinkedIn prospects. Upgrade to Pro to continue adding prospects.",
