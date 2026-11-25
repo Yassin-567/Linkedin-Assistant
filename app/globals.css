@@ -769,3 +769,39 @@ footer { color: var(--muted-2); font-size: 12px; }
 @media (max-width:760px) {
   .activity-time-edit, .activity-time-edit input { width:100%; max-width:none; }
 }
+
+
+/* Inlinked subscription and plan selection */
+.billing-page { max-width: 1040px; }
+.billing-current { display:flex; align-items:center; justify-content:space-between; gap:22px; }
+.billing-current h2 { margin:5px 0 7px; font-size:22px; }
+.billing-current p { margin:5px 0; }
+.billing-current-actions { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+.button.secondary { border:1px solid #d7dfe8; background:#fff; color:var(--navy-deep); }
+.button.secondary:hover { background:#f4f6f9; color:var(--navy-deep); }
+.billing-plans { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; align-items:stretch; }
+.billing-plan { display:flex; flex-direction:column; min-width:0; padding:24px; }
+.billing-plan h2 { margin:7px 0; font-size:25px; color:var(--navy-deep); }
+.billing-plan > p { margin:2px 0 18px; line-height:1.6; }
+.billing-plan ul { display:grid; gap:10px; margin:0 0 24px; padding-left:20px; color:#425466; font-size:13px; line-height:1.5; }
+.billing-plan li::marker { color:#087b5b; }
+.billing-plan-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:auto; padding-top:16px; border-top:1px solid var(--line); }
+.billing-plan-pro { border-color:#b7c5d3; box-shadow:0 8px 26px rgba(28,48,72,.06); }
+.billing-price-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:13px 0; border-top:1px solid var(--line); }
+.billing-price-row strong { font-size:19px; color:var(--navy-deep); }
+.billing-price-row button { min-width:138px; }
+.billing-warning,.billing-error,.billing-notice { margin:14px 0; padding:12px 14px; border:1px solid var(--line); border-radius:8px; font-size:13px; line-height:1.5; }
+.billing-warning { background:#fff9ed; border-color:#f1dfb8; color:#72531d; }
+.billing-error { background:#fff3f2; border-color:#efd0cd; color:#8d3430; }
+.billing-notice { background:#f0f7f4; border-color:#cee3d8; color:#246b50; }
+.billing-legal-placeholder { margin-top:18px; }
+.billing-legal-placeholder h3 { margin:0 0 7px; font-size:14px; }
+.billing-legal-placeholder p { margin:0; line-height:1.6; }
+@media(max-width:760px) {
+  .billing-plans { grid-template-columns:1fr; }
+  .billing-current { align-items:flex-start; flex-direction:column; }
+  .billing-current-actions { width:100%; }
+  .billing-current-actions > * { flex:1; }
+  .billing-price-row { align-items:flex-start; flex-direction:column; }
+  .billing-price-row button { width:100%; }
+}
