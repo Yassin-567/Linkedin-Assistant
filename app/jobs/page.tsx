@@ -100,7 +100,7 @@ export default function JobsPage() {
   function exportCsv() {
     const fields = ["title","company","location","country","workplaceType","employmentType","salaryText","postedAtText","sourcePlatform","researchTool","sourceUrl","applicationUrl","status","appliedAt","notes","recommendedOutreach"];
     const quote = (v: unknown) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
-    const lines = [fields, ...shown.map(job => fields.map(field => (job as unknown as Record<string, unknown>)[field]))]
+    const lines = [fields, ...filtered.map(job => fields.map(field => (job as unknown as Record<string, unknown>)[field]))]
       .map(row => row.map(quote).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([lines], { type: "text/csv;charset=utf-8" }));
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = "inlinked-jobs.csv"; anchor.click(); URL.revokeObjectURL(url);
