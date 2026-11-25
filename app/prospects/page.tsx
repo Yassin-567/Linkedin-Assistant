@@ -16,7 +16,9 @@ export default function Home() {
   const [followUp, setFollowUp] = useState("");
   const [notes, setNotes] = useState("");
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("All");\n  const [page, setPage] = useState(1);\n  const pageSize = 25;
+  const [filter, setFilter] = useState("All");
+  const [page, setPage] = useState(1);
+  const pageSize = 25;
   const [post, setPost] = useState("");
   const [message, setMessage] = useState("");
   const [pasted, setPasted] = useState("");
@@ -110,7 +112,9 @@ export default function Home() {
     const data = await r.json(); setMessage(r.ok ? "Post published." : (data.error || "Post failed."));
     if (r.ok) setPost("");
   }
-  const filtered = leads.filter(x => (filter === "All" || x.status === filter) && (x.name+" "+x.company+" "+x.notes).toLowerCase().includes(search.toLowerCase()));\n  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));\n  const shown = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const filtered = leads.filter(x => (filter === "All" || x.status === filter) && (x.name+" "+x.company+" "+x.notes).toLowerCase().includes(search.toLowerCase()));
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const shown = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   return <main className="workspace">
     <header className="topbar"><div><div className="eyebrow">LINKEDIN CONNECTION PIPELINE</div><h1>LinkedIn Connections</h1><p className="muted">Manage professionals and decision-makers you want to connect with. Track follow-ups and keep relationship-building organized.</p></div><div className="row"><span className={account.connected ? "connection connected" : "connection"}>{account.connected ? "● Account connected" : "○ Sign in required"}</span>{!account.connected&&<a className="button" href="/api/auth/google">Sign in with Google</a>}</div></header>
