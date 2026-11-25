@@ -86,6 +86,9 @@ export async function POST(request: NextRequest) {
       await sql`UPDATE prospects SET status = CASE WHEN status IN ('To research','Ready to contact') THEN 'Contacted' ELSE status END,
         follow_up = CASE WHEN ${followUpDate} <> '' THEN ${followUpDate} ELSE follow_up END,
         updated_at = now() WHERE id = ${prospectId}::uuid AND user_id = ${user.userId}`;
+      if (channel === "linkedin" && messageType === "connection_request") {
+        await sql`UPDATE prospects SET status = ${"Connection Sent"}, connection_sent_at = COALESCE(connection_sent_at, now()), updated_at = now() WHERE id = ${prospectId}::uuid AND user_id = ${user.userId}`;
+      }
     } else if (activityType === "replied") {
       await sql`UPDATE prospects SET status = 'Replied',
         follow_up = CASE WHEN ${followUpDate} <> '' THEN ${followUpDate} ELSE follow_up END,
