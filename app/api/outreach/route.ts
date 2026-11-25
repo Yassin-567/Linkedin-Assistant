@@ -81,10 +81,11 @@ export async function POST(request: NextRequest) {
   const notes = clean(body.notes, 3000);
   const followUpDate = clean(body.followUpDate, 10);
   const idempotencyKey = clean(body.idempotencyKey, 80);
+  const hasOccurredAt = Object.prototype.hasOwnProperty.call(body, "occurredAt");
   const occurredAtRaw = clean(body.occurredAt, 60);
-  const occurredAtDate = occurredAtRaw ? new Date(occurredAtRaw) : new Date();
-  if (occurredAtRaw && Number.isNaN(occurredAtDate.getTime())) return fail("Use a valid date and time for when this activity happened.", 400);
-  const occurredAt = occurredAtDate.toISOString();
+  const occurredAtDate = occurredAtRaw ? new Date(occurredAtRaw) : null;
+  if (occurredAtRaw && (!occurredAtDate || Number.isNaN(occurredAtDate.getTime()))) return fail("Use a valid date and time for when this activity happened.", 400);
+  const occurredAt = occurredAtDate ? occurredAtDate.toISOString() : hasOccurredAt ? null : new Date().toISOString();
 
   if (!uuid.test(prospectId)) return fail("Choose a valid saved prospect.", 400);
   if (!channels.includes(channel)) return fail("Choose a valid outreach channel.", 400);
