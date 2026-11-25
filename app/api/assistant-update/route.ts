@@ -32,6 +32,7 @@ type UpdateInput = {
   notes?: unknown;
   recommendedOutreach?: unknown;
   connectedAt?: unknown;
+  connectedOn?: unknown;
   connectionSentAt?: unknown;
   appliedAt?: unknown;
 };
@@ -70,6 +71,8 @@ export async function POST(request: NextRequest) {
       const recommendedOutreach = typeof input.recommendedOutreach === "string" ? input.recommendedOutreach.trim() : "";
       const connectedAtProvided = Object.prototype.hasOwnProperty.call(input, "connectedAt");
       const connectedAt = typeof input.connectedAt === "string" ? input.connectedAt.trim() : "";
+      const connectedOnProvided = Object.prototype.hasOwnProperty.call(input, "connectedOn");
+      const connectedOn = typeof input.connectedOn === "string" ? input.connectedOn.trim() : "";
       const connectionSentAtProvided = Object.prototype.hasOwnProperty.call(input, "connectionSentAt");
       const connectionSentAt = typeof input.connectionSentAt === "string" ? input.connectionSentAt.trim() : "";
       const appliedAtProvided = Object.prototype.hasOwnProperty.call(input, "appliedAt");
@@ -79,10 +82,11 @@ export async function POST(request: NextRequest) {
       if (!Object.prototype.hasOwnProperty.call(statuses, resource) ||
           !validId(id) ||
           (statusProvided && (typeof input.status !== "string" || !statuses[resource].includes(status))) ||
-          (!statusProvided && !notesProvided && !outreachProvided && !connectedAtProvided && !connectionSentAtProvided && !appliedAtProvided) ||
+          (!statusProvided && !notesProvided && !outreachProvided && !connectedAtProvided && !connectedOnProvided && !connectionSentAtProvided && !appliedAtProvided) ||
           (notesProvided && (typeof input.notes !== "string" || notes.length > 5000)) ||
           (outreachProvided && (typeof input.recommendedOutreach !== "string" || recommendedOutreach.length > 6000)) ||
           (connectedAtProvided && (typeof input.connectedAt !== "string" || !validTimestamp(connectedAt))) ||
+          (connectedOnProvided && (typeof input.connectedOn !== "string" || (connectedOn !== "" && (!/^\\d{4}-\\d{2}-\\d{2}$/.test(connectedOn) || Number.isNaN(new Date(connectedOn + "T00:00:00Z").getTime()))))) ||
           (connectionSentAtProvided && (typeof input.connectionSentAt !== "string" || !validTimestamp(connectionSentAt))) ||
           (appliedAtProvided && (typeof input.appliedAt !== "string" || !validTimestamp(appliedAt)))) {
         invalid++;
@@ -100,6 +104,7 @@ export async function POST(request: NextRequest) {
               connected = CASE WHEN ${statusProvided} AND ${status} = 'Connected' THEN true ELSE connected END,
               connected_at = CASE
                 WHEN ${connectedAtProvided} THEN NULLIF(${connectedAt}, '')::timestamptz
+                WHEN ${connectedOnProvided} AND ${connectedOn} <> COALESCE(connected_on, '') THEN NULL
                 ELSE connected_at
               END,
               connection_sent_at = CASE
@@ -108,6 +113,7 @@ export async function POST(request: NextRequest) {
               END,
               connected_on = CASE
                 WHEN ${connectedAtProvided} AND ${connectedAt} <> '' THEN to_char(${connectedAt}::timestamptz AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD')
+                WHEN ${connectedOnProvided} THEN ${connectedOn}
                 ELSE connected_on
               END,
               updated_at = now()
@@ -159,6 +165,7 @@ export async function POST(request: NextRequest) {
           connected: Boolean(rows[0].connected),
           connectedOn: rows[0].connectedOn || "",
           connectedAt: rows[0].connectedAt || "",
+          connectedOn: rows[0].connectedOn || "",
           connectionSentAt: rows[0].connectionSentAt || ""
         } : {}),
         updatedAt: rows[0].updatedAt
