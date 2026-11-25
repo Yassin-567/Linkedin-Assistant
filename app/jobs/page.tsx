@@ -61,10 +61,21 @@ export default function JobsPage() {
 
   async function update(job: Job, changes: { status?: string; notes?: string; recommendedOutreach?: string; appliedAt?: string | null }) {
     try {
-      const response = await fetch("/api/jobs", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: job.id, status: changes.status ?? job.status, notes: changes.notes ?? job.notes, recommendedOutreach: changes.recommendedOutreach ?? job.recommendedOutreach ?? "", appliedAt: changes.appliedAt ?? job.appliedAt ?? null }) });
+      const hasAppliedAt = Object.prototype.hasOwnProperty.call(changes, "appliedAt");
+      const payload: Record<string, unknown> = {
+        id: job.id,
+        status: changes.status ?? job.status,
+        notes: changes.notes ?? job.notes,
+        recommendedOutreach: changes.recommendedOutreach ?? job.recommendedOutreach ?? ""
+      };
+      if (hasAppliedAt) payload.appliedAt = changes.appliedAt || "";
+      const response = await fetch("/api/jobs", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not update this job.");
-      setJobs(old => old.map(item => item.id === job.id ? { ...item, ...changes, appliedAt: changes.appliedAt ?? (changes.status === "Applied" ? job.appliedAt || new Date().toISOString() : job.appliedAt) } : item));
+      setJobs(old => old.map(item => item.id === job.id ? {
+        ...item, ...changes,
+        appliedAt: hasAppliedAt ? (data.appliedAt || null) : (data.appliedAt || item.appliedAt)
+      } : item));
       setMessage("Job updated.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Update failed."); }
   }
@@ -139,7 +150,7 @@ export default function JobsPage() {
             <div className="job-title-block"><h3>{job.title}</h3><strong>{job.company || "Employer not identified"}</strong><div className="job-meta">
               {[job.location, job.country, label(job.workplaceType), label(job.employmentType), job.seniority].filter(Boolean).join(" · ")}
             </div></div>
-            <div className="job-status-outreach"><select aria-label={"Status for " + job.title} value={job.status} onChange={e => void update(job, { status: e.target.value })}>{statuses.map(status => <option key={status}>{status}</option>)}</select>{job.status === "Applied" && <label>Applied date and time<input aria-label={"Application date and time for " + job.title} type="datetime-local" value={toLocalDateTime(job.appliedAt)} onChange={e => void update(job, { appliedAt: e.target.value ? new Date(e.target.value).toISOString() : null })} /></label>}{job.appliedAt && <small>Applied: {new Date(job.appliedAt).toLocaleString()}</small>}<aside className="recommended-outreach"><label>Recommended outreach<textarea rows={4} defaultValue={job.recommendedOutreach || ""} onBlur={e=>{const value=e.target.value;if(value!==(job.recommendedOutreach||""))void update(job,{recommendedOutreach:value});}} placeholder="A tailored message to the recruiter or hiring team will appear here."/></label><button type="button" className="secondary" disabled={!job.recommendedOutreach?.trim()} onClick={()=>void copyRecommended(job.recommendedOutreach||"")}>Copy message</button></aside></div>
+            <div className="job-status-outreach"><select aria-label={"Status for " + job.title} value={job.status} onChange={e => void update(job, { status: e.target.value })}>{statuses.map(status => <option key={status}>{status}</option>)}</select>{job.status === "Applied" && <label>Application submitted at<input aria-label={"Application submitted date and time for " + job.title} type="datetime-local" defaultValue={toLocalDateTime(job.appliedAt)} onBlur={e => { const value=e.currentTarget.value ? new Date(e.currentTarget.value).toISOString() : null; if(value !== (job.appliedAt || null)) void update(job, { appliedAt:value }); }} /><small className="muted">The time the application was submitted, not the time it was entered into Inlinked.</small></label>}{job.appliedAt && <small>Applied: {new Date(job.appliedAt).toLocaleString()}</small>}<aside className="recommended-outreach"><label>Recommended outreach<textarea rows={4} defaultValue={job.recommendedOutreach || ""} onBlur={e=>{const value=e.target.value;if(value!==(job.recommendedOutreach||""))void update(job,{recommendedOutreach:value});}} placeholder="A tailored message to the recruiter or hiring team will appear here."/></label><button type="button" className="secondary" disabled={!job.recommendedOutreach?.trim()} onClick={()=>void copyRecommended(job.recommendedOutreach||"")}>Copy message</button></aside></div>
           </div>
           <div className="job-chip-row">
             <span className="job-chip">{job.sourcePlatform && job.sourcePlatform.toLowerCase() !== "unknown" ? job.sourcePlatform : ""}</span>
