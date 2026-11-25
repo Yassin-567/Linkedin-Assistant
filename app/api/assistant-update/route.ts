@@ -77,7 +77,13 @@ export async function POST(request: NextRequest) {
       const connectionSentAt = typeof input.connectionSentAt === "string" ? input.connectionSentAt.trim() : "";
       const appliedAtProvided = Object.prototype.hasOwnProperty.call(input, "appliedAt");
       const appliedAt = typeof input.appliedAt === "string" ? input.appliedAt.trim() : "";
-      const validTimestamp = (value: string) => !value || !Number.isNaN(new Date(value).getTime());\nconst validDate = (value: string) => !value || (/^\\d{4}-\\d{2}-\\d{2}$/.test(value) && !Number.isNaN(new Date(value + "T00:00:00Z").getTime()) && new Date(value + "T00:00:00Z").toISOString().slice(0, 10) === value);
+      const validTimestamp = (value: string) => !value || !Number.isNaN(new Date(value).getTime());
+      const validDate = (value: string) => {
+        if (!value) return true;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+        const parsed = new Date(value + "T00:00:00.000Z");
+        return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+      };
 
       if (!Object.prototype.hasOwnProperty.call(statuses, resource) ||
           !validId(id) ||
@@ -86,7 +92,7 @@ export async function POST(request: NextRequest) {
           (notesProvided && (typeof input.notes !== "string" || notes.length > 5000)) ||
           (outreachProvided && (typeof input.recommendedOutreach !== "string" || recommendedOutreach.length > 6000)) ||
           (connectedAtProvided && (typeof input.connectedAt !== "string" || !validTimestamp(connectedAt))) ||
-          (connectedOnProvided && (typeof input.connectedOn !== "string" || (connectedOn !== "" && (!/^\\d{4}-\\d{2}-\\d{2}$/.test(connectedOn) || Number.isNaN(new Date(connectedOn + "T00:00:00Z").getTime()))))) ||
+          (connectedOnProvided && (typeof input.connectedOn !== "string" || !validDate(connectedOn))) ||
           (connectionSentAtProvided && (typeof input.connectionSentAt !== "string" || !validTimestamp(connectionSentAt))) ||
           (appliedAtProvided && (typeof input.appliedAt !== "string" || !validTimestamp(appliedAt)))) {
         invalid++;
@@ -165,7 +171,6 @@ export async function POST(request: NextRequest) {
           connected: Boolean(rows[0].connected),
           connectedOn: rows[0].connectedOn || "",
           connectedAt: rows[0].connectedAt || "",
-          connectedOn: rows[0].connectedOn || "",
           connectionSentAt: rows[0].connectionSentAt || ""
         } : {}),
         updatedAt: rows[0].updatedAt
