@@ -24,7 +24,7 @@ export async function GET() {
         GROUP BY industry ORDER BY clients DESC, responses DESC, prospects DESC LIMIT 8`,
       sql`SELECT message_type AS "messageType",
         COUNT(*) FILTER (WHERE activity_type = 'sent')::int AS sent,
-        COUNT(*) FILTER (WHERE activity_type = 'replied')::int AS replies,
+        COUNT(*) FILTER (WHERE activity_type = 'replied')::int AS replies
         FROM outreach_activities WHERE user_id = ${user.userId} AND activity_type IN ('sent','replied')
         GROUP BY message_type ORDER BY replies DESC, sent DESC LIMIT 8`,
       sql`SELECT activity_type AS type, COUNT(*)::int AS count
