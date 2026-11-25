@@ -9,7 +9,8 @@ const sources = ["Google/Serper", "LinkedIn", "Manual", "ChatGPT research", "Ref
 const methods = ["Find Leads", "Manual entry", "ChatGPT AI Token", "ChatGPT temporary link", "CSV import"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const fail = (error: string, status: number) => NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store" } });
-const clean = (value: unknown, max: number) => typeof value === "string" ? value.trim().slice(0, max) : "";\nconst cleanKnown = (value: unknown, max: number) => { const result = clean(value, max); return result.toLowerCase() === "unknown" ? "" : result; };
+const clean = (value: unknown, max: number) => typeof value === "string" ? value.trim().slice(0, max) : "";
+const cleanKnown = (value: unknown, max: number) => { const result = clean(value, max); return result.toLowerCase() === "unknown" ? "" : result; };
 const pick = (value: unknown, allowed: string[], fallback = "") => typeof value === "string" && allowed.includes(value) ? value : fallback;
 const validTimestamp = (value: string) => !value || !Number.isNaN(new Date(value).getTime());
 
@@ -54,7 +55,8 @@ export async function POST(request: NextRequest) {
   const name = clean(body.name, 200);
   const company = clean(body.company, 300);
   const url = profileUrl(body.url);
-  const status = pick(body.status, statuses, "To research");\n  const researchTool = cleanKnown(body.researchTool, 80);
+  const status = pick(body.status, statuses, "To research");
+  const researchTool = cleanKnown(body.researchTool, 80);
   const connectedAt = clean(body.connectedAt, 60);
   const connectionSentAt = clean(body.connectionSentAt, 60);
   const connectedOn = clean(body.connectedOn, 30);
@@ -124,7 +126,8 @@ export async function PATCH(request: NextRequest) {
   const hasRecommendedOutreach = Object.prototype.hasOwnProperty.call(body, "recommendedOutreach");
   const hasDiscoverySource = Object.prototype.hasOwnProperty.call(body, "discoverySource");
   const hasSavedVia = Object.prototype.hasOwnProperty.call(body, "savedVia");
-  const hasResearchTool = Object.prototype.hasOwnProperty.call(body, "researchTool");\n  const researchTool = cleanKnown(body.researchTool, 80);
+  const hasResearchTool = Object.prototype.hasOwnProperty.call(body, "researchTool");
+  const researchTool = cleanKnown(body.researchTool, 80);
   try {
     const sql = db();
     const rows: any = await sql`UPDATE prospects SET
