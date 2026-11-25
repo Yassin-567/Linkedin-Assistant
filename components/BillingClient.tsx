@@ -123,7 +123,7 @@ export default function BillingClient() {
         </div>
         <div className="billing-current-actions">
           <button className="button secondary" onClick={() => void refresh()} disabled={busy === "refresh"}>{busy === "refresh" ? "Refreshing..." : "Refresh status"}</button>
-          {status?.plan === "pro" && <button className="button secondary" onClick={() => void openPortal()} disabled={busy === "portal"}>{busy === "portal" ? "Opening..." : "Manage subscription"}</button>}
+          {status?.subscription && <button className="button secondary" onClick={() => void openPortal()} disabled={busy === "portal"}>{busy === "portal" ? "Opening..." : "Manage subscription"}</button>}
         </div>
       </section>
 
