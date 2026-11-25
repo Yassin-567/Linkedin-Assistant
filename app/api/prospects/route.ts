@@ -25,19 +25,18 @@ function profileUrl(value: unknown): string | null {
   }
 }
 
-const returning = `id::text, name, company, linkedin_url AS url, industry, status,
-  follow_up AS "followUp", notes, recommended_outreach AS "recommendedOutreach",
-  connected, connected_on AS "connectedOn", connected_at AS "connectedAt",
-  connection_sent_at AS "connectionSentAt", discovery_source AS "discoverySource",
-  saved_via AS "savedVia", research_tool AS "researchTool",
-  created_at AS "createdAt", updated_at AS "updatedAt"`;
-
 export async function GET() {
   const user = await currentUser({ allowFrozen: true });
   if (!user) return fail("Sign in required.", 401);
   try {
     const sql = db();
-    const leads = await sql`SELECT ${sql.unsafe(returning)} FROM prospects
+    const leads = await sql`SELECT id::text, name, company, linkedin_url AS url, industry, status,
+      follow_up AS "followUp", notes, recommended_outreach AS "recommendedOutreach",
+      connected, connected_on AS "connectedOn", connected_at AS "connectedAt",
+      connection_sent_at AS "connectionSentAt", discovery_source AS "discoverySource",
+      saved_via AS "savedVia", research_tool AS "researchTool",
+      created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM prospects
       WHERE user_id = ${user.userId} ORDER BY created_at DESC LIMIT 1000`;
     return NextResponse.json({ leads }, { headers: { "Cache-Control": "private,no-store" } });
   } catch (error) {
@@ -88,7 +87,12 @@ export async function POST(request: NextRequest) {
     ON CONFLICT (user_id, normalized_linkedin_url)
       WHERE normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url <> ''
     DO NOTHING
-    RETURNING ${sql.unsafe(returning)}`;
+    RETURNING id::text, name, company, linkedin_url AS url, industry, status,
+      follow_up AS "followUp", notes, recommended_outreach AS "recommendedOutreach",
+      connected, connected_on AS "connectedOn", connected_at AS "connectedAt",
+      connection_sent_at AS "connectionSentAt", discovery_source AS "discoverySource",
+      saved_via AS "savedVia", research_tool AS "researchTool",
+      created_at AS "createdAt", updated_at AS "updatedAt"`;
     if (!rows.length) return fail("This LinkedIn profile is already saved in your account.", 409);
     return NextResponse.json({ ok: true, lead: rows[0] }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
@@ -160,7 +164,12 @@ export async function PATCH(request: NextRequest) {
       research_tool = CASE WHEN ${hasResearchTool} THEN ${researchTool} ELSE research_tool END,
       updated_at = now()
       WHERE id = ${id}::uuid AND user_id = ${user.userId}
-      RETURNING ${sql.unsafe(returning)}`;
+      RETURNING id::text, name, company, linkedin_url AS url, industry, status,
+      follow_up AS "followUp", notes, recommended_outreach AS "recommendedOutreach",
+      connected, connected_on AS "connectedOn", connected_at AS "connectedAt",
+      connection_sent_at AS "connectionSentAt", discovery_source AS "discoverySource",
+      saved_via AS "savedVia", research_tool AS "researchTool",
+      created_at AS "createdAt", updated_at AS "updatedAt"`;
     if (!rows.length) return fail("Prospect not found in your account, or its LinkedIn URL is already used.", 404);
     return NextResponse.json({ ok: true, lead: rows[0] }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
