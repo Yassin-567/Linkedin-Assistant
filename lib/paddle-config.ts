@@ -1,9 +1,9 @@
 import { Environment, Paddle } from "@paddle/paddle-node-sdk";
 
 export const PADDLE_MONTHLY_PRICE_ID =
-  process.env.PADDLE_PRICE_MONTHLY || "pri_01m8a8bs00jpx3744wt0t43165";
+  "pri_01m8a8bs00jpx3744wt0t43165";
 export const PADDLE_YEARLY_PRICE_ID =
-  process.env.PADDLE_PRICE_YEARLY || "pri_01m8a8cb47d6zqb5q5svbdzb5n";
+  "pri_01m8a8cb47d6zqb5q5svbdzb5n";
 
 export const PADDLE_ALLOWED_PRICE_IDS = new Set([
   PADDLE_MONTHLY_PRICE_ID,
