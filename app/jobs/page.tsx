@@ -11,7 +11,7 @@ type Job = {
   discoveredAt: string; createdAt: string;
 };
 const statuses = ["Saved", "Applied", "Interviewing", "Offer", "Rejected", "Closed", "Not interested"];
-const label = (value: string) => value ? value.replace(/[_-]+/g, " ").replace(/\b\w/g, x => x.toUpperCase()) : "Not specified";
+const label = (value: string) => { const cleaned = value.trim(); if (!cleaned || ["unknown", "not specified", "n/a", "none"].includes(cleaned.toLowerCase())) return ""; return cleaned.replace(/[_-]+/g, " ").replace(/\b\w/g, x => x.toUpperCase()); };
 const safeDate = (value?: string | null) => value && !Number.isNaN(Date.parse(value)) ? new Date(value).toLocaleDateString() : "";
 const toLocalDateTime = (value?: string | null) => { if (!value) return ""; const d = new Date(value); return Number.isNaN(d.getTime()) ? "" : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); };
 const metaList = (metadata: Record<string, unknown> | null, key: string) => {
