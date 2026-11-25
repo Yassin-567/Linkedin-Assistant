@@ -84,7 +84,8 @@ export async function POST(request: NextRequest) {
           SET status = CASE WHEN ${statusProvided} THEN ${status} ELSE status END,
               notes = CASE WHEN ${notesProvided} THEN ${notes} ELSE notes END,
               recommended_outreach = CASE WHEN ${outreachProvided} THEN ${recommendedOutreach} ELSE recommended_outreach END,
-              connected = CASE WHEN ${statusProvided} AND ${status} = 'Connected' THEN true ELSE connected END,\n              connection_sent_at = CASE WHEN ${statusProvided} AND ${status} = 'Connection Sent' THEN COALESCE(connection_sent_at, now()) ELSE connection_sent_at END,
+              connected = CASE WHEN ${statusProvided} AND ${status} = 'Connected' THEN true ELSE connected END,
+              connection_sent_at = CASE WHEN ${statusProvided} AND ${status} = 'Connection Sent' THEN COALESCE(connection_sent_at, now()) ELSE connection_sent_at END,
               connected_on = CASE
                 WHEN ${statusProvided} AND ${status} = 'Connected' AND COALESCE(connected_on, '') = ''
                   THEN to_char(current_date, 'YYYY-MM-DD')
