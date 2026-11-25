@@ -38,9 +38,9 @@ export async function POST(request: NextRequest) {
   try {
     const sql = db();
     await sql`INSERT INTO paddle_webhook_events(paddle_event_id, event_type, occurred_at)
-      VALUES(\${eventId}, \${eventType}, \${occurredAt}::timestamptz)
+      VALUES(${eventId}, ${eventType}, ${occurredAt}::timestamptz)
       ON CONFLICT(paddle_event_id) DO NOTHING`;
-    const seen: any = await sql`SELECT processed_at FROM paddle_webhook_events WHERE paddle_event_id = \${eventId} LIMIT 1`;
+    const seen: any = await sql`SELECT processed_at FROM paddle_webhook_events WHERE paddle_event_id = ${eventId} LIMIT 1`;
     if (seen[0]?.processed_at) {
       return NextResponse.json({ received: true, duplicate: true }, { status: 200 });
     }
@@ -49,8 +49,8 @@ export async function POST(request: NextRequest) {
       const transactionId = String(data.id || "");
       if (transactionId) {
         await sql`UPDATE paddle_checkout_transactions
-          SET status = 'completed', completed_at = \${occurredAt}::timestamptz
-          WHERE paddle_transaction_id = \${transactionId}`;
+          SET status = 'completed', completed_at = ${occurredAt}::timestamptz
+          WHERE paddle_transaction_id = ${transactionId}`;
       }
     }
 
@@ -58,10 +58,10 @@ export async function POST(request: NextRequest) {
       const customerId = String(data.id || "");
       if (customerId) {
         await sql`UPDATE paddle_customers
-          SET email = \${String(data.email || "")},
-              customer_name = \${String(data.name || "")},
+          SET email = ${String(data.email || "")},
+              customer_name = ${String(data.name || "")},
               updated_at = now()
-          WHERE paddle_customer_id = \${customerId}`;
+          WHERE paddle_customer_id = ${customerId}`;
       }
     }
 
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
         throw new Error("Paddle subscription event is missing required fields.");
       }
       const owners: any = await sql`SELECT user_id FROM paddle_customers
-        WHERE paddle_customer_id = \${customerId} LIMIT 1`;
+        WHERE paddle_customer_id = ${customerId} LIMIT 1`;
       if (!owners.length) throw new Error("Paddle customer is not mapped to an Inlinked account yet.");
       const userId = String(owners[0].user_id);
       const items = Array.isArray(data.items) ? data.items : [];
@@ -94,9 +94,9 @@ export async function POST(request: NextRequest) {
         paddle_subscription_id, user_id, paddle_customer_id, status, price_id,
         current_period_starts_at, current_period_ends_at, scheduled_change, event_occurred_at
       ) VALUES (
-        \${subscriptionId}, \${userId}, \${customerId}, \${status}, \${priceId},
-        \${startsAt}::timestamptz, \${endsAt}::timestamptz,
-        \${JSON.stringify(scheduledChange)}::jsonb, \${occurredAt}::timestamptz
+        ${subscriptionId}, ${userId}, ${customerId}, ${status}, ${priceId},
+        ${startsAt}::timestamptz, ${endsAt}::timestamptz,
+        ${JSON.stringify(scheduledChange)}::jsonb, ${occurredAt}::timestamptz
       )
       ON CONFLICT(paddle_subscription_id) DO UPDATE SET
         user_id = EXCLUDED.user_id,
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     }
 
     await sql`UPDATE paddle_webhook_events SET processed_at = now()
-      WHERE paddle_event_id = \${eventId} AND processed_at IS NULL`;
+      WHERE paddle_event_id = ${eventId} AND processed_at IS NULL`;
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error) {
     console.error("Paddle webhook processing failed", {
