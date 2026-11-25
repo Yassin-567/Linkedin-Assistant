@@ -120,7 +120,6 @@ export async function POST(request: NextRequest) {
           SET status = CASE WHEN ${statusProvided} THEN ${status} ELSE status END,
               applied_at = CASE
                 WHEN ${appliedAtProvided} THEN NULLIF(${appliedAt}, '')::timestamptz
-                WHEN ${statusProvided} AND ${status} = 'Applied' AND jobs.status <> 'Applied' THEN COALESCE(applied_at, now())
                 ELSE applied_at
               END,
               notes = CASE WHEN ${notesProvided} THEN ${notes} ELSE notes END,
