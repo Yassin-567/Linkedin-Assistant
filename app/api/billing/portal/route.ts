@@ -12,12 +12,16 @@ export async function POST() {
   if (!user) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   try {
     const sql = db();
-    // Resolve the customer ID from this authenticated account; never accept one from the client.
-    const customers: any = await sql`SELECT paddle_customer_id FROM paddle_customers WHERE user_id = ${user.userId} LIMIT 1`;
-    const customerId = String(customers[0]?.paddle_customer_id || "");
-    if (!customerId) return NextResponse.json({ error: "No Paddle customer is linked to this account." }, { status: 404 });
-    const subscriptions: any = await sql`SELECT paddle_subscription_id FROM paddle_subscriptions
-      WHERE user_id = ${user.userId} ORDER BY event_occurred_at DESC LIMIT 25`;
+    const rows: any = await sql`SELECT paddle_customer_id
+      FROM paddle_subscriptions WHERE user_id = ${user.userId}
+      ORDER BY event_occurred_at DESC LIMIT 1`;
+    const customerId = String(rows[0]?.paddle_customer_id || "");
+    if (!customerId) return NextResponse.json({ error: "No Paddle subscription is linked to this account." }, { status: 404 });
+
+    const subscriptions: any = await sql`SELECT paddle_subscription_id
+      FROM paddle_subscriptions
+      WHERE user_id = ${user.userId} AND paddle_customer_id = ${customerId}
+      ORDER BY event_occurred_at DESC LIMIT 25`;
     const result = await paddleApiRequest<PortalResponse>(
       "/customers/" + encodeURIComponent(customerId) + "/portal-sessions",
       { method: "POST", body: { subscription_ids: subscriptions.map((row: any) => String(row.paddle_subscription_id)) } }
