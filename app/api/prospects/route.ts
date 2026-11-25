@@ -126,6 +126,8 @@ export async function PATCH(request: NextRequest) {
   if (connectedOn && !/^\\d{4}-\\d{2}-\\d{2}$/.test(connectedOn)) return fail("Use a valid connection date.", 400);
 
   const hasRecommendedOutreach = Object.prototype.hasOwnProperty.call(body, "recommendedOutreach");
+  const hasDiscoverySource = Object.prototype.hasOwnProperty.call(body, "discoverySource");
+  const hasSavedVia = Object.prototype.hasOwnProperty.call(body, "savedVia");
   const hasResearchTool = Object.prototype.hasOwnProperty.call(body, "researchTool");
   try {
     const sql = db();
@@ -142,7 +144,7 @@ export async function PATCH(request: NextRequest) {
       connected = CASE WHEN ${status} = 'Connected' THEN true ELSE ${!!body.connected} END,
       connected_at = CASE
         WHEN ${hasConnectedAt} THEN NULLIF(${connectedAt}, '')::timestamptz
-        WHEN ${status} = 'Connected' THEN COALESCE(connected_at, now())
+        WHEN status <> 'Connected' AND ${status} = 'Connected' THEN COALESCE(connected_at, now())
         ELSE connected_at
       END,
       connected_on = CASE
@@ -153,11 +155,11 @@ export async function PATCH(request: NextRequest) {
       END,
       connection_sent_at = CASE
         WHEN ${hasConnectionSentAt} THEN NULLIF(${connectionSentAt}, '')::timestamptz
-        WHEN ${status} = 'Connection Sent' THEN COALESCE(connection_sent_at, now())
+        WHEN status <> 'Connection Sent' AND ${status} = 'Connection Sent' THEN COALESCE(connection_sent_at, now())
         ELSE connection_sent_at
       END,
-      discovery_source = ${pick(body.discoverySource, sources)},
-      saved_via = ${pick(body.savedVia, methods)},
+      discovery_source = CASE WHEN ${hasDiscoverySource} THEN ${pick(body.discoverySource, sources)} ELSE discovery_source END,
+      saved_via = CASE WHEN ${hasSavedVia} THEN ${pick(body.savedVia, methods)} ELSE saved_via END,
       research_tool = CASE WHEN ${hasResearchTool} THEN ${clean(body.researchTool, 80)} ELSE research_tool END,
       updated_at = now()
       WHERE id = ${id}::uuid AND user_id = ${user.userId}
