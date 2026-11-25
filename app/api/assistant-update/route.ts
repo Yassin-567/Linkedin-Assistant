@@ -100,18 +100,14 @@ export async function POST(request: NextRequest) {
               connected = CASE WHEN ${statusProvided} AND ${status} = 'Connected' THEN true ELSE connected END,
               connected_at = CASE
                 WHEN ${connectedAtProvided} THEN NULLIF(${connectedAt}, '')::timestamptz
-                WHEN ${statusProvided} AND ${status} = 'Connected' AND prospects.status <> 'Connected' THEN COALESCE(connected_at, now())
                 ELSE connected_at
               END,
               connection_sent_at = CASE
                 WHEN ${connectionSentAtProvided} THEN NULLIF(${connectionSentAt}, '')::timestamptz
-                WHEN ${statusProvided} AND ${status} = 'Connection Sent' AND prospects.status <> 'Connection Sent' THEN COALESCE(connection_sent_at, now())
                 ELSE connection_sent_at
               END,
               connected_on = CASE
                 WHEN ${connectedAtProvided} AND ${connectedAt} <> '' THEN to_char(${connectedAt}::timestamptz AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD')
-                WHEN ${statusProvided} AND ${status} = 'Connected' AND COALESCE(connected_on, '') = ''
-                  THEN to_char(now() AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD')
                 ELSE connected_on
               END,
               updated_at = now()
