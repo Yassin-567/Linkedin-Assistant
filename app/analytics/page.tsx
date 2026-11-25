@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 type Overview={discovered:number;qualified:number;contacted:number;replies:number;meetings:number;clients:number;replyRate:number;meetingRate:number;clientRate:number};
-type Breakdown={industry?:string;messageType?:string;prospects?:number;responses?:number;clients?:number;sent?:number;replies?:number;meetings?:number};
+type Breakdown={industry?:string;messageType?:string;prospects?:number;responses?:number;clients?:number;sent?:number;replies?:number};
 type NextAction={id:string;name:string;company:string;status:string;followUp:string;daysUntil:number|null};
 const labels:Record<string,string>={connection_request:"LinkedIn connection request",linkedin_follow_up:"LinkedIn follow-up",email_intro:"Email introduction",email_follow_up:"Email follow-up",other:"Other"};
 export default function AnalyticsPage(){
@@ -28,8 +28,8 @@ export default function AnalyticsPage(){
    <section className="panel"><h2>Industries in your pipeline</h2><p className="muted">Outcomes are grouped by the industry recorded on each prospect. Add industry details to improve this view.</p>
     {data.industryPerformance?.length?<div className="lead-list">{data.industryPerformance.map((x:Breakdown,i:number)=><article className="lead" key={x.industry}><div><strong>{x.industry}</strong><small>{x.prospects} prospects · {x.responses} replies/meetings · {x.clients} clients</small></div></article>)}</div>:<div className="empty">No industry data recorded yet. Add industries to prospects as you qualify them.</div>}
    </section>
-   <section className="panel"><h2>Message performance</h2><p className="muted">Track which outreach formats are producing replies and meetings.</p>
-    {data.messagePerformance?.length?<div className="lead-list">{data.messagePerformance.map((x:Breakdown)=><article className="lead" key={x.messageType}><div><strong>{labels[x.messageType||""]||x.messageType}</strong><small>{x.sent} sent · {x.replies} replies · {x.meetings} meetings</small></div></article>)}</div>:<div className="empty">No sent messages recorded yet.</div>}
+   <section className="panel"><h2>Message performance</h2><p className="muted">Track sent messages and replies by format. Meetings are counted separately in the pipeline, not attributed to a message type.</p>
+    {data.messagePerformance?.length?<div className="lead-list">{data.messagePerformance.map((x:Breakdown)=><article className="lead" key={x.messageType}><div><strong>{labels[x.messageType||""]||x.messageType}</strong><small>{x.sent} sent · {x.replies} replies</small></div></article>)}</div>:<div className="empty">No sent messages recorded yet.</div>}
    </section>
    <section className="panel"><h2>Weekly activity</h2><p className="muted">Outreach actions recorded in the last seven days.</p>
     {data.weeklyActivity?.length?<div className="lead-list">{data.weeklyActivity.map((x:any)=><article className="lead" key={x.type}><div style={{width:"100%"}}><div className="row"><strong>{String(x.type).charAt(0).toUpperCase()+String(x.type).slice(1)}</strong><strong>{x.count}</strong></div><div style={{height:8,background:"#edf3f0",borderRadius:8,overflow:"hidden"}}><div style={{height:8,width:Math.max(4,Math.round(Number(x.count)/weeklyTotal*100))+"%",background:"#087b5b",borderRadius:8}}/></div></div></article>)}</div>:<div className="empty">No activity recorded in the last seven days.</div>}
