@@ -76,13 +76,9 @@ export async function POST(request: NextRequest) {
       ${clean(body.recommendedOutreach, 6000)}, ${!!body.connected || status === "Connected"},
       CASE WHEN ${status} = 'Connected' AND ${connectedAt} <> ''
         THEN to_char(${connectedAt}::timestamptz AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD')
-        WHEN ${status} = 'Connected' AND ${connectedOn} = ''
-        THEN to_char(now() AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD')
         ELSE ${connectedOn} END,
-      CASE WHEN ${status} = 'Connected' THEN COALESCE(NULLIF(${connectedAt}, '')::timestamptz, now())
-        ELSE NULLIF(${connectedAt}, '')::timestamptz END,
-      CASE WHEN ${status} = 'Connection Sent' THEN COALESCE(NULLIF(${connectionSentAt}, '')::timestamptz, now())
-        ELSE NULLIF(${connectionSentAt}, '')::timestamptz END,
+      NULLIF(${connectedAt}, '')::timestamptz,
+      NULLIF(${connectionSentAt}, '')::timestamptz,
       ${pick(body.discoverySource, sources, "Manual")},
       ${pick(body.savedVia, methods, "Manual entry")},
       ${clean(body.researchTool, 80)}
@@ -150,7 +146,6 @@ export async function PATCH(request: NextRequest) {
       connected_on = CASE
         WHEN ${hasConnectedAt} AND ${connectedAt} <> '' THEN to_char(${connectedAt}::timestamptz AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD')
         WHEN ${hasConnectedOn} THEN ${connectedOn}
-        WHEN ${status} = 'Connected' THEN COALESCE(NULLIF(connected_on, ''), to_char(now() AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD'))
         ELSE connected_on
       END,
       connection_sent_at = CASE
