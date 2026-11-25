@@ -25,8 +25,7 @@ export async function GET() {
       sql`SELECT message_type AS "messageType",
         COUNT(*) FILTER (WHERE activity_type = 'sent')::int AS sent,
         COUNT(*) FILTER (WHERE activity_type = 'replied')::int AS replies,
-        COUNT(*) FILTER (WHERE activity_type = 'meeting')::int AS meetings
-        FROM outreach_activities WHERE user_id = ${user.userId}
+        FROM outreach_activities WHERE user_id = ${user.userId} AND activity_type IN ('sent','replied')
         GROUP BY message_type ORDER BY replies DESC, sent DESC LIMIT 8`,
       sql`SELECT activity_type AS type, COUNT(*)::int AS count
         FROM outreach_activities WHERE user_id = ${user.userId} AND created_at >= now() - interval '7 days'
