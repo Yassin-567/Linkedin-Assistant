@@ -10,7 +10,7 @@ export default function OutreachPage() {
   const [leads,setLeads]=useState<Lead[]>([]);
   const [activities,setActivities]=useState<Activity[]>([]);
   const [reminders,setReminders]=useState<Reminder[]>([]);
-  const [prospectId,setProspectId]=useState("");
+  const [prospectId,setProspectId]=useState("");\n  const [prospectSearch,setProspectSearch]=useState("");
   const [channel,setChannel]=useState("linkedin");
   const [messageType,setMessageType]=useState("connection_request");
   const [reason,setReason]=useState("");
@@ -21,7 +21,7 @@ export default function OutreachPage() {
   const [loading,setLoading]=useState(true);
   const [notice,setNotice]=useState("");
 
-  const selected=useMemo(()=>leads.find(x=>x.id===prospectId),[leads,prospectId]);
+  const selected=useMemo(()=>leads.find(x=>x.id===prospectId),[leads,prospectId]);\n  const filteredLeads=useMemo(()=>leads.filter(x=>(x.name+" "+x.company).toLowerCase().includes(prospectSearch.toLowerCase())),[leads,prospectSearch]);
   async function load() {
     const [p,a]=await Promise.all([fetch("/api/prospects",{cache:"no-store"}),fetch("/api/outreach",{cache:"no-store"})]);
     if(p.status===401){location.href="/login";return;}
@@ -90,7 +90,7 @@ export default function OutreachPage() {
     <section className="panel">
       <div className="section-heading"><div><h2>Compose outreach</h2><p className="muted">Messages are drafts only. You send them manually after reviewing.</p></div><span className="connection">Human approval required</span></div>
       {loading?<p className="muted">Loading your prospects...</p>:!leads.length?<div className="empty"><strong>No saved prospects yet</strong><p>Find and save a prospect before composing outreach.</p><a className="button" href="/prospects">Open LinkedIn prospects</a></div>:<form className="lead-form" onSubmit={e=>{e.preventDefault();void record("draft");}}>
-        <label className="wide">Prospect<select value={prospectId} onChange={e=>setProspectId(e.target.value)}>{leads.map(x=><option key={x.id} value={x.id}>{x.name} · {x.company}</option>)}</select></label>
+        <label className="wide">Search prospects<input type="search" value={prospectSearch} onChange={e=>setProspectSearch(e.target.value)} placeholder="Search by name or company..."/></label><label className="wide">Prospect<select aria-label="Choose outreach prospect" value={prospectId} onChange={e=>setProspectId(e.target.value)}>{filteredLeads.map(x=><option key={x.id} value={x.id}>{x.name} · {x.company}</option>)}</select><small className="muted">{filteredLeads.length} matching prospects</small></label>
         {selected&&<div className="wide status"><strong>{selected.company}</strong> · {selected.status}{selected.url&&<> · <a href={selected.url} target="_blank" rel="noreferrer">Open LinkedIn profile ↗</a></>}</div>}
         <label>Channel<select value={channel} onChange={e=>setChannel(e.target.value)}><option value="linkedin">LinkedIn</option><option value="email">Email</option><option value="other">Other</option></select></label>
         <label>Message type<select value={messageType} onChange={e=>setMessageType(e.target.value)}>{Object.entries(messageLabels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
