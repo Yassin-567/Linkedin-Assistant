@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS prospects (
   notes text NOT NULL DEFAULT '',
   connected boolean NOT NULL DEFAULT false,
   connected_on text NOT NULL DEFAULT '',
+  connection_sent_at timestamptz,
   recommended_outreach text NOT NULL DEFAULT '',
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -205,6 +206,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   source_metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   status text NOT NULL DEFAULT 'Saved'
     CHECK (status IN ('Saved','Applied','Interviewing','Offer','Rejected','Closed','Not interested')),
+  applied_at timestamptz,
   notes text NOT NULL DEFAULT '',
   recommended_outreach text NOT NULL DEFAULT '',
   discovered_at timestamptz NOT NULL DEFAULT now(),

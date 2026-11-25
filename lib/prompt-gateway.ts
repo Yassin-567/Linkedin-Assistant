@@ -160,6 +160,8 @@ export function buildGatewayPrompt(options: PromptOptions): string {
     "",
     "All Context requests use HTTP GET. All Save and Update requests use HTTP POST with Content-Type: application/json.",
     "Make requests sequentially, inspect the real HTTP status and response body, and never report an operation as successful unless Inlinked confirms it.",
+    "When a LinkedIn prospect is marked Connection Sent, Inlinked records connectionSentAt as an exact timestamp. Do not mark Connection Sent unless the invitation was actually sent. Preserve the existing timestamp when editing unrelated fields.",
+    "When a job is marked Applied, Inlinked records appliedAt as an exact timestamp. Do not mark Applied unless the user confirms the application was submitted. Preserve the existing timestamp when editing unrelated fields.",
     "The permanent AI credential is only for opening the bootstrap prompt URL. It is not valid for these Context, Save or Update endpoints.",
     ""
   ].join("\n");

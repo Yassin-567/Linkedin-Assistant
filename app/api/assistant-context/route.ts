@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
           seniority_levels, excluded_keywords, salary_currency, minimum_salary, language,
           include_linkedin, include_social_media, include_company_sites, include_job_boards, target_count
           FROM job_search_preferences WHERE user_id = ${userId} LIMIT 1`,
-        sql`SELECT id::text, title, company, status, recommended_outreach AS "recommendedOutreach", normalized_source_url AS url FROM jobs WHERE user_id = ${userId}
+        sql`SELECT id::text, title, company, status, applied_at AS "appliedAt", recommended_outreach AS "recommendedOutreach", normalized_source_url AS url FROM jobs WHERE user_id = ${userId}
           ORDER BY created_at DESC LIMIT 5000`,
         sql`SELECT u.profile_summary, u.linkedin_profile_data, u.linkedin_profile_source, u.linkedin_profile_verified_at, p.linkedin_profile_url FROM app_users u LEFT JOIN user_preferences p ON p.user_id = u.id WHERE u.id = ${userId} LIMIT 1`
       ]);
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
           targetCount: Number(p.target_count || 30)
         },
         exclusions: { savedJobUrls: savedJobRows.map((x: any) => x.url) },
-        savedJobRecords: savedJobRows.slice(0, 500).map((x: any) => ({ id: x.id, title: x.title, company: x.company, status: x.status, recommendedOutreach: x.recommendedOutreach || "", sourceUrl: x.url }))
+        savedJobRecords: savedJobRows.slice(0, 500).map((x: any) => ({ id: x.id, title: x.title, company: x.company, status: x.status, appliedAt: x.appliedAt || null, recommendedOutreach: x.recommendedOutreach || "", sourceUrl: x.url }))
       }, { headers: noStore });
     }
 
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
 
     const [connectionRows, savedProspectRows, connectionMeta]: any = await Promise.all([
       sql`SELECT normalized_linkedin_url AS url FROM linkedin_connections WHERE user_id = ${userId} ORDER BY imported_at DESC LIMIT 20000`,
-      sql`SELECT id::text, name, company, status, connected, connected_on AS "connectedOn", recommended_outreach AS "recommendedOutreach", normalized_linkedin_url AS url FROM prospects WHERE user_id = ${userId} AND normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url <> '' ORDER BY created_at DESC LIMIT 1000`,
+      sql`SELECT id::text, name, company, status, connected, connected_on AS "connectedOn", connection_sent_at AS "connectionSentAt", recommended_outreach AS "recommendedOutreach", normalized_linkedin_url AS url FROM prospects WHERE user_id = ${userId} AND normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url <> '' ORDER BY created_at DESC LIMIT 1000`,
       sql`SELECT max(imported_at) AS imported_at, count(*)::int AS count FROM linkedin_connections WHERE user_id = ${userId}`
     ]);
 
@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
         doNotInventMissingProfileInformation: true,
         availableLinkedInProspectStatuses: ["To research", "Ready to contact", "Connection Sent", "Connected", "Contacted", "Replied", "Call booked", "Client", "Not a fit"],
         linkedinStatusMeanings: {
-          "Connection Sent": "A LinkedIn connection invitation was actually sent and is awaiting acceptance.",
+          "Connection Sent": "A LinkedIn connection invitation was actually sent and is awaiting acceptance. The connectionSentAt timestamp is recorded automatically when the status first changes to Connection Sent; preserve it unless the user corrects it.",
           "Connected": "The invitation was accepted or the person is confirmed as a first-degree connection.",
           "Contacted": "A direct message or other direct outreach was actually sent; it does not mean a connection invitation is pending."
         }
@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
         uploadedConnectionsImportedAt: connectionMeta[0]?.imported_at || null,
         uploadedConnectionProfileUrls: connectionRows.map((x: any) => x.url),
         savedProspectProfileUrls: savedProspectRows.map((x: any) => x.url),
-        savedProspectRecords: savedProspectRows.map((x: any) => ({ id: x.id, name: x.name, company: x.company, status: x.status, connected: Boolean(x.connected), connectedOn: x.connectedOn || "", recommendedOutreach: x.recommendedOutreach || "", linkedinUrl: x.url }))
+        savedProspectRecords: savedProspectRows.map((x: any) => ({ id: x.id, name: x.name, company: x.company, status: x.status, connected: Boolean(x.connected), connectedOn: x.connectedOn || "", connectionSentAt: x.connectionSentAt || null, recommendedOutreach: x.recommendedOutreach || "", linkedinUrl: x.url }))
       }
     }, { headers: noStore });
   } catch (error) {
