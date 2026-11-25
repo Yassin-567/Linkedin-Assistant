@@ -143,8 +143,7 @@ export async function POST(request: NextRequest) {
           const customer: any = await sql`SELECT user_id FROM paddle_customers
             WHERE paddle_customer_id = ${customerId} LIMIT 1`;
           if (!customer.length) {
-            await sql`UPDATE paddle_webhook_events SET processed_at = now() WHERE paddle_event_id = ${eventId}`;
-            return NextResponse.json({ received: true, ignored: true }, { status: 200 });
+            throw new Error("Paddle subscription arrived before its customer was bound to an Inlinked checkout. Retry after the related transaction webhook.");
           }
           throw new Error("A subscription update arrived before its Inlinked subscription-created event.");
         }
