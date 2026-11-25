@@ -10,7 +10,8 @@ export default function OutreachPage() {
   const [leads,setLeads]=useState<Lead[]>([]);
   const [activities,setActivities]=useState<Activity[]>([]);
   const [reminders,setReminders]=useState<Reminder[]>([]);
-  const [prospectId,setProspectId]=useState("");\n  const [prospectSearch,setProspectSearch]=useState("");
+  const [prospectId,setProspectId]=useState("");
+  const [prospectSearch,setProspectSearch]=useState("");
   const [channel,setChannel]=useState("linkedin");
   const [messageType,setMessageType]=useState("connection_request");
   const [reason,setReason]=useState("");
@@ -21,7 +22,8 @@ export default function OutreachPage() {
   const [loading,setLoading]=useState(true);
   const [notice,setNotice]=useState("");
 
-  const selected=useMemo(()=>leads.find(x=>x.id===prospectId),[leads,prospectId]);\n  const filteredLeads=useMemo(()=>leads.filter(x=>(x.name+" "+x.company).toLowerCase().includes(prospectSearch.toLowerCase())),[leads,prospectSearch]);
+  const selected=useMemo(()=>leads.find(x=>x.id===prospectId),[leads,prospectId]);
+  const filteredLeads=useMemo(()=>leads.filter(x=>(x.name+" "+x.company).toLowerCase().includes(prospectSearch.toLowerCase())),[leads,prospectSearch]);
   async function load() {
     const [p,a]=await Promise.all([fetch("/api/prospects",{cache:"no-store"}),fetch("/api/outreach",{cache:"no-store"})]);
     if(p.status===401){location.href="/login";return;}
