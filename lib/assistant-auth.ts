@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { isProUser } from "@/lib/billing";
 
 // All AI context/save/update routes accept short-lived session credentials only.
 // The permanent AI credential is accepted exclusively by /api/assistant-prompt.
@@ -72,6 +73,9 @@ export async function resolveAssistantAuth(request: NextRequest): Promise<Assist
     LIMIT 1
   `;
   if (!rows.length) return null;
+
+  // AI prompt sessions are a Pro entitlement; enforce it server-side on every call.
+  if (!(await isProUser(String(rows[0].user_id)))) return null;
 
   await sql`UPDATE assistant_session_tokens SET last_used_at = now()
     WHERE token_hash = ${hash}
