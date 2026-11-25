@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     // Do not accept a price ID or user/customer ID from the browser.
     const priceId = interval === "monthly" ? PADDLE_MONTHLY_PRICE_ID : PADDLE_YEARLY_PRICE_ID;
     const sql = db();
-    let customerRows: any = await sql`SELECT paddle_customer_id FROM paddle_customers WHERE user_id = \${user.userId} LIMIT 1`;
+    let customerRows: any = await sql`SELECT paddle_customer_id FROM paddle_customers WHERE user_id = ${user.userId} LIMIT 1`;
     let customerId = customerRows[0]?.paddle_customer_id as string | undefined;
 
     if (!customerId) {
@@ -39,9 +39,9 @@ export async function POST(request: NextRequest) {
         }
       });
       await sql`INSERT INTO paddle_customers(user_id, paddle_customer_id, email, customer_name)
-        VALUES(\${user.userId}, \${customer.data.id}, \${user.email}, \${user.name || ""})
+        VALUES(${user.userId}, ${customer.data.id}, ${user.email}, ${user.name || ""})
         ON CONFLICT(user_id) DO NOTHING`;
-      customerRows = await sql`SELECT paddle_customer_id FROM paddle_customers WHERE user_id = \${user.userId} LIMIT 1`;
+      customerRows = await sql`SELECT paddle_customer_id FROM paddle_customers WHERE user_id = ${user.userId} LIMIT 1`;
       customerId = customerRows[0]?.paddle_customer_id;
       if (!customerId) throw new Error("Could not bind the Paddle customer to this account.");
     }
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     await sql`INSERT INTO paddle_checkout_transactions(
       paddle_transaction_id, user_id, paddle_customer_id, price_id, status
     ) VALUES (
-      \${transaction.data.id}, \${user.userId}, \${customerId}, \${priceId}, 'pending'
+      ${transaction.data.id}, ${user.userId}, ${customerId}, ${priceId}, 'pending'
     )`;
 
     return NextResponse.json({
