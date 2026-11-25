@@ -71,7 +71,7 @@ export default function OutreachPage() {
       const data=await response.json();
       if(!response.ok)throw new Error(data.error||"Could not save outreach activity.");
       await load();
-      setNotice(activityType==="sent"?"Sent activity recorded. Follow-up reminder saved if you entered a date.":activityType==="draft"?"Draft saved to your private outreach history.":activityType==="replied"?"Reply recorded and prospect status updated.":"Meeting recorded and prospect status updated.");
+      setNotice(activityType==="sent"?"Sent activity recorded. Follow-up reminder saved if you entered a date.":activityType==="draft"?"Draft saved to your private outreach history.":activityType==="replied"?"Reply recorded and prospect status updated.":"Meeting recorded; the current pipeline status was left unchanged.");
     }catch(e){setNotice(e instanceof Error?e.message:"Could not save activity.");}
     finally{setBusy(false);}
   }
@@ -84,7 +84,7 @@ export default function OutreachPage() {
         prospectId:selected.id,channel,messageType,activityType:type,subject:"",message:"",notes:reason,followUpDate,occurredAt:occurredAt ? new Date(occurredAt).toISOString() : "",idempotencyKey:crypto.randomUUID()
       })});
       const data=await response.json();if(!response.ok)throw new Error(data.error||"Could not record activity.");
-      await load();setNotice(type==="replied"?"Reply recorded.":"Meeting recorded.");
+      await load();setNotice(type==="replied"?"Reply recorded.":"Meeting recorded; the current pipeline status was left unchanged.");
     }catch(e){setNotice(e instanceof Error?e.message:"Could not record activity.");}
     finally{setBusy(false);}
   }
