@@ -43,9 +43,9 @@ export async function getBillingState(userId: string) {
   const rows: any = await sql`SELECT
     EXISTS (
       SELECT 1 FROM paddle_subscriptions s
-      WHERE s.user_id = \${userId}
+      WHERE s.user_id = ${userId}
         AND s.status IN ('active','trialing')
-        AND s.price_id = ANY(\${allowedIds}::text[])
+        AND s.price_id = ANY(${allowedIds}::text[])
     ) AS is_pro,
     (
       SELECT jsonb_build_object(
@@ -55,7 +55,7 @@ export async function getBillingState(userId: string) {
         'priceId', s.price_id
       )
       FROM paddle_subscriptions s
-      WHERE s.user_id = \${userId}
+      WHERE s.user_id = ${userId}
       ORDER BY s.event_occurred_at DESC
       LIMIT 1
     ) AS subscription`;
