@@ -81,7 +81,10 @@ export async function POST(request: NextRequest) {
           (statusProvided && (typeof input.status !== "string" || !statuses[resource].includes(status))) ||
           (!statusProvided && !notesProvided && !outreachProvided && !connectedAtProvided && !connectionSentAtProvided && !appliedAtProvided) ||
           (notesProvided && (typeof input.notes !== "string" || notes.length > 5000)) ||
-          (outreachProvided && (typeof input.recommendedOutreach !== "string" || recommendedOutreach.length > 6000)) ||\n          (connectedAtProvided && (typeof input.connectedAt !== "string" || !validTimestamp(connectedAt))) ||\n          (connectionSentAtProvided && (typeof input.connectionSentAt !== "string" || !validTimestamp(connectionSentAt))) ||\n          (appliedAtProvided && (typeof input.appliedAt !== "string" || !validTimestamp(appliedAt)))) {
+          (outreachProvided && (typeof input.recommendedOutreach !== "string" || recommendedOutreach.length > 6000)) ||
+          (connectedAtProvided && (typeof input.connectedAt !== "string" || !validTimestamp(connectedAt))) ||
+          (connectionSentAtProvided && (typeof input.connectionSentAt !== "string" || !validTimestamp(connectionSentAt))) ||
+          (appliedAtProvided && (typeof input.appliedAt !== "string" || !validTimestamp(appliedAt)))) {
         invalid++;
         results.push({ index, status: "invalid", error: "Provide a valid resource and record ID, plus at least one allowed status, notes or recommendedOutreach. Notes must be 5,000 characters or fewer and recommendedOutreach 6,000 characters or fewer." });
         continue;
