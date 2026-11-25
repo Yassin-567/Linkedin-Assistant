@@ -25,21 +25,23 @@ A global, individual-account prospecting workspace. Every Google-authenticated u
 - Editable connection-request, LinkedIn follow-up, email-introduction and email-follow-up drafts.
 - Every LinkedIn connection, Commercial Lead and Job can store an AI-generated `recommendedOutreach` draft. It is personalized to verified public evidence and the user's confirmed professional or Lead Profile context, and can be edited or copied from its record card. Inlinked never sends it automatically.
 - The app never sends messages automatically. A user reviews, copies and sends manually, then explicitly records that it was sent.
-- Sent messages, replies, meetings and notes are logged against the selected prospect. Sent/replied/meeting events update the prospect pipeline status. LinkedIn prospects also support a `Connected` status; setting it marks the connection flag and records the first connection date without clearing that metadata when the pipeline later advances.
+- Sent messages, replies, meetings and notes are logged against the selected prospect. An outreach event's `occurred_at` (when it happened) is separate from `created_at` (when it was recorded). Older entries without a reliable event time remain blank until corrected. Logging a meeting records a completed meeting event and does not mean a future meeting is still booked.
+- LinkedIn prospects store `connection_sent_at` and `connected_at` as event timestamps when known. The legacy `connected_on` field remains date-only; changing a pipeline status does not invent an event date or time.
 - Follow-up dates create due/upcoming reminders. Duplicate profile saves are blocked by the existing per-user unique profile constraint; repeated identical sent-message logs are blocked for 10 minutes, and request idempotency keys prevent duplicate submissions.
 
 ## Phase 6: client acquisition dashboard
 
-- Private counts for discovered, qualified, contacted, replies, meetings and clients won.
-- Reply, meeting and client conversion rates based on recorded prospect statuses.
+- Private counts for discovered, qualified, contacted, replies, prospects currently in the `Call booked` stage, meetings logged as events, and clients won.
+- Reply and current booked-stage conversion rates based on prospect statuses.
 - Industry and outreach-message performance summaries, where the user has recorded those details.
-- Weekly outreach activity and upcoming/overdue next actions.
+- Weekly outreach activity grouped by event occurrence time; older activity without a known event time is excluded until corrected.
+- Upcoming/overdue follow-up actions are separate from completed meetings.
 
 ## Setup
 
 1. Create a Neon PostgreSQL database (the Neon free tier may be sufficient for an early test).
 2. **Fresh database:** run `db/schema.sql` once. It is the canonical current schema and includes every table and column used by the application. No phase migrations are needed for a fresh install.
-3. **Existing database created from the earlier base schema:** run the historical migrations in their documented order, then apply Phase 8 and Phase 9 if those workspaces are enabled. Finally run `db/phase_11_recommended_outreach_and_remove_research.sql` to add recommendation fields and drop the retired Intelligence report archive. Back up important data before applying schema changes.
+3. **Existing database created from the earlier base schema:** run the historical migrations in their documented order, then apply Phase 8 and Phase 9 if those workspaces are enabled. Finally run `db/phase_11_recommended_outreach_and_remove_research.sql`, followed by the newer numbered migrations for the current deployment, including `db/phase_14_activity_timestamps.sql` and `db/phase_15_activity_occurrence_times.sql`. Back up important data before applying schema changes.
 4. Create Google OAuth credentials in Google Cloud Console. Add this exact redirect URI: `https://YOUR_DOMAIN/api/auth/google/callback`.
 5. Configure the environment variables below in Vercel and redeploy.
 6. Set `APP_URL` to the public application origin.
@@ -150,3 +152,11 @@ AI save prompts for LinkedIn prospects, jobs and commercial Leads instruct the a
 Assistant save responses include saved record IDs. Context responses expose recent `savedProspectRecords`, `savedJobRecords` and `savedLeadRecords`, including their current `recommendedOutreach`, so AI assistants can avoid overwriting an existing draft unless asked.
 
 **Database upgrades:** apply `db/phase_10_ai_research_tool.sql` after Phase 9 if it has not already been applied. Then apply `db/phase_11_recommended_outreach_and_remove_research.sql`. Existing records receive an empty recommendation until an AI assistant generates one. The migration removes the retired `prospect_intelligence` report table but preserves prospects and outreach activities.
+
+## Phase 15: event occurrence timestamps and data clarity
+
+- Outreach activity `occurred_at` stores when an event happened; `created_at` remains the time the entry was recorded. Historical rows are not backfilled because the actual event time may differ from the record time.
+- Prospect `connected_at` and `connection_sent_at` store actual event timestamps when known. `connected_on` remains a date-only compatibility field.
+- Weekly activity counts use `occurred_at`, while "Meetings logged" counts meeting events and "Currently booked" counts the current `Call booked` pipeline status.
+- Placeholder `Unknown` metadata is cleared rather than replaced with invented values; the UI suppresses missing metadata.
+- Apply `db/phase_15_activity_occurrence_times.sql` to existing databases. Do not backfill occurrence timestamps from `created_at`.
