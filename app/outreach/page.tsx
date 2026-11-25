@@ -2,8 +2,10 @@
 import { useEffect, useMemo, useState } from "react";
 
 type Lead = { id: string; name: string; company: string; url?: string; industry?: string; status: string; followUp?: string; notes?: string };
-type Activity = { id: string; prospectId: string; name?: string; company?: string; channel: string; activityType: string; messageType: string; subject: string; message: string; notes: string; followUpDate: string; createdAt: string };
+type Activity = { id: string; prospectId: string; name?: string; company?: string; channel: string; activityType: string; messageType: string; subject: string; message: string; notes: string; followUpDate: string; occurredAt: string | null; createdAt: string };
 type Reminder = { id: string; name: string; company: string; status: string; followUp: string; daysUntil: number | null };
+const toLocalDateTime = (value?: string | null) => { if (!value) return ""; const d = new Date(value); return Number.isNaN(d.getTime()) ? "" : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); };
+const nowLocalDateTime = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0,16);
 const messageLabels: Record<string,string> = { connection_request:"LinkedIn connection request", linkedin_follow_up:"LinkedIn follow-up", email_intro:"Email introduction", email_follow_up:"Email follow-up", other:"Other" };
 
 export default function OutreachPage() {
@@ -18,6 +20,7 @@ export default function OutreachPage() {
   const [subject,setSubject]=useState("");
   const [message,setMessage]=useState("");
   const [followUpDate,setFollowUpDate]=useState("");
+  const [occurredAt,setOccurredAt]=useState(nowLocalDateTime);
   const [busy,setBusy]=useState(false);
   const [loading,setLoading]=useState(true);
   const [notice,setNotice]=useState("");
@@ -62,13 +65,13 @@ export default function OutreachPage() {
     setBusy(true);setNotice("");
     try{
       const response=await fetch("/api/outreach",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-        prospectId:selected.id,channel,messageType,activityType,subject,message,followUpDate,
+        prospectId:selected.id,channel,messageType,activityType,subject,message,followUpDate,occurredAt:occurredAt ? new Date(occurredAt).toISOString() : "",
         notes:reason,idempotencyKey:crypto.randomUUID()
       })});
       const data=await response.json();
       if(!response.ok)throw new Error(data.error||"Could not save outreach activity.");
       await load();
-      setNotice(activityType==="sent"?"Sent activity recorded. Follow-up reminder saved if you entered a date.":activityType==="draft"?"Draft saved to your private outreach history.":activityType==="replied"?"Reply recorded and prospect status updated.":"Meeting recorded and prospect status updated.");
+      setNotice(activityType==="sent"?"Sent activity recorded. Follow-up reminder saved if you entered a date.":activityType==="draft"?"Draft saved to your private outreach history.":activityType==="replied"?"Reply recorded and prospect status updated.":"Meeting recorded; the current pipeline status was left unchanged.");
     }catch(e){setNotice(e instanceof Error?e.message:"Could not save activity.");}
     finally{setBusy(false);}
   }
@@ -78,12 +81,26 @@ export default function OutreachPage() {
     setBusy(true);setNotice("");
     try{
       const response=await fetch("/api/outreach",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-        prospectId:selected.id,channel,messageType,activityType:type,subject:"",message:"",notes:reason,followUpDate,idempotencyKey:crypto.randomUUID()
+        prospectId:selected.id,channel,messageType,activityType:type,subject:"",message:"",notes:reason,followUpDate,occurredAt:occurredAt ? new Date(occurredAt).toISOString() : "",idempotencyKey:crypto.randomUUID()
       })});
       const data=await response.json();if(!response.ok)throw new Error(data.error||"Could not record activity.");
-      await load();setNotice(type==="replied"?"Reply recorded.":"Meeting recorded.");
+      await load();setNotice(type==="replied"?"Reply recorded.":"Meeting recorded; the current pipeline status was left unchanged.");
     }catch(e){setNotice(e instanceof Error?e.message:"Could not record activity.");}
     finally{setBusy(false);}
+  }
+
+  async function saveActivityTime(activityId:string, value:string) {
+    const occurredAtValue = value ? new Date(value).toISOString() : "";
+    try {
+      const response = await fetch("/api/outreach", { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:activityId, occurredAt:occurredAtValue}) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not update event time.");
+      setActivities(old => old.map(item => item.id === activityId ? {...item, occurredAt:data.activity.occurredAt || null} : item));
+      await load();
+      setNotice("Activity time updated. The recorded time remains unchanged.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not update event time.");
+    }
   }
 
   const labelType=(v:string)=>messageLabels[v]||v.replaceAll("_"," ");
@@ -100,7 +117,7 @@ export default function OutreachPage() {
         <div className="wide"><button type="button" className="button secondary" onClick={makeDraft} disabled={!selected}>Create editable draft</button></div>
         {channel==="email"&&<label className="wide">Email subject<input value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Subject"/></label>}
         <label className="wide">Message<textarea rows={8} value={message} onChange={e=>setMessage(e.target.value)} placeholder="Generate a draft or write your own message."/></label>
-        <label>Next follow-up date<input type="date" value={followUpDate} onChange={e=>setFollowUpDate(e.target.value)}/></label>
+        <label>When did this activity happen?<input type="datetime-local" value={occurredAt} onChange={e=>setOccurredAt(e.target.value)}/><small className="muted">This is the event time. Inlinked separately records when you saved it.</small></label><label>Next follow-up date<input type="date" value={followUpDate} onChange={e=>setFollowUpDate(e.target.value)}/></label>
         <div className="wide form-footer"><span className="muted">Nothing is sent from this app.</span><div className="row"><button type="button" className="button secondary" disabled={!message.trim()} onClick={()=>void navigator.clipboard?.writeText((subject?subject+"\n\n":"")+message)}>Copy message</button><button type="submit" disabled={busy||!message.trim()}>Save draft</button><button type="button" disabled={busy||!message.trim()} onClick={()=>void record("sent")}>I sent this</button></div></div>
         <div className="wide row"><button type="button" className="button secondary" disabled={busy} onClick={()=>void logSimple("replied")}>Log a reply</button><button type="button" className="button secondary" disabled={busy} onClick={()=>void logSimple("meeting")}>Log a meeting</button></div>
       </form>}
@@ -110,7 +127,7 @@ export default function OutreachPage() {
       {reminders.length?<div className="lead-list">{reminders.map(x=><article className="lead" key={x.id}><div><strong>{x.name}</strong><div>{x.company}</div><small>{x.daysUntil!==null&&x.daysUntil<0?"Overdue by "+Math.abs(x.daysUntil)+" days":x.daysUntil===0?"Due today":"Due "+x.followUp} · {x.status}</small></div><button className="button secondary" onClick={()=>{setProspectId(x.id);window.scrollTo({top:0,behavior:"smooth"});}}>Open prospect</button></article>)}</div>:<div className="empty"><strong>No upcoming follow-ups</strong><p>Add a follow-up date when saving or recording an outreach activity.</p></div>}
     </section>
     <section className="panel"><div className="section-heading"><div><h2>Outreach history</h2><p className="muted">Private activity log for your account.</p></div><span className="connection">{activities.length} records</span></div>
-      {activities.length?<div className="lead-list">{activities.map(x=><article className="lead" key={x.id}><div><strong>{x.name} · {x.company}</strong><small>{new Date(x.createdAt).toLocaleString()} · {x.channel} · {labelType(x.messageType)} · {x.activityType}</small>{x.subject&&<p><strong>{x.subject}</strong></p>}{x.message&&<p style={{whiteSpace:"pre-wrap"}}>{x.message}</p>}{x.notes&&<p className="muted">{x.notes}</p>}{x.followUpDate&&<small>Follow-up: {x.followUpDate}</small>}</div></article>)}</div>:<div className="empty"><strong>No outreach recorded yet</strong><p>Save your first draft or log a sent message to start the timeline.</p></div>}
+      {activities.length?<div className="lead-list">{activities.map(x=><article className="lead" key={x.id}><div><strong>{x.name} · {x.company}</strong><small>{x.occurredAt ? "Happened: " + new Date(x.occurredAt).toLocaleString() : "Event time not recorded"} · Recorded: {new Date(x.createdAt).toLocaleString()} · {x.channel} · {labelType(x.messageType)} · {x.activityType}</small><label className="activity-time-edit">Correct event date and time<input type="datetime-local" defaultValue={toLocalDateTime(x.occurredAt)} onBlur={e=>{const next=e.currentTarget.value;if(next!==toLocalDateTime(x.occurredAt))void saveActivityTime(x.id,next);}}/><small className="muted">Changing this does not change the time the activity was recorded.</small></label>{x.subject&&<p><strong>{x.subject}</strong></p>}{x.message&&<p style={{whiteSpace:"pre-wrap"}}>{x.message}</p>}{x.notes&&<p className="muted">{x.notes}</p>}{x.followUpDate&&<small>Follow-up: {x.followUpDate}</small>}</div></article>)}</div>:<div className="empty"><strong>No outreach recorded yet</strong><p>Save your first draft or log a sent message to start the timeline.</p></div>}
     </section>
     <footer>Drafts are not delivered automatically. Confirm that you have actually sent a message before using “I sent this”.</footer>
   </main>;

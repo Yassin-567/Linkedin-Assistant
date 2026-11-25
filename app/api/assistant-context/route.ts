@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
 
     const [connectionRows, savedProspectRows, connectionMeta]: any = await Promise.all([
       sql`SELECT normalized_linkedin_url AS url FROM linkedin_connections WHERE user_id = ${userId} ORDER BY imported_at DESC LIMIT 20000`,
-      sql`SELECT id::text, name, company, status, connected, connected_on AS "connectedOn", connection_sent_at AS "connectionSentAt", recommended_outreach AS "recommendedOutreach", normalized_linkedin_url AS url FROM prospects WHERE user_id = ${userId} AND normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url <> '' ORDER BY created_at DESC LIMIT 1000`,
+      sql`SELECT id::text, name, company, status, connected, connected_on AS "connectedOn", connected_at AS "connectedAt", connection_sent_at AS "connectionSentAt", recommended_outreach AS "recommendedOutreach", normalized_linkedin_url AS url FROM prospects WHERE user_id = ${userId} AND normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url <> '' ORDER BY created_at DESC LIMIT 1000`,
       sql`SELECT max(imported_at) AS imported_at, count(*)::int AS count FROM linkedin_connections WHERE user_id = ${userId}`
     ]);
 
@@ -113,8 +113,8 @@ export async function GET(request: NextRequest) {
         doNotInventMissingProfileInformation: true,
         availableLinkedInProspectStatuses: ["To research", "Ready to contact", "Connection Sent", "Connected", "Contacted", "Replied", "Call booked", "Client", "Not a fit"],
         linkedinStatusMeanings: {
-          "Connection Sent": "A LinkedIn connection invitation was actually sent and is awaiting acceptance. The connectionSentAt timestamp is recorded automatically when the status first changes to Connection Sent; preserve it unless the user corrects it.",
-          "Connected": "The invitation was accepted or the person is confirmed as a first-degree connection.",
+          "Connection Sent": "A LinkedIn connection invitation was actually sent and is awaiting acceptance. connectionSentAt is when the invitation was sent, not when it was recorded. Preserve it unless the user corrects it; never infer it from a later edit date.",
+          "Connected": "The invitation was accepted or the person is confirmed as a first-degree connection. connectedAt is the actual acceptance time when known; connectedOn may be a legacy date only. Do not treat the date the record was edited as the acceptance date.",
           "Contacted": "A direct message or other direct outreach was actually sent; it does not mean a connection invitation is pending."
         }
       },
@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
         uploadedConnectionsImportedAt: connectionMeta[0]?.imported_at || null,
         uploadedConnectionProfileUrls: connectionRows.map((x: any) => x.url),
         savedProspectProfileUrls: savedProspectRows.map((x: any) => x.url),
-        savedProspectRecords: savedProspectRows.map((x: any) => ({ id: x.id, name: x.name, company: x.company, status: x.status, connected: Boolean(x.connected), connectedOn: x.connectedOn || "", connectionSentAt: x.connectionSentAt || null, recommendedOutreach: x.recommendedOutreach || "", linkedinUrl: x.url }))
+        savedProspectRecords: savedProspectRows.map((x: any) => ({ id: x.id, name: x.name, company: x.company, status: x.status, connected: Boolean(x.connected), connectedOn: x.connectedOn || "", connectedAt: x.connectedAt || null, connectionSentAt: x.connectionSentAt || null, recommendedOutreach: x.recommendedOutreach || "", linkedinUrl: x.url }))
       }
     }, { headers: noStore });
   } catch (error) {

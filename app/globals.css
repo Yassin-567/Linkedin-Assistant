@@ -760,3 +760,12 @@ footer { color: var(--muted-2); font-size: 12px; }
 
 /* Frozen users may still navigate read-only settings sections. */
 .frozen-readonly .settings-tab { display: inline-flex !important; }
+
+
+/* Outreach audit trail: event time and entry time remain visually distinct. */
+.activity-time-edit { display:grid; gap:6px; width:min(100%, 420px); margin-top:10px; font-size:12px; }
+.activity-time-edit input { max-width:320px; }
+.activity-time-edit small { font-weight:400; }
+@media (max-width:760px) {
+  .activity-time-edit, .activity-time-edit input { width:100%; max-width:none; }
+}

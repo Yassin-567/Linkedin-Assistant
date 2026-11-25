@@ -18,7 +18,7 @@ export async function GET() {
     const [activities, reminders]: any = await Promise.all([
       sql`SELECT a.id::text, a.prospect_id::text AS "prospectId", p.name, p.company, p.linkedin_url AS "profileUrl",
         a.channel, a.activity_type AS "activityType", a.message_type AS "messageType", a.subject, a.message,
-        a.notes, a.follow_up_date::text AS "followUpDate", a.created_at AS "createdAt"
+        a.notes, a.follow_up_date::text AS "followUpDate", a.occurred_at AS "occurredAt", a.created_at AS "createdAt"
         FROM outreach_activities a JOIN prospects p ON p.id = a.prospect_id AND p.user_id = a.user_id
         WHERE a.user_id = ${user.userId} ORDER BY a.created_at DESC LIMIT 500`,
       sql`SELECT id::text, name, company, linkedin_url AS "profileUrl", status,
@@ -36,6 +36,36 @@ export async function GET() {
   }
 }
 
+export async function PATCH(request: NextRequest) {
+  const user = await currentUser();
+  if (!user) return fail("Sign in required.", 401);
+  const body = await request.json().catch(() => null);
+  const id = clean(body?.id, 50);
+  if (!uuid.test(id)) return fail("A valid activity ID is required.", 400);
+  if (!Object.prototype.hasOwnProperty.call(body, "occurredAt")) return fail("Provide the event date and time, or an empty value to mark it as unknown.", 400);
+  const value = clean(body.occurredAt, 60);
+  const occurredAtDate = value ? new Date(value) : null;
+  if (value && (!occurredAtDate || Number.isNaN(occurredAtDate.getTime()))) return fail("Use a valid date and time.", 400);
+  try {
+    const sql = db();
+    const rows: any = await sql`UPDATE outreach_activities
+      SET occurred_at = ${occurredAtDate ? occurredAtDate.toISOString() : null}::timestamptz
+      WHERE id = ${id}::uuid AND user_id = ${user.userId}
+      RETURNING id::text, prospect_id::text AS "prospectId", activity_type AS "activityType",
+        channel, message_type AS "messageType", occurred_at AS "occurredAt", created_at AS "createdAt"`;
+    if (!rows.length) return fail("Activity not found in your account.", 404);
+    if (rows[0].activityType === "sent" && rows[0].channel === "linkedin" && rows[0].messageType === "connection_request") {
+      await sql`UPDATE prospects SET connection_sent_at = ${occurredAtDate ? occurredAtDate.toISOString() : null}::timestamptz, updated_at = now()
+        WHERE id = ${rows[0].prospectId}::uuid AND user_id = ${user.userId}`;
+    }
+    return NextResponse.json({ ok: true, activity: rows[0] }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    console.error("Outreach activity timestamp update failed", error);
+    return fail("Could not update this activity date and time.", 503);
+  }
+}
+
+
 export async function POST(request: NextRequest) {
   const user = await currentUser();
   if (!user) return fail("Sign in required.", 401);
@@ -51,6 +81,11 @@ export async function POST(request: NextRequest) {
   const notes = clean(body.notes, 3000);
   const followUpDate = clean(body.followUpDate, 10);
   const idempotencyKey = clean(body.idempotencyKey, 80);
+  const hasOccurredAt = Object.prototype.hasOwnProperty.call(body, "occurredAt");
+  const occurredAtRaw = clean(body.occurredAt, 60);
+  const occurredAtDate = occurredAtRaw ? new Date(occurredAtRaw) : null;
+  if (occurredAtRaw && (!occurredAtDate || Number.isNaN(occurredAtDate.getTime()))) return fail("Use a valid date and time for when this activity happened.", 400);
+  const occurredAt = occurredAtDate ? occurredAtDate.toISOString() : hasOccurredAt ? null : new Date().toISOString();
 
   if (!uuid.test(prospectId)) return fail("Choose a valid saved prospect.", 400);
   if (!channels.includes(channel)) return fail("Choose a valid outreach channel.", 400);
@@ -74,12 +109,12 @@ export async function POST(request: NextRequest) {
     }
 
     const rows: any = await sql`INSERT INTO outreach_activities
-      (user_id, prospect_id, channel, activity_type, message_type, subject, message, notes, follow_up_date, idempotency_key)
+      (user_id, prospect_id, channel, activity_type, message_type, subject, message, notes, follow_up_date, occurred_at, idempotency_key)
       VALUES (${user.userId}, ${prospectId}::uuid, ${channel}, ${activityType}, ${messageType},
-        ${subject}, ${message}, ${notes}, ${followUpDate || null}::date, ${idempotencyKey || null})
+        ${subject}, ${message}, ${notes}, ${followUpDate || null}::date, ${occurredAt}::timestamptz, ${idempotencyKey || null})
       ON CONFLICT (user_id, idempotency_key) DO NOTHING
       RETURNING id::text, prospect_id::text AS "prospectId", channel, activity_type AS "activityType",
-        message_type AS "messageType", subject, message, notes, follow_up_date::text AS "followUpDate", created_at AS "createdAt"`;
+        message_type AS "messageType", subject, message, notes, follow_up_date::text AS "followUpDate", occurred_at AS "occurredAt", created_at AS "createdAt"`;
     if (!rows.length) return fail("This action was already recorded. Refresh the history before trying again.", 409);
 
     if (activityType === "sent") {
@@ -87,14 +122,15 @@ export async function POST(request: NextRequest) {
         follow_up = CASE WHEN ${followUpDate} <> '' THEN ${followUpDate} ELSE follow_up END,
         updated_at = now() WHERE id = ${prospectId}::uuid AND user_id = ${user.userId}`;
       if (channel === "linkedin" && messageType === "connection_request") {
-        await sql`UPDATE prospects SET status = ${"Connection Sent"}, connection_sent_at = COALESCE(connection_sent_at, now()), updated_at = now() WHERE id = ${prospectId}::uuid AND user_id = ${user.userId}`;
+        await sql`UPDATE prospects SET status = ${"Connection Sent"}, connection_sent_at = COALESCE(connection_sent_at, ${occurredAt}::timestamptz), updated_at = now() WHERE id = ${prospectId}::uuid AND user_id = ${user.userId}`;
       }
     } else if (activityType === "replied") {
       await sql`UPDATE prospects SET status = 'Replied',
         follow_up = CASE WHEN ${followUpDate} <> '' THEN ${followUpDate} ELSE follow_up END,
         updated_at = now() WHERE id = ${prospectId}::uuid AND user_id = ${user.userId}`;
     } else if (activityType === "meeting") {
-      await sql`UPDATE prospects SET status = 'Call booked',
+      // A logged meeting is an event that happened, not proof a future call is still booked.
+      await sql`UPDATE prospects SET
         follow_up = CASE WHEN ${followUpDate} <> '' THEN ${followUpDate} ELSE follow_up END,
         updated_at = now() WHERE id = ${prospectId}::uuid AND user_id = ${user.userId}`;
     } else if (followUpDate) {

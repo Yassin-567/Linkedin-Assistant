@@ -39,7 +39,8 @@ export async function POST(request: NextRequest) {
       const url = canonical(typeof x?.linkedin === "string" ? x.linkedin : typeof x?.url === "string" ? x.url : "");
       const error = !name || !company || !url || name.length > 200 || company.length > 300
         ? "Provide a name, company and a personal LinkedIn profile URL (linkedin.com/in/...)." : null;
-      const researchTool = (typeof x?.researchTool === "string" ? x.researchTool : typeof body.researchTool === "string" ? body.researchTool : "Unknown").trim().slice(0,80) || "Unknown";
+      const researchToolValue = (typeof x?.researchTool === "string" ? x.researchTool : typeof body.researchTool === "string" ? body.researchTool : "").trim().slice(0,80);
+      const researchTool = researchToolValue.toLowerCase() === "unknown" ? "" : researchToolValue;
       const recommendedOutreach = typeof x?.recommendedOutreach === "string" ? x.recommendedOutreach.trim().slice(0,6000) : "";
       return { index, name, company, url, researchTool, recommendedOutreach, error };
     });

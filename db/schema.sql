@@ -44,13 +44,14 @@ CREATE TABLE IF NOT EXISTS prospects (
   notes text NOT NULL DEFAULT '',
   connected boolean NOT NULL DEFAULT false,
   connected_on text NOT NULL DEFAULT '',
+  connected_at timestamptz,
   connection_sent_at timestamptz,
   recommended_outreach text NOT NULL DEFAULT '',
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  discovery_source text NOT NULL DEFAULT 'Unknown',
-  saved_via text NOT NULL DEFAULT 'Unknown',
-  research_tool text NOT NULL DEFAULT 'Unknown',
+  discovery_source text NOT NULL DEFAULT '',
+  saved_via text NOT NULL DEFAULT '',
+  research_tool text NOT NULL DEFAULT '',
   industry text NOT NULL DEFAULT ''
 );
 
@@ -60,6 +61,8 @@ CREATE INDEX IF NOT EXISTS prospects_user_created_idx
   ON prospects(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS prospects_user_follow_up_idx
   ON prospects(user_id, follow_up);
+CREATE INDEX IF NOT EXISTS prospects_user_connected_at_idx
+  ON prospects(user_id, connected_at DESC) WHERE connected_at IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS prospects_user_profile_unique
   ON prospects(user_id, normalized_linkedin_url)
   WHERE normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url <> '';
@@ -146,6 +149,7 @@ CREATE TABLE IF NOT EXISTS outreach_activities (
   notes text NOT NULL DEFAULT '',
   follow_up_date date,
   idempotency_key text,
+  occurred_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT outreach_activity_idempotency_unique UNIQUE (user_id, idempotency_key)
 );
@@ -153,6 +157,8 @@ CREATE INDEX IF NOT EXISTS outreach_activities_user_created_idx
   ON outreach_activities(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS outreach_activities_prospect_created_idx
   ON outreach_activities(user_id, prospect_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS outreach_activities_user_occurred_idx
+  ON outreach_activities(user_id, occurred_at DESC) WHERE occurred_at IS NOT NULL;
 
 
 -- Job discovery and tracking (Phase 8)
@@ -189,14 +195,14 @@ CREATE TABLE IF NOT EXISTS jobs (
   salary_currency text NOT NULL DEFAULT '',
   workplace_type text NOT NULL DEFAULT 'unknown'
     CHECK (workplace_type IN ('remote','hybrid','on-site','unknown')),
-  employment_type text NOT NULL DEFAULT 'unknown',
+  employment_type text NOT NULL DEFAULT '',
   location text NOT NULL DEFAULT '',
   country text NOT NULL DEFAULT '',
   seniority text NOT NULL DEFAULT '',
   posted_at timestamptz,
   posted_at_text text NOT NULL DEFAULT '',
   source_platform text NOT NULL DEFAULT 'Other',
-  research_tool text NOT NULL DEFAULT 'Unknown',
+  research_tool text NOT NULL DEFAULT '',
   source_type text NOT NULL DEFAULT 'other',
   source_url text NOT NULL,
   normalized_source_url text NOT NULL,

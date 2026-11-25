@@ -31,6 +31,10 @@ type UpdateInput = {
   status?: unknown;
   notes?: unknown;
   recommendedOutreach?: unknown;
+  connectedAt?: unknown;
+  connectedOn?: unknown;
+  connectionSentAt?: unknown;
+  appliedAt?: unknown;
 };
 
 export async function POST(request: NextRequest) {
@@ -65,13 +69,32 @@ export async function POST(request: NextRequest) {
       const notes = typeof input.notes === "string" ? input.notes.trim() : "";
       const outreachProvided = Object.prototype.hasOwnProperty.call(input, "recommendedOutreach");
       const recommendedOutreach = typeof input.recommendedOutreach === "string" ? input.recommendedOutreach.trim() : "";
+      const connectedAtProvided = Object.prototype.hasOwnProperty.call(input, "connectedAt");
+      const connectedAt = typeof input.connectedAt === "string" ? input.connectedAt.trim() : "";
+      const connectedOnProvided = Object.prototype.hasOwnProperty.call(input, "connectedOn");
+      const connectedOn = typeof input.connectedOn === "string" ? input.connectedOn.trim() : "";
+      const connectionSentAtProvided = Object.prototype.hasOwnProperty.call(input, "connectionSentAt");
+      const connectionSentAt = typeof input.connectionSentAt === "string" ? input.connectionSentAt.trim() : "";
+      const appliedAtProvided = Object.prototype.hasOwnProperty.call(input, "appliedAt");
+      const appliedAt = typeof input.appliedAt === "string" ? input.appliedAt.trim() : "";
+      const validTimestamp = (value: string) => !value || !Number.isNaN(new Date(value).getTime());
+      const validDate = (value: string) => {
+        if (!value) return true;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+        const parsed = new Date(value + "T00:00:00.000Z");
+        return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+      };
 
       if (!Object.prototype.hasOwnProperty.call(statuses, resource) ||
           !validId(id) ||
           (statusProvided && (typeof input.status !== "string" || !statuses[resource].includes(status))) ||
-          (!statusProvided && !notesProvided && !outreachProvided) ||
+          (!statusProvided && !notesProvided && !outreachProvided && !connectedAtProvided && !connectedOnProvided && !connectionSentAtProvided && !appliedAtProvided) ||
           (notesProvided && (typeof input.notes !== "string" || notes.length > 5000)) ||
-          (outreachProvided && (typeof input.recommendedOutreach !== "string" || recommendedOutreach.length > 6000))) {
+          (outreachProvided && (typeof input.recommendedOutreach !== "string" || recommendedOutreach.length > 6000)) ||
+          (connectedAtProvided && (typeof input.connectedAt !== "string" || !validTimestamp(connectedAt))) ||
+          (connectedOnProvided && (typeof input.connectedOn !== "string" || !validDate(connectedOn))) ||
+          (connectionSentAtProvided && (typeof input.connectionSentAt !== "string" || !validTimestamp(connectionSentAt))) ||
+          (appliedAtProvided && (typeof input.appliedAt !== "string" || !validTimestamp(appliedAt)))) {
         invalid++;
         results.push({ index, status: "invalid", error: "Provide a valid resource and record ID, plus at least one allowed status, notes or recommendedOutreach. Notes must be 5,000 characters or fewer and recommendedOutreach 6,000 characters or fewer." });
         continue;
@@ -85,21 +108,32 @@ export async function POST(request: NextRequest) {
               notes = CASE WHEN ${notesProvided} THEN ${notes} ELSE notes END,
               recommended_outreach = CASE WHEN ${outreachProvided} THEN ${recommendedOutreach} ELSE recommended_outreach END,
               connected = CASE WHEN ${statusProvided} AND ${status} = 'Connected' THEN true ELSE connected END,
-              connection_sent_at = CASE WHEN ${statusProvided} AND ${status} = 'Connection Sent' THEN COALESCE(connection_sent_at, now()) ELSE connection_sent_at END,
+              connected_at = CASE
+                WHEN ${connectedAtProvided} THEN NULLIF(${connectedAt}, '')::timestamptz
+                WHEN ${connectedOnProvided} AND ${connectedOn} <> COALESCE(connected_on, '') THEN NULL
+                ELSE connected_at
+              END,
+              connection_sent_at = CASE
+                WHEN ${connectionSentAtProvided} THEN NULLIF(${connectionSentAt}, '')::timestamptz
+                ELSE connection_sent_at
+              END,
               connected_on = CASE
-                WHEN ${statusProvided} AND ${status} = 'Connected' AND COALESCE(connected_on, '') = ''
-                  THEN to_char(current_date, 'YYYY-MM-DD')
+                WHEN ${connectedAtProvided} AND ${connectedAt} <> '' THEN to_char(${connectedAt}::timestamptz AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD')
+                WHEN ${connectedOnProvided} THEN ${connectedOn}
                 ELSE connected_on
               END,
               updated_at = now()
           WHERE id = ${id}::uuid AND user_id = ${auth.userId}
-          RETURNING id::text, status, notes, recommended_outreach AS "recommendedOutreach", connected, connected_on AS "connectedOn", connection_sent_at AS "connectionSentAt", updated_at AS "updatedAt"
+          RETURNING id::text, status, notes, recommended_outreach AS "recommendedOutreach", connected, connected_on AS "connectedOn", connected_at AS "connectedAt", connection_sent_at AS "connectionSentAt", updated_at AS "updatedAt"
         `;
       } else if (resource === "job") {
         rows = await sql`
           UPDATE jobs
           SET status = CASE WHEN ${statusProvided} THEN ${status} ELSE status END,
-              applied_at = CASE WHEN ${statusProvided} AND ${status} = ${"Applied"} THEN COALESCE(applied_at, now()) ELSE applied_at END,
+              applied_at = CASE
+                WHEN ${appliedAtProvided} THEN NULLIF(${appliedAt}, '')::timestamptz
+                ELSE applied_at
+              END,
               notes = CASE WHEN ${notesProvided} THEN ${notes} ELSE notes END,
               recommended_outreach = CASE WHEN ${outreachProvided} THEN ${recommendedOutreach} ELSE recommended_outreach END,
               updated_at = now()
@@ -136,6 +170,7 @@ export async function POST(request: NextRequest) {
         ...(resource === "linkedin_prospect" ? {
           connected: Boolean(rows[0].connected),
           connectedOn: rows[0].connectedOn || "",
+          connectedAt: rows[0].connectedAt || "",
           connectionSentAt: rows[0].connectionSentAt || ""
         } : {}),
         updatedAt: rows[0].updatedAt
