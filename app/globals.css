@@ -805,3 +805,27 @@ footer { color: var(--muted-2); font-size: 12px; }
   .billing-price-row { align-items:flex-start; flex-direction:column; }
   .billing-price-row button { width:100%; }
 }
+
+
+.billing-interval-switch {
+  display:inline-flex;
+  align-self:flex-start;
+  gap:3px;
+  padding:4px;
+  margin:2px 0 8px;
+  background:#f1f4f7;
+  border:1px solid #e0e6ec;
+  border-radius:9px;
+}
+.billing-interval-switch button {
+  padding:8px 14px;
+  background:transparent;
+  color:#607184;
+  font-size:12px;
+  border-radius:6px;
+}
+.billing-interval-switch button.active {
+  background:#fff;
+  color:var(--navy-deep);
+  box-shadow:0 1px 3px rgba(18,38,63,.10);
+}
