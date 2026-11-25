@@ -196,3 +196,14 @@ The preview's `DATABASE_URL` is already set to the isolated Neon branch. Keep it
 5. Verify the customer portal opens only for the authenticated user's mapped Paddle customer. Cancellation behavior, refunds and chargebacks require owner policy confirmation before live use.
 
 No real payments have been enabled or tested by this branch. A successful Vercel build is not evidence that checkout, webhook delivery or entitlement changes have passed a live browser test.
+
+
+### Vercel Preview webhook protection
+
+Vercel currently protects Preview deployments with SSO. Paddle's notification service cannot complete the webhook request through that login screen. Before adding the Paddle notification destination, create a **Protection Bypass for Automation** secret in the Vercel project under **Settings → Deployment Protection**. Use the Vercel-generated secret only in the Paddle sandbox webhook URL as the `x-vercel-protection-bypass` query parameter:
+
+```text
+https://linkedin-assistant-git-inlinked-padd-72ae08-yassin567s-projects.vercel.app/api/billing/webhook?x-vercel-protection-bypass=YOUR_VERCEL_BYPASS_SECRET
+```
+
+This URL bypass secret is a Vercel project-level deployment-protection credential. Keep it private, avoid pasting it into chat or source control, and revoke it after sandbox testing if it is no longer needed. Keep Paddle's own webhook signing secret separate in `PADDLE_WEBHOOK_SECRET`. The application still verifies Paddle's `Paddle-Signature` before processing any event.
