@@ -34,7 +34,10 @@ const groups = [
   },
   {
     label: "PREFERENCES",
-    items: [{ label: "Settings", href: "/settings", icon: "settings" }]
+    items: [
+      { label: "Settings", href: "/settings", icon: "settings" },
+      { label: "Plans & billing", href: "/billing", icon: "billing" }
+    ]
   }
 ];
 
