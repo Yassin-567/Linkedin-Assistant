@@ -14,6 +14,7 @@ type PriceDisplay = { monthly: string; yearly: string };
 export default function BillingClient() {
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [prices, setPrices] = useState<PriceDisplay>({ monthly: "", yearly: "" });
+  const [interval, setInterval] = useState<"monthly" | "yearly">("monthly");
   const [busy, setBusy] = useState<"monthly" | "yearly" | "portal" | "refresh" | "">("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -153,13 +154,19 @@ export default function BillingClient() {
             <li>Advanced filtering and exports</li>
             <li>More saved professional context</li>
           </ul>
-          <div className="billing-price-row">
-            <div><strong>{prices.monthly || "—"}</strong><span className="muted"> / month</span></div>
-            <button className="button" onClick={() => void startCheckout("monthly")} disabled={!prices.monthly || busy !== "" || status?.plan === "pro"}>{busy === "monthly" ? "Opening..." : "Choose monthly"}</button>
+          <div className="billing-interval-switch" role="group" aria-label="Billing interval">
+            <button type="button" className={interval === "monthly" ? "active" : ""} aria-pressed={interval === "monthly"} onClick={() => setInterval("monthly")}>Monthly</button>
+            <button type="button" className={interval === "yearly" ? "active" : ""} aria-pressed={interval === "yearly"} onClick={() => setInterval("yearly")}>Yearly</button>
           </div>
           <div className="billing-price-row">
-            <div><strong>{prices.yearly || "—"}</strong><span className="muted"> / year</span></div>
-            <button className="button secondary" onClick={() => void startCheckout("yearly")} disabled={!prices.yearly || busy !== "" || status?.plan === "pro"}>{busy === "yearly" ? "Opening..." : "Choose yearly"}</button>
+            <div>
+              <strong>{interval === "monthly" ? prices.monthly || "—" : prices.yearly || "—"}</strong>
+              <span className="muted"> / {interval === "monthly" ? "month" : "year"}</span>
+            </div>
+            <button className="button" onClick={() => void startCheckout(interval)}
+              disabled={!(interval === "monthly" ? prices.monthly : prices.yearly) || busy !== "" || status?.plan === "pro"}>
+              {busy === interval ? "Opening..." : "Choose " + interval}
+            </button>
           </div>
           <p className="footnote">Prices are displayed from Paddle's sandbox price preview, including localized totals and tax returned by Paddle.</p>
         </article>
