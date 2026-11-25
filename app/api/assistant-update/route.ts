@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
           SET status = CASE WHEN ${statusProvided} THEN ${status} ELSE status END,
               notes = CASE WHEN ${notesProvided} THEN ${notes} ELSE notes END,
               recommended_outreach = CASE WHEN ${outreachProvided} THEN ${recommendedOutreach} ELSE recommended_outreach END,
-              connected = CASE WHEN ${statusProvided} AND ${status} = 'Connected' THEN true ELSE connected END,
+              connected = CASE WHEN ${statusProvided} AND ${status} = 'Connected' THEN true ELSE connected END,\n              connection_sent_at = CASE WHEN ${statusProvided} AND ${status} = 'Connection Sent' THEN COALESCE(connection_sent_at, now()) ELSE connection_sent_at END,
               connected_on = CASE
                 WHEN ${statusProvided} AND ${status} = 'Connected' AND COALESCE(connected_on, '') = ''
                   THEN to_char(current_date, 'YYYY-MM-DD')
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
               END,
               updated_at = now()
           WHERE id = ${id}::uuid AND user_id = ${auth.userId}
-          RETURNING id::text, status, notes, recommended_outreach AS "recommendedOutreach", connected, connected_on AS "connectedOn", updated_at AS "updatedAt"
+          RETURNING id::text, status, notes, recommended_outreach AS "recommendedOutreach", connected, connected_on AS "connectedOn", connection_sent_at AS "connectionSentAt", updated_at AS "updatedAt"
         `;
       } else if (resource === "job") {
         rows = await sql`
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
               recommended_outreach = CASE WHEN ${outreachProvided} THEN ${recommendedOutreach} ELSE recommended_outreach END,
               updated_at = now()
           WHERE id = ${id}::uuid AND user_id = ${auth.userId}
-          RETURNING id::text, status, notes, recommended_outreach AS "recommendedOutreach", updated_at AS "updatedAt"
+          RETURNING id::text, status, applied_at AS "appliedAt", notes, recommended_outreach AS "recommendedOutreach", updated_at AS "updatedAt"
         `;
       } else {
         rows = await sql`
@@ -129,10 +129,10 @@ export async function POST(request: NextRequest) {
         id: String(rows[0].id),
         status: "updated",
         currentStatus: rows[0].status,
-        recommendedOutreach: rows[0].recommendedOutreach || "",
+        recommendedOutreach: rows[0].recommendedOutreach || "",\n        ...(resource === "job" ? { appliedAt: rows[0].appliedAt || "" } : {}),
         ...(resource === "linkedin_prospect" ? {
           connected: Boolean(rows[0].connected),
-          connectedOn: rows[0].connectedOn || ""
+          connectedOn: rows[0].connectedOn || "",\n          connectionSentAt: rows[0].connectionSentAt || ""
         } : {}),
         updatedAt: rows[0].updatedAt
       });
