@@ -176,7 +176,7 @@ Assistant save responses include saved record IDs. Context responses expose rece
 
 This branch uses its own isolated Neon branch named `inlinked-paddle-sandbox`. Its connection string is configured only as a Vercel Preview environment variable scoped to this Git branch. The Phase 16 tables have been created on that isolated branch only. Do not copy this branch's database URL to Production.
 
-Set these values for the Vercel Preview environment, scoped to Git branch `inlinked-paddle-sandbox`:
+Set these values for the Vercel Preview environment, scoped to Git branch `inlinked-paddle-sandbox`. Create a sandbox API key with only `transaction.write` and `customer_portal_session.write` permissions:
 
 - `PADDLE_ENVIRONMENT=sandbox`
 - `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN`: sandbox client-side token beginning with `test_`
