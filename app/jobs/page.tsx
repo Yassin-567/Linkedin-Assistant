@@ -54,6 +54,10 @@ export default function JobsPage() {
     const text = [job.title, job.company, job.location, job.country, job.sourcePlatform, job.description, job.notes].join(" ").toLowerCase();
     return (filter === "All" || job.status === filter) && text.includes(search.toLowerCase());
   }), [jobs, filter, search]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const shown = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => { setPage(1); }, [filter, search]);
 
   async function update(job: Job, changes: { status?: string; notes?: string; recommendedOutreach?: string; appliedAt?: string | null }) {
     try {
@@ -124,7 +128,7 @@ export default function JobsPage() {
     </section>
 
     <section className="panel">
-      <div className="section-heading"><div><h2>Saved jobs</h2><p className="muted">Track each vacancy through your application process.</p></div><button type="button" className="secondary" onClick={exportCsv} disabled={!shown.length}>Export CSV</button></div>
+      <div className="section-heading"><div><h2>Saved jobs</h2><p className="muted">Track each vacancy through your application process.</p></div><button type="button" className="secondary" onClick={exportCsv} disabled={!filtered.length}>Export CSV</button></div>
       <div className="toolbar jobs-toolbar">
         <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search title, company, location or source..." />
         <select value={filter} onChange={e => setFilter(e.target.value)}><option>All</option>{statuses.map(status => <option key={status}>{status}</option>)}</select>
