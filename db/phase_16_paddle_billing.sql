@@ -2,18 +2,19 @@
 -- Apply only to an isolated development/preview database, never to production before go-live.
 
 CREATE TABLE IF NOT EXISTS paddle_customers (
-  user_id text PRIMARY KEY REFERENCES app_users(id) ON DELETE CASCADE,
-  paddle_customer_id text NOT NULL UNIQUE,
+  paddle_customer_id text PRIMARY KEY,
+  user_id text NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
   email text NOT NULL DEFAULT '',
   customer_name text NOT NULL DEFAULT '',
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS paddle_customers_user_idx ON paddle_customers(user_id);
 
 CREATE TABLE IF NOT EXISTS paddle_checkout_transactions (
   paddle_transaction_id text PRIMARY KEY,
   user_id text NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
-  paddle_customer_id text NOT NULL,
+  paddle_customer_id text,
   price_id text NOT NULL,
   status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','completed','canceled')),
   created_at timestamptz NOT NULL DEFAULT now(),
