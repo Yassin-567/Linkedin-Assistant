@@ -18,7 +18,7 @@ function profileUrl(value: unknown): string | null {
   if (typeof value !== "string" || !value.trim()) return null;
   try {
     const url = new URL(value.trim());
-    if (!/(^|\\.)linkedin\.com$/i.test(url.hostname) || !url.pathname.toLowerCase().startsWith("/in/")) return null;
+    if (!/(^|\.)linkedin\.com$/i.test(url.hostname) || !url.pathname.toLowerCase().startsWith("/in/")) return null;
     return "https://www.linkedin.com" + url.pathname.replace(/\/$/, "").toLowerCase();
   } catch {
     return null;
