@@ -28,7 +28,9 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("All");\n  const [page, setPage] = useState(1);\n  const pageSize = 25;
+  const [filter, setFilter] = useState("All");
+  const [page, setPage] = useState(1);
+  const pageSize = 25;
   const [message, setMessage] = useState("");
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
