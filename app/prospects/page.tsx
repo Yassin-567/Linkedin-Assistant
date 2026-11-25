@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 
 type Lead = { id: string; name: string; company: string; url: string; status: string; followUp: string; notes: string; connected?: boolean; connectedOn?: string; connectionSentAt?: string; researchTool?: string; recommendedOutreach?: string };
-const toLocalDateTime = (value?: string) => { if (!value) return ""; const d = new Date(value); return Number.isNaN(d.getTime()) ? "" : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); };\nconst statuses = ["To research", "Ready to contact", "Connection Sent", "Connected", "Contacted", "Replied", "Call booked", "Client", "Not a fit"];
+const toLocalDateTime = (value?: string) => { if (!value) return ""; const d = new Date(value); return Number.isNaN(d.getTime()) ? "" : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); };
+const statuses = ["To research", "Ready to contact", "Connection Sent", "Connected", "Contacted", "Replied", "Call booked", "Client", "Not a fit"];
 
 export default function Home() {
   const [account, setAccount] = useState<{connected:boolean; profile?:{name?:string;email?:string}}>({connected:false});
