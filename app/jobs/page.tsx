@@ -104,7 +104,7 @@ export default function JobsPage() {
   function exportCsv() {
     const fields = ["title","company","location","country","workplaceType","employmentType","salaryText","postedAtText","sourcePlatform","researchTool","sourceUrl","applicationUrl","status","appliedAt","notes","recommendedOutreach"];
     const quote = (v: unknown) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
-    const lines = [fields, ...filtered.map(job => fields.map(field => (job as unknown as Record<string, unknown>)[field]))]
+    const lines = [fields, ...filtered.map(job => fields.map(field => { const value = (job as unknown as Record<string, unknown>)[field]; return typeof value === "string" && value.toLowerCase() === "unknown" ? "" : value; }))]
       .map(row => row.map(quote).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([lines], { type: "text/csv;charset=utf-8" }));
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = "inlinked-jobs.csv"; anchor.click(); URL.revokeObjectURL(url);
@@ -142,8 +142,8 @@ export default function JobsPage() {
             <div className="job-status-outreach"><select aria-label={"Status for " + job.title} value={job.status} onChange={e => void update(job, { status: e.target.value })}>{statuses.map(status => <option key={status}>{status}</option>)}</select>{job.status === "Applied" && <label>Applied date and time<input aria-label={"Application date and time for " + job.title} type="datetime-local" value={toLocalDateTime(job.appliedAt)} onChange={e => void update(job, { appliedAt: e.target.value ? new Date(e.target.value).toISOString() : null })} /></label>}{job.appliedAt && <small>Applied: {new Date(job.appliedAt).toLocaleString()}</small>}<aside className="recommended-outreach"><label>Recommended outreach<textarea rows={4} defaultValue={job.recommendedOutreach || ""} onBlur={e=>{const value=e.target.value;if(value!==(job.recommendedOutreach||""))void update(job,{recommendedOutreach:value});}} placeholder="A tailored message to the recruiter or hiring team will appear here."/></label><button type="button" className="secondary" disabled={!job.recommendedOutreach?.trim()} onClick={()=>void copyRecommended(job.recommendedOutreach||"")}>Copy message</button></aside></div>
           </div>
           <div className="job-chip-row">
-            <span className="job-chip">{job.sourcePlatform || "Other source"}</span>
-            <span className="job-chip">AI research tool: {job.researchTool || "Unknown"}</span>
+            <span className="job-chip">{job.sourcePlatform && job.sourcePlatform.toLowerCase() !== "unknown" ? job.sourcePlatform : ""}</span>
+            {job.researchTool && job.researchTool.toLowerCase() !== "unknown" && <span className="job-chip">Research tool: {job.researchTool}</span>}
             {job.salaryText && <span className="job-chip salary">{job.salaryText}</span>}
             {(job.postedAtText || safeDate(job.postedAt)) && <span className="job-chip">Posted: {job.postedAtText || safeDate(job.postedAt)}</span>}
             {job.discoveredAt && <span className="job-chip">Found: {safeDate(job.discoveredAt)}</span>}
