@@ -99,6 +99,7 @@ export async function POST(request: NextRequest) {
         rows = await sql`
           UPDATE jobs
           SET status = CASE WHEN ${statusProvided} THEN ${status} ELSE status END,
+              applied_at = CASE WHEN ${statusProvided} AND ${status} = ${"Applied"} THEN COALESCE(applied_at, now()) ELSE applied_at END,
               notes = CASE WHEN ${notesProvided} THEN ${notes} ELSE notes END,
               recommended_outreach = CASE WHEN ${outreachProvided} THEN ${recommendedOutreach} ELSE recommended_outreach END,
               updated_at = now()
