@@ -55,11 +55,23 @@ export async function PATCH(request: NextRequest) {
   const notes = typeof body.notes === "string" ? body.notes.trim().slice(0, 5000) : "";
   const outreachProvided = Object.prototype.hasOwnProperty.call(body, "recommendedOutreach");
   const recommendedOutreach = typeof body.recommendedOutreach === "string" ? body.recommendedOutreach.trim().slice(0, 6000) : "";
-  const appliedAt = typeof body.appliedAt === "string" && body.appliedAt ? body.appliedAt : null;
+  const hasAppliedAt = Object.prototype.hasOwnProperty.call(body, "appliedAt");
+  const appliedAt = typeof body.appliedAt === "string" ? body.appliedAt : "";
+  if (appliedAt && Number.isNaN(new Date(appliedAt).getTime())) return fail("Use a valid application date and time.", 400);
   try {
     const sql = db();
-    const rows: any = await sql`UPDATE jobs SET status=${status}, applied_at=COALESCE(${appliedAt}::timestamptz, applied_at, CASE WHEN ${status} = ${"Applied"} THEN now() ELSE NULL END), notes=${notes}, recommended_outreach=CASE WHEN ${outreachProvided} THEN ${recommendedOutreach} ELSE recommended_outreach END, updated_at=now()
-      WHERE id=${body.id}::uuid AND user_id=${user.userId} RETURNING id`;
+    const rows: any = await sql`UPDATE jobs SET
+      status = ${status},
+      applied_at = CASE
+        WHEN ${hasAppliedAt} THEN NULLIF(${appliedAt}, '')::timestamptz
+        WHEN ${status} = 'Applied' AND jobs.status <> 'Applied' THEN COALESCE(applied_at, now())
+        ELSE applied_at
+      END,
+      notes = ${notes},
+      recommended_outreach = CASE WHEN ${outreachProvided} THEN ${recommendedOutreach} ELSE recommended_outreach END,
+      updated_at = now()
+      WHERE id = ${body.id}::uuid AND user_id = ${user.userId}
+      RETURNING id::text, applied_at AS "appliedAt"`;
     if (!rows.length) return fail("Job not found in your account.", 404);
     return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
