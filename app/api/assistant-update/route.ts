@@ -33,6 +33,7 @@ type UpdateInput = {
   recommendedOutreach?: unknown;
   connectedAt?: unknown;
   connectionSentAt?: unknown;
+  appliedAt?: unknown;
 };
 
 export async function POST(request: NextRequest) {
@@ -71,14 +72,16 @@ export async function POST(request: NextRequest) {
       const connectedAt = typeof input.connectedAt === "string" ? input.connectedAt.trim() : "";
       const connectionSentAtProvided = Object.prototype.hasOwnProperty.call(input, "connectionSentAt");
       const connectionSentAt = typeof input.connectionSentAt === "string" ? input.connectionSentAt.trim() : "";
+      const appliedAtProvided = Object.prototype.hasOwnProperty.call(input, "appliedAt");
+      const appliedAt = typeof input.appliedAt === "string" ? input.appliedAt.trim() : "";
       const validTimestamp = (value: string) => !value || !Number.isNaN(new Date(value).getTime());
 
       if (!Object.prototype.hasOwnProperty.call(statuses, resource) ||
           !validId(id) ||
           (statusProvided && (typeof input.status !== "string" || !statuses[resource].includes(status))) ||
-          (!statusProvided && !notesProvided && !outreachProvided && !connectedAtProvided && !connectionSentAtProvided) ||
+          (!statusProvided && !notesProvided && !outreachProvided && !connectedAtProvided && !connectionSentAtProvided && !appliedAtProvided) ||
           (notesProvided && (typeof input.notes !== "string" || notes.length > 5000)) ||
-          (outreachProvided && (typeof input.recommendedOutreach !== "string" || recommendedOutreach.length > 6000)) ||\n          (connectedAtProvided && (typeof input.connectedAt !== "string" || !validTimestamp(connectedAt))) ||\n          (connectionSentAtProvided && (typeof input.connectionSentAt !== "string" || !validTimestamp(connectionSentAt)))) {
+          (outreachProvided && (typeof input.recommendedOutreach !== "string" || recommendedOutreach.length > 6000)) ||\n          (connectedAtProvided && (typeof input.connectedAt !== "string" || !validTimestamp(connectedAt))) ||\n          (connectionSentAtProvided && (typeof input.connectionSentAt !== "string" || !validTimestamp(connectionSentAt))) ||\n          (appliedAtProvided && (typeof input.appliedAt !== "string" || !validTimestamp(appliedAt)))) {
         invalid++;
         results.push({ index, status: "invalid", error: "Provide a valid resource and record ID, plus at least one allowed status, notes or recommendedOutreach. Notes must be 5,000 characters or fewer and recommendedOutreach 6,000 characters or fewer." });
         continue;
@@ -116,7 +119,11 @@ export async function POST(request: NextRequest) {
         rows = await sql`
           UPDATE jobs
           SET status = CASE WHEN ${statusProvided} THEN ${status} ELSE status END,
-              applied_at = CASE WHEN ${statusProvided} AND ${status} = ${"Applied"} THEN COALESCE(applied_at, now()) ELSE applied_at END,
+              applied_at = CASE
+                WHEN ${appliedAtProvided} THEN NULLIF(${appliedAt}, '')::timestamptz
+                WHEN ${statusProvided} AND ${status} = 'Applied' AND jobs.status <> 'Applied' THEN COALESCE(applied_at, now())
+                ELSE applied_at
+              END,
               notes = CASE WHEN ${notesProvided} THEN ${notes} ELSE notes END,
               recommended_outreach = CASE WHEN ${outreachProvided} THEN ${recommendedOutreach} ELSE recommended_outreach END,
               updated_at = now()
