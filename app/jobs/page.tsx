@@ -7,12 +7,12 @@ type Job = {
   workplaceType: string; employmentType: string; location: string; country: string;
   seniority: string; postedAt: string | null; postedAtText: string;
   sourcePlatform: string; researchTool: string; sourceType: string; sourceUrl: string; applicationUrl: string;
-  matchReason: string; recommendedOutreach?: string; evidenceUrls: string[]; sourceMetadata: Record<string, unknown> | null; status: string; notes: string;
+  matchReason: string; recommendedOutreach?: string; evidenceUrls: string[]; sourceMetadata: Record<string, unknown> | null; status: string; appliedAt?: string | null; notes: string;
   discoveredAt: string; createdAt: string;
 };
 const statuses = ["Saved", "Applied", "Interviewing", "Offer", "Rejected", "Closed", "Not interested"];
 const label = (value: string) => value ? value.replace(/[_-]+/g, " ").replace(/\b\w/g, x => x.toUpperCase()) : "Not specified";
-const safeDate = (value?: string | null) => value && !Number.isNaN(Date.parse(value)) ? new Date(value).toLocaleDateString() : "";
+const safeDate = (value?: string | null) => value && !Number.isNaN(Date.parse(value)) ? new Date(value).toLocaleDateString() : "";\nconst toLocalDateTime = (value?: string | null) => { if (!value) return ""; const d = new Date(value); return Number.isNaN(d.getTime()) ? "" : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); };
 const metaList = (metadata: Record<string, unknown> | null, key: string) => {
   const value = metadata?.[key];
   if (Array.isArray(value)) return value.filter(item => typeof item === "string" && item.trim()).map(String);
@@ -28,7 +28,7 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("All");
+  const [filter, setFilter] = useState("All");\n  const [page, setPage] = useState(1);\n  const pageSize = 25;
   const [message, setMessage] = useState("");
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
@@ -47,17 +47,17 @@ export default function JobsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const shown = useMemo(() => jobs.filter(job => {
+  const filtered = useMemo(() => jobs.filter(job => {
     const text = [job.title, job.company, job.location, job.country, job.sourcePlatform, job.description, job.notes].join(" ").toLowerCase();
     return (filter === "All" || job.status === filter) && text.includes(search.toLowerCase());
   }), [jobs, filter, search]);
 
   async function update(job: Job, changes: { status?: string; notes?: string; recommendedOutreach?: string }) {
     try {
-      const response = await fetch("/api/jobs", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: job.id, status: changes.status ?? job.status, notes: changes.notes ?? job.notes, recommendedOutreach: changes.recommendedOutreach ?? job.recommendedOutreach ?? "" }) });
+      const response = await fetch("/api/jobs", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: job.id, status: changes.status ?? job.status, notes: changes.notes ?? job.notes, recommendedOutreach: changes.recommendedOutreach ?? job.recommendedOutreach ?? "", appliedAt: changes.appliedAt ?? job.appliedAt ?? null }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not update this job.");
-      setJobs(old => old.map(item => item.id === job.id ? { ...item, ...changes } : item));
+      setJobs(old => old.map(item => item.id === job.id ? { ...item, ...changes, appliedAt: changes.appliedAt ?? (changes.status === "Applied" ? job.appliedAt || new Date().toISOString() : job.appliedAt) } : item));
       setMessage("Job updated.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Update failed."); }
   }
@@ -95,7 +95,7 @@ export default function JobsPage() {
   }
 
   function exportCsv() {
-    const fields = ["title","company","location","country","workplaceType","employmentType","salaryText","postedAtText","sourcePlatform","researchTool","sourceUrl","applicationUrl","status","notes","recommendedOutreach"];
+    const fields = ["title","company","location","country","workplaceType","employmentType","salaryText","postedAtText","sourcePlatform","researchTool","sourceUrl","applicationUrl","status","appliedAt","notes","recommendedOutreach"];
     const quote = (v: unknown) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
     const lines = [fields, ...shown.map(job => fields.map(field => (job as unknown as Record<string, unknown>)[field]))]
       .map(row => row.map(quote).join(",")).join("\r\n");
@@ -132,7 +132,7 @@ export default function JobsPage() {
             <div className="job-title-block"><h3>{job.title}</h3><strong>{job.company || "Employer not identified"}</strong><div className="job-meta">
               {[job.location, job.country, label(job.workplaceType), label(job.employmentType), job.seniority].filter(Boolean).join(" · ")}
             </div></div>
-            <div className="job-status-outreach"><select aria-label={"Status for " + job.title} value={job.status} onChange={e => void update(job, { status: e.target.value })}>{statuses.map(status => <option key={status}>{status}</option>)}</select><aside className="recommended-outreach"><label>Recommended outreach<textarea rows={4} defaultValue={job.recommendedOutreach || ""} onBlur={e=>{const value=e.target.value;if(value!==(job.recommendedOutreach||""))void update(job,{recommendedOutreach:value});}} placeholder="A tailored message to the recruiter or hiring team will appear here."/></label><button type="button" className="secondary" disabled={!job.recommendedOutreach?.trim()} onClick={()=>void copyRecommended(job.recommendedOutreach||"")}>Copy message</button></aside></div>
+            <div className="job-status-outreach"><select aria-label={"Status for " + job.title} value={job.status} onChange={e => void update(job, { status: e.target.value })}>{statuses.map(status => <option key={status}>{status}</option>)}</select>{job.status === "Applied" && <label>Applied date and time<input aria-label={"Application date and time for " + job.title} type="datetime-local" value={toLocalDateTime(job.appliedAt)} onChange={e => void update(job, { appliedAt: e.target.value ? new Date(e.target.value).toISOString() : null })} /></label>}{job.appliedAt && <small>Applied: {new Date(job.appliedAt).toLocaleString()}</small>}<aside className="recommended-outreach"><label>Recommended outreach<textarea rows={4} defaultValue={job.recommendedOutreach || ""} onBlur={e=>{const value=e.target.value;if(value!==(job.recommendedOutreach||""))void update(job,{recommendedOutreach:value});}} placeholder="A tailored message to the recruiter or hiring team will appear here."/></label><button type="button" className="secondary" disabled={!job.recommendedOutreach?.trim()} onClick={()=>void copyRecommended(job.recommendedOutreach||"")}>Copy message</button></aside></div>
           </div>
           <div className="job-chip-row">
             <span className="job-chip">{job.sourcePlatform || "Other source"}</span>
@@ -169,7 +169,7 @@ export default function JobsPage() {
           </div>
         </article>)}
       </div> : <div className="empty"><strong>{jobs.length ? "No matching jobs" : "No jobs saved yet"}</strong><p>{jobs.length ? "Try another search or status filter." : "Set your job preferences, generate the Find jobs prompt, and let ChatGPT research vacancies across the public web."}</p><a className="button" href="/settings">Open job preferences</a></div>}
-      <p className="muted" role="status">{message}</p>
+      <div className="row" aria-label="Job pages"><span className="muted">Showing {filtered.length ? (page-1)*pageSize+1 : 0}–{Math.min(page*pageSize,filtered.length)} of {filtered.length}</span><button type="button" className="secondary" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Previous</button><span>Page {page} of {pageCount}</span><button type="button" className="secondary" disabled={page>=pageCount} onClick={()=>setPage(p=>p+1)}>Next</button></div><p className="muted" role="status">{message}</p>
     </section>
 
     <section className="panel">
