@@ -55,7 +55,7 @@ export default function JobsPage() {
     return (filter === "All" || job.status === filter) && text.includes(search.toLowerCase());
   }), [jobs, filter, search]);
 
-  async function update(job: Job, changes: { status?: string; notes?: string; recommendedOutreach?: string }) {
+  async function update(job: Job, changes: { status?: string; notes?: string; recommendedOutreach?: string; appliedAt?: string | null }) {
     try {
       const response = await fetch("/api/jobs", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: job.id, status: changes.status ?? job.status, notes: changes.notes ?? job.notes, recommendedOutreach: changes.recommendedOutreach ?? job.recommendedOutreach ?? "", appliedAt: changes.appliedAt ?? job.appliedAt ?? null }) });
       const data = await response.json();
