@@ -12,9 +12,9 @@ export async function GET() {
       sql`SELECT
         COUNT(*)::int AS discovered,
         COUNT(*) FILTER (WHERE status IN ('Ready to contact','Contacted','Replied','Call booked','Client'))::int AS qualified,
-        COUNT(*) FILTER (WHERE status IN ('Contacted','Replied','Call booked','Client'))::int AS contacted,
-        COUNT(*) FILTER (WHERE status IN ('Replied','Call booked','Client'))::int AS replies,
-        COUNT(*) FILTER (WHERE status IN ('Call booked','Client'))::int AS meetings,
+        COUNT(*) FILTER (WHERE status = 'Contacted')::int AS contacted,
+        COUNT(*) FILTER (WHERE status = 'Replied')::int AS replies,
+        COUNT(*) FILTER (WHERE status = 'Call booked')::int AS meetings,
         COUNT(*) FILTER (WHERE status = 'Client')::int AS clients
         FROM prospects WHERE user_id = ${user.userId}`,
       sql`SELECT industry, COUNT(*)::int AS prospects,
