@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isProUser } from "@/lib/billing";
 import { hashToken } from "@/lib/assistant-auth";
 import { buildGatewayPrompt, createSessionToken, type PromptWorkflow } from "@/lib/prompt-gateway";
 
@@ -141,6 +142,9 @@ export async function GET(request: NextRequest) {
       if (!owners.length) {
         return errorResponse("The permanent AI token is invalid or has been revoked.", 401);
       }
+      if (!(await isProUser(String(owners[0].user_id)))) {
+        return errorResponse("Inlinked Pro is required for AI research handoff and record updates. Upgrade at /billing.", 402);
+      }
       const directory = buildUltimateDirectory(canonicalGatewayOrigin(request), permanentToken);
       return new NextResponse(directory, {
         status: 200,
@@ -239,6 +243,9 @@ export async function GET(request: NextRequest) {
     if (!owners.length) return errorResponse("The permanent AI token is invalid or has been revoked.", 401);
 
     const userId = String(owners[0].user_id);
+    if (!(await isProUser(userId))) {
+      return errorResponse("Inlinked Pro is required for AI research handoff and record updates. Upgrade at /billing.", 402);
+    }
     const sessionToken = createSessionToken();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
     await sql`

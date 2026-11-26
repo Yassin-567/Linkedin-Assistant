@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/app-auth";
 import { db } from "@/lib/db";
+import { isProUser } from "@/lib/billing";
 import { decryptPermanentToken, encryptPermanentToken, hashToken } from "@/lib/assistant-auth";
 
 export const runtime = "nodejs";
@@ -60,6 +61,13 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: noStore });
 
   try {
+    if (!(await isProUser(user.userId))) {
+      return NextResponse.json({
+        error: "Inlinked Pro is required for AI research handoff and record updates.",
+        code: "PRO_REQUIRED",
+        upgradeUrl: "/billing"
+      }, { status: 402, headers: noStore });
+    }
     const sql = db();
     const accessToken = randomBytes(32).toString("base64url");
     const tokenHash = hashToken(accessToken);
