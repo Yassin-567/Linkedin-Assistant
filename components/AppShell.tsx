@@ -86,7 +86,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
-  if (pathname === "/login") return <>{children}</>;
+  if (pathname === "/login" || pathname === "/terms" || pathname === "/privacy" || pathname === "/refund") return <>{children}</>;
 
   const displayName = account.profile?.name || account.profile?.email || "Workspace account";
   const navigationGroups = account.isAdmin
