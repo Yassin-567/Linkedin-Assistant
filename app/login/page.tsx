@@ -17,7 +17,7 @@ export default function LoginPage() {
         </a>
         <p className="login-note">Each account has its own private records. Your workspace is not shared with other users.</p>
       </section>
-      <div className="login-footer">Inlinked <span>·</span> A calmer way to manage your pipeline</div>
+      <div className="login-footer">Inlinked <span>·</span> A calmer way to manage your pipeline <span>·</span> <a href="/terms">Terms</a> <span>·</span> <a href="/privacy">Privacy</a> <span>·</span> <a href="/refund">Refunds</a></div>
     </main>
   );
 }
