@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { resolveAssistantAuth } from "@/lib/assistant-auth";
+import { getBillingState, isBillingEnforced } from "@/lib/billing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,20 +48,63 @@ export async function POST(request: NextRequest) {
     if (!prepared.some(x => !x.error)) return fail("No valid prospects were provided.", 400, { results: prepared });
 
     const sql = db();
+    let remainingProspects: number | undefined;
+    if (isBillingEnforced()) {
+      const billing = await getBillingState(auth.userId);
+      if (billing.enforced && billing.plan === "free" && billing.entitlements.prospects !== null) {
+        const countRows: any = await sql`
+          SELECT COUNT(*)::int AS count FROM prospects WHERE user_id = ${auth.userId}
+        `;
+        remainingProspects = Math.max(0, billing.entitlements.prospects - Number(countRows[0]?.count || 0));
+      }
+    }
+
     const results: Record<string, unknown>[] = [];
-    let saved = 0, duplicates = 0, invalid = 0;
+    let saved = 0, duplicates = 0, invalid = 0, limitReached = false;
     const seen = new Set<string>();
     for (const x of prepared) {
       if (x.error) { invalid++; results.push({ index: x.index, status: "invalid", name: x.name, error: x.error }); continue; }
       if (seen.has(x.url)) { duplicates++; results.push({ index: x.index, status: "duplicate", name: x.name, company: x.company, url: x.url }); continue; }
       seen.add(x.url);
+      if (remainingProspects !== undefined && saved >= remainingProspects) {
+        const existing: any = await sql`
+          SELECT id FROM prospects
+          WHERE user_id = ${auth.userId} AND normalized_linkedin_url = ${x.url}
+          LIMIT 1
+        `;
+        if (existing.length) {
+          duplicates++;
+          results.push({ index: x.index, status: "duplicate", name: x.name, company: x.company, url: x.url });
+          continue;
+        }
+        limitReached = true;
+        results.push({
+          index: x.index,
+          status: "limit_reached",
+          code: "PROSPECT_LIMIT_REACHED",
+          name: x.name,
+          company: x.company,
+          url: x.url,
+          error: "The Free plan includes up to 70 LinkedIn prospects. Upgrade to Pro to add more."
+        });
+        continue;
+      }
       const rows: any = await sql`INSERT INTO prospects(user_id,name,company,linkedin_url,normalized_linkedin_url,status,follow_up,notes,recommended_outreach,discovery_source,saved_via,research_tool)
         VALUES(${auth.userId},${x.name.slice(0, 200)},${x.company.slice(0, 300)},${x.url},${x.url},'To research','','Added through AI research.',${x.recommendedOutreach},'ChatGPT research','ChatGPT AI Token',${x.researchTool})
         ON CONFLICT(user_id,normalized_linkedin_url) WHERE normalized_linkedin_url IS NOT NULL AND normalized_linkedin_url<>'' DO NOTHING RETURNING id::text`;
       if (rows.length) { saved++; results.push({ index: x.index, id: String(rows[0].id), status: "saved", name: x.name, company: x.company, url: x.url, researchTool: x.researchTool, recommendedOutreach: x.recommendedOutreach }); }
       else { duplicates++; results.push({ index: x.index, status: "duplicate", name: x.name, company: x.company, url: x.url }); }
     }
-    return NextResponse.json({ ok: true, total: prepared.length, saved, duplicates, invalid, results }, { headers: noStore });
+    const limitResponse = limitReached ? {
+      error: "The Free plan includes up to 70 LinkedIn prospects. Upgrade to Pro to add more.",
+      code: "PROSPECT_LIMIT_REACHED",
+      limitCode: "PROSPECT_LIMIT_REACHED",
+      upgradeUrl: "/billing"
+    } : {};
+    return NextResponse.json(
+      { ok: true, total: prepared.length, saved, duplicates, invalid, results, ...limitResponse },
+      { status: limitReached && saved === 0 ? 402 : 200, headers: noStore }
+    );
   } catch (error) {
     console.error("Assistant bulk save failed", error);
     return fail("Could not save this batch. Nothing should be reported as saved.", 503);

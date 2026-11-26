@@ -139,13 +139,14 @@ function prepareJob(value: unknown, index: number): PreparedJob {
   };
 }
 
-export async function saveJobBatch(sql: SqlClient, userId: string, values: unknown[]) {
+export async function saveJobBatch(sql: SqlClient, userId: string, values: unknown[], maxNewRecords?: number) {
   const prepared = values.map(prepareJob);
   const results: Record<string, unknown>[] = [];
   const seen = new Set<string>();
   let saved = 0;
   let duplicates = 0;
   let invalid = 0;
+  let limitReached = false;
 
   for (const job of prepared) {
     if (job.error) {
@@ -159,6 +160,30 @@ export async function saveJobBatch(sql: SqlClient, userId: string, values: unkno
       continue;
     }
     seen.add(job.normalizedSourceUrl);
+
+    if (maxNewRecords !== undefined && saved >= maxNewRecords) {
+      const existing: any = await sql`
+        SELECT id FROM jobs
+        WHERE user_id = ${userId} AND normalized_source_url = ${job.normalizedSourceUrl}
+        LIMIT 1
+      `;
+      if (existing.length) {
+        duplicates++;
+        results.push({ index: job.index, status: "duplicate", title: job.title, sourceUrl: job.sourceUrl });
+        continue;
+      }
+      limitReached = true;
+      results.push({
+        index: job.index,
+        status: "limit_reached",
+        code: "SAVED_JOB_LIMIT_REACHED",
+        title: job.title,
+        company: job.company,
+        sourceUrl: job.sourceUrl,
+        error: "The Free plan includes up to 30 saved jobs. Upgrade to Pro to add more."
+      });
+      continue;
+    }
 
     const rows: any = await sql`
       INSERT INTO jobs (
@@ -189,5 +214,5 @@ export async function saveJobBatch(sql: SqlClient, userId: string, values: unkno
     }
   }
 
-  return { total: prepared.length, saved, duplicates, invalid, results };
+  return { total: prepared.length, saved, duplicates, invalid, limitReached, results };
 }

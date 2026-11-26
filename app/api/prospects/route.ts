@@ -213,14 +213,27 @@ export async function POST(request: NextRequest) {
     const sql = db();
 
     // Billing is completely bypassed when enforcement is OFF.
-    // This also skips the prospect-count query.
+    // This also skips the prospect-count query and duplicate lookup.
     if (isBillingEnforced()) {
+      // Check duplicates before limits: an existing record is not a new addition.
+      if (url) {
+        const existing: any = await sql`
+          SELECT id FROM prospects
+          WHERE user_id = ${user.userId}
+            AND normalized_linkedin_url = ${url}
+          LIMIT 1
+        `;
+        if (existing.length) {
+          return fail("This LinkedIn profile is already saved in your account.", 409);
+        }
+      }
       const billing = await getBillingState(user.userId);
 
       if (
         billing.enforced &&
         billing.plan === "free"
       ) {
+        const limit = billing.entitlements.prospects;
         const countRows: any = await sql`
           SELECT COUNT(*)::int AS count
           FROM prospects
@@ -228,12 +241,12 @@ export async function POST(request: NextRequest) {
         `;
 
         if (
-          Number(countRows[0]?.count || 0) >= 100
+          limit !== null &&
+          Number(countRows[0]?.count || 0) >= limit
         ) {
           return NextResponse.json(
             {
-              error:
-                "The Free plan includes up to 100 LinkedIn prospects. Upgrade to Pro to continue adding prospects.",
+              error: `The Free plan includes up to ${limit} LinkedIn prospects. Upgrade to Pro to add more.`,
               code: "PROSPECT_LIMIT_REACHED",
               upgradeUrl: "/billing",
             },

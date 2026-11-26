@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/app-auth";
 import { db } from "@/lib/db";
+import { getBillingState, isBillingEnforced } from "@/lib/billing";
 
 export const runtime = "nodejs";
 const statuses = ["New", "Qualified", "Contacted", "In discussion", "Proposal", "Won", "Lost", "Not relevant"];
@@ -45,7 +46,7 @@ async function fetchLead(userId: string, id: string) {
   return rows[0] || null;
 }
 
-async function insertLead(userId: string, input: any) {
+async function insertLead(userId: string, input: any, remainingNewLeads?: number) {
   const title = clean(input.title || input.name, 300);
   const company = clean(input.company, 300);
   if (!title && !company) return { status: "invalid" as const };
@@ -64,6 +65,17 @@ async function insertLead(userId: string, input: any) {
   if (profileId) {
     const owned: any = await sql`SELECT id FROM lead_profiles WHERE id = ${profileId}::uuid AND user_id = ${userId} LIMIT 1`;
     if (!owned.length) return { status: "invalid" as const };
+  }
+  if (remainingNewLeads !== undefined) {
+    {
+      const existing: any = await sql`
+        SELECT id FROM business_leads
+        WHERE user_id = ${userId} AND normalized_source_url = ${source.normalized}
+        LIMIT 1
+      `;
+      if (existing.length) return { status: "duplicate" as const };
+    }
+    if (remainingNewLeads <= 0) return { status: "limit_reached" as const };
   }
   const published = input.publishedAt ? new Date(input.publishedAt) : null;
   const publishedAt = published && !Number.isNaN(published.getTime()) ? published : null;
@@ -130,17 +142,49 @@ export async function POST(request: NextRequest) {
   const batch = Array.isArray(body?.leads) ? body.leads : [body?.lead || body];
   if (!Array.isArray(batch) || batch.length < 1 || batch.length > 50) return fail("Provide between 1 and 50 leads.", 400);
   try {
-    let saved = 0, duplicates = 0, invalid = 0;
+    let remainingNewLeads: number | undefined;
+    if (isBillingEnforced()) {
+      const billing = await getBillingState(user.userId);
+      if (billing.enforced && billing.plan === "free" && billing.entitlements.commercialLeads !== null) {
+        const countRows: any = await db()`
+          SELECT COUNT(*)::int AS count FROM business_leads WHERE user_id = ${user.userId}
+        `;
+        remainingNewLeads = Math.max(0, billing.entitlements.commercialLeads - Number(countRows[0]?.count || 0));
+      }
+    }
+
+    let saved = 0, duplicates = 0, invalid = 0, limitReached = false;
     const results: any[] = [];
     for (let index = 0; index < batch.length; index++) {
       const input = batch[index] || {};
-      const result = await insertLead(user.userId, { ...input, researchTool: input.researchTool ?? body.researchTool });
-      if (result.status === "saved") saved++;
-      else if (result.status === "duplicate") duplicates++;
+      const result = await insertLead(
+        user.userId,
+        { ...input, researchTool: input.researchTool ?? body.researchTool },
+        remainingNewLeads
+      );
+      if (result.status === "saved") {
+        saved++;
+        if (remainingNewLeads !== undefined) remainingNewLeads--;
+      } else if (result.status === "duplicate") duplicates++;
+      else if (result.status === "limit_reached") limitReached = true;
       else invalid++;
-      results.push({ index, status: result.status, ...(result.status === "saved" ? { lead: result.lead } : {}) });
+      results.push({
+        index,
+        status: result.status,
+        ...(result.status === "limit_reached" ? { code: "COMMERCIAL_LEAD_LIMIT_REACHED" } : {}),
+        ...(result.status === "saved" ? { lead: result.lead } : {})
+      });
     }
-    return NextResponse.json({ ok: true, total: batch.length, saved, duplicates, invalid, results }, { headers: { "Cache-Control": "no-store" } });
+    const limitResponse = limitReached ? {
+      error: "The Free plan does not include commercial leads. Upgrade to Pro to add commercial leads.",
+      code: "COMMERCIAL_LEAD_LIMIT_REACHED",
+      limitCode: "COMMERCIAL_LEAD_LIMIT_REACHED",
+      upgradeUrl: "/billing"
+    } : {};
+    return NextResponse.json(
+      { ok: true, total: batch.length, saved, duplicates, invalid, results, ...limitResponse },
+      { status: limitReached && saved === 0 ? 402 : 200, headers: { "Cache-Control": "no-store" } }
+    );
   } catch (error) {
     console.error("Business lead save failed", error);
     return fail("Could not save this lead batch.", 503);

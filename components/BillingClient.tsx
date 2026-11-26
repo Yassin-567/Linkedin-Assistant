@@ -25,6 +25,7 @@ type BillingStatus = {
   entitlements: {
     prospects: number | null;
     savedJobs: number | null;
+    commercialLeads: number | null;
     leadProfiles: number | null;
     features: Record<string, boolean>;
   };
@@ -522,15 +523,11 @@ export default function BillingClient() {
           </p>
 
           <ul>
-            <li>
-              Up to 100 saved LinkedIn prospects
-            </li>
+            <li>Up to 70 LinkedIn prospects</li>
+            <li>Up to 30 saved jobs</li>
+            <li>No commercial leads</li>
             <li>Basic activity tracking</li>
             <li>CSV export</li>
-            <li>
-              Saved-job and lead-profile limits are
-              still being finalised
-            </li>
           </ul>
 
           <div className="billing-plan-footer">
@@ -555,10 +552,9 @@ export default function BillingClient() {
           </p>
 
           <ul>
-            <li>
-              Higher prospect and saved-job limits
-              (final caps to be confirmed)
-            </li>
+            <li>Unlimited LinkedIn prospects</li>
+            <li>Unlimited saved jobs</li>
+            <li>Unlimited commercial leads</li>
             <li>Multiple lead profiles</li>
             <li>
               Full outreach history and analytics
@@ -566,10 +562,7 @@ export default function BillingClient() {
             <li>
               AI research handoff and record updates
             </li>
-            <li>Advanced filtering and exports</li>
-            <li>
-              More saved professional context
-            </li>
+            <li>Advanced filtering and CSV export</li>
           </ul>
 
           <div

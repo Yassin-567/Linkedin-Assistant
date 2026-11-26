@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/app-auth";
 import { db } from "@/lib/db";
 import { saveJobBatch } from "@/lib/job-store";
+import { getBillingState, isBillingEnforced } from "@/lib/billing";
 
 export const runtime = "nodejs";
 const statuses = ["Saved", "Applied", "Interviewing", "Offer", "Rejected", "Closed", "Not interested"];
@@ -39,7 +40,33 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   if (!body || !Array.isArray(body.jobs) || body.jobs.length < 1 || body.jobs.length > 50) return fail("Provide between 1 and 50 jobs.", 400);
   try {
-    return NextResponse.json({ ok: true, ...(await saveJobBatch(db(), user.userId, body.jobs.map((job: any) => ({ ...job, researchTool: job?.researchTool ?? body.researchTool })))) }, { headers: { "Cache-Control": "no-store" } });
+    let maxNewRecords: number | undefined;
+    if (isBillingEnforced()) {
+      const billing = await getBillingState(user.userId);
+      if (billing.enforced && billing.plan === "free" && billing.entitlements.savedJobs !== null) {
+        const countRows: any = await db()`
+          SELECT COUNT(*)::int AS count FROM jobs WHERE user_id = ${user.userId}
+        `;
+        maxNewRecords = Math.max(0, billing.entitlements.savedJobs - Number(countRows[0]?.count || 0));
+      }
+    }
+    const result = await saveJobBatch(
+      db(),
+      user.userId,
+      body.jobs.map((job: any) => ({ ...job, researchTool: job?.researchTool ?? body.researchTool })),
+      maxNewRecords
+    );
+    const limitReached = result.limitReached;
+    const limitResponse = limitReached ? {
+      error: "The Free plan includes up to 30 saved jobs. Upgrade to Pro to add more.",
+      code: "SAVED_JOB_LIMIT_REACHED",
+      limitCode: "SAVED_JOB_LIMIT_REACHED",
+      upgradeUrl: "/billing"
+    } : {};
+    return NextResponse.json(
+      { ok: true, ...result, ...limitResponse },
+      { status: limitReached && result.saved === 0 ? 402 : 200, headers: { "Cache-Control": "no-store" } }
+    );
   } catch (error) {
     console.error("Manual job import failed", error);
     return fail("Could not import this batch.", 503);
