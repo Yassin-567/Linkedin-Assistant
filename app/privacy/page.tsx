@@ -329,11 +329,7 @@ export default function Privacy() {
       </p>
 
       <p>
-        Whether additional cookies or storage technologies
-        are introduced by external services or integrations:
-        {" "}{val(LEGAL.additionalCookieDetails)}
-        {" "}(confirm whether any additional technologies
-        are used).
+        No additional cookies or tracking technologies are used.
       </p>
 
       <h2>9. Security</h2>
