@@ -275,27 +275,19 @@ export default function Privacy() {
 
       <ul>
         <li>
-          While an account is active:
-          {" "}{val(LEGAL.retentionWhileAccountActive)}
-          {" "}(retention period).
+          While an account is active: We keep your account and workspace records for as long as your account is active.
         </li>
 
         <li>
-          Following account closure:
-          {" "}{val(LEGAL.retentionAfterAccountClosure)}
-          {" "}(deletion or retention period).
+          Closing an account: There is currently no delete-account button in the app. To close your account and delete your data, email yassinalaa3310@gmail.com from the address on your account. We will delete your account and workspace records within 30 days of your request.
         </li>
 
         <li>
-          Backups and retained copies:
-          {" "}{val(LEGAL.backupRetention)}
-          {" "}(backup retention period).
+          Backups and retained copies: Deleted data may remain in database backups until they are overwritten in the normal backup cycle.
         </li>
 
         <li>
-          Billing information held by Inlinked:
-          {" "}{val(LEGAL.billingRetention)}
-          {" "}(billing retention period).
+          Billing information held by Inlinked: Paddle, as Merchant of Record, keeps transaction records under its own policies. We keep only the Paddle customer and subscription identifiers, plan, status and renewal dates linked to your account, and we delete these within 30 days of an account deletion request, except where we must keep a record for accounting, tax or legal reasons, which we keep for as long as the law requires.
         </li>
       </ul>
 
