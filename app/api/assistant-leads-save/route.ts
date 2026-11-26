@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { resolveAssistantAuth } from "@/lib/assistant-auth";
+import { getBillingState, isBillingEnforced } from "@/lib/billing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,7 +80,18 @@ export async function POST(request: NextRequest) {
     `;
     if (!profiles.length) return fail("Lead Profile not found in this Inlinked account.", 404);
 
-    let saved = 0, duplicates = 0, invalid = 0;
+    let remainingCommercialLeads: number | undefined;
+    if (isBillingEnforced()) {
+      const billing = await getBillingState(auth.userId);
+      if (billing.enforced && billing.plan === "free" && billing.entitlements.commercialLeads !== null) {
+        const countRows: any = await sql`
+          SELECT COUNT(*)::int AS count FROM business_leads WHERE user_id = ${auth.userId}
+        `;
+        remainingCommercialLeads = Math.max(0, billing.entitlements.commercialLeads - Number(countRows[0]?.count || 0));
+      }
+    }
+
+    let saved = 0, duplicates = 0, invalid = 0, limitReached = false;
     const seen = new Set<string>();
     const results: Record<string, unknown>[] = [];
     for (let index = 0; index < body.leads.length; index++) {
@@ -116,6 +128,20 @@ export async function POST(request: NextRequest) {
       if (prior.length) {
         duplicates++;
         results.push({ index, status: "duplicate", name: title, company, sourceUrl: source.raw });
+        continue;
+      }
+
+      if (remainingCommercialLeads !== undefined && saved >= remainingCommercialLeads) {
+        limitReached = true;
+        results.push({
+          index,
+          status: "limit_reached",
+          code: "COMMERCIAL_LEAD_LIMIT_REACHED",
+          name: title,
+          company,
+          sourceUrl: source.raw,
+          error: "The Free plan does not include commercial leads. Upgrade to Pro to add commercial leads."
+        });
         continue;
       }
 
@@ -160,7 +186,16 @@ export async function POST(request: NextRequest) {
         results.push({ index, status: "saved", id: String(rows[0].id), name: title, company, sourceUrl: source.raw });
       }
     }
-    return NextResponse.json({ ok: true, profileId: body.profileId, total: body.leads.length, saved, duplicates, invalid, results }, { headers });
+    const limitResponse = limitReached ? {
+      error: "The Free plan does not include commercial leads. Upgrade to Pro to add commercial leads.",
+      code: "COMMERCIAL_LEAD_LIMIT_REACHED",
+      limitCode: "COMMERCIAL_LEAD_LIMIT_REACHED",
+      upgradeUrl: "/billing"
+    } : {};
+    return NextResponse.json(
+      { ok: true, profileId: body.profileId, total: body.leads.length, saved, duplicates, invalid, results, ...limitResponse },
+      { status: limitReached && saved === 0 ? 402 : 200, headers }
+    );
   } catch (error) {
     console.error("Assistant commercial lead save failed", error);
     return fail("Could not save this commercial lead batch. Do not report records as saved unless this endpoint confirms success.", 503);

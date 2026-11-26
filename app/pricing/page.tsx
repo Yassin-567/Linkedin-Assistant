@@ -6,12 +6,17 @@ export const metadata = {
 };
 
 const freeFeatures = [
-  "Up to 100 saved prospects",
+  "Up to 70 LinkedIn prospects",
+  "Up to 30 saved jobs",
+  "No commercial leads",
   "Basic activity tracking",
   "CSV export",
 ];
 
 const proFeatures = [
+  "Unlimited LinkedIn prospects",
+  "Unlimited saved jobs",
+  "Unlimited commercial leads",
   "Full outreach history and analytics",
   "Multiple lead profiles",
   "AI research handoff and record updates",

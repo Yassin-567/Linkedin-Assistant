@@ -10,12 +10,14 @@ export function isBillingEnforced(): boolean {
   );
 }
 
-// null means the owner has not approved a limit yet.
-// It must not be presented as "unlimited".
+// null means unlimited for prospects, saved jobs and commercial leads.
+// Lead profiles are a separate feature, controlled by multipleLeadProfiles.
 export const BILLING_ENTITLEMENTS = {
   free: {
-    prospects: 100,
-    savedJobs: null,
+    prospects: 70,
+    savedJobs: 30,
+    commercialLeads: 0,
+    // Lead profiles are separate from commercial lead records.
     leadProfiles: null,
     features: {
       basicActivityTracking: true,
@@ -32,6 +34,7 @@ export const BILLING_ENTITLEMENTS = {
   pro: {
     prospects: null,
     savedJobs: null,
+    commercialLeads: null,
     leadProfiles: null,
     features: {
       basicActivityTracking: true,
