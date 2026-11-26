@@ -9,9 +9,7 @@ export default function Privacy() {
   return (
     <LegalPage title="Privacy Notice">
       <p>
-        Effective date:{" "}
-        {val(LEGAL.effectiveDate)}
-        {" "}(date of publication).
+        Effective date:{" "}November 26, 2026.
       </p>
 
       <h2>1. Who is responsible</h2>
