@@ -9,9 +9,7 @@ export default function Refund() {
   return (
     <LegalPage title="Refund Policy">
       <p>
-        Effective date:{" "}
-        {val(LEGAL.effectiveDate)}
-        {" "}(date of publication).
+        Effective date:{" "}November 26, 2026.
       </p>
 
       <p>
