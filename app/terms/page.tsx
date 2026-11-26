@@ -9,9 +9,7 @@ export default function Terms() {
   return (
     <LegalPage title="Terms of Service">
       <p>
-        Effective date:{" "}
-        {val(LEGAL.effectiveDate)}
-        {" "}(date of publication).
+        Effective date:{" "}November 26, 2026.
       </p>
 
       <h2>1. Who we are</h2>
