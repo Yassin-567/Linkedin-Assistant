@@ -1,6 +1,6 @@
 # LinkedIn Assistant
 
-A global, individual-account prospecting workspace. Every Google-authenticated user has private preferences, prospects, and imported connection data. There are no teams, shared prospect lists, or in-app subscription tiers.
+A global, individual-account prospecting workspace. Every Google-authenticated user has private preferences, prospects, and imported connection data. There are no teams or shared prospect lists. Inlinked includes Free and Pro account plans; billing is integrated with Paddle.
 
 ## Current architecture
 
@@ -160,3 +160,50 @@ Assistant save responses include saved record IDs. Context responses expose rece
 - Weekly activity counts use `occurred_at`, while "Meetings logged" counts meeting events and "Currently booked" counts the current `Call booked` pipeline status.
 - Placeholder `Unknown` metadata is cleared rather than replaced with invented values; the UI suppresses missing metadata.
 - Apply `db/phase_15_activity_occurrence_times.sql` to existing databases. Do not backfill occurrence timestamps from `created_at`.
+
+
+## Phase 16: Paddle Billing (sandbox implementation)
+
+- Billing is linked to the authenticated Inlinked account. The browser sends only a monthly/yearly choice; the server selects one of the two catalog price IDs and creates the Paddle transaction for the signed-in account.
+- The server stores the Paddle customer-to-Inlinked-user mapping before a checkout transaction is opened. Webhook ownership is resolved from that server-side mapping, not from browser-supplied identity or editable transaction custom data.
+- Pro is granted only when a verified, signed Paddle subscription webhook reports a supported Inlinked Pro price with status `active` or `trialing`. Every AI prompt/session API checks this entitlement server-side.
+- The Free plan allows up to 100 LinkedIn prospects. Saved-job and lead-profile caps remain owner decisions and are not guessed in this build. Pro caps are also left as explicit placeholders; do not describe them as unlimited until approved.
+- The current default status rule makes `past_due`, `paused` and `canceled` Free immediately. A scheduled cancellation remains Pro while Paddle continues to report the subscription as `active`; it becomes Free when Paddle reports `canceled`. This is the current technical default and still requires the owner's explicit policy review.
+- Refunds, chargebacks and grace-period behavior are not defined by this implementation. Confirm these policies before live launch. Terms of Service, Privacy Policy and Refund Policy links are placeholders and must be completed before any live payment.
+- The Paddle browser SDK uses the sandbox environment, and the server API helper always calls `https://sandbox-api.paddle.com`. Server startup/runtime checks reject missing sandbox configuration and API keys without the sandbox marker. Do not add live keys or change the environment to live in this branch.
+
+### Isolated preview setup
+
+This branch uses its own isolated Neon branch named `inlinked-paddle-sandbox`. Its connection string is configured only as a Vercel Preview environment variable scoped to this Git branch. The Phase 16 tables have been created on that isolated branch only. Do not copy this branch's database URL to Production.
+
+Set these values for the Vercel Preview environment, scoped to Git branch `inlinked-paddle-sandbox`. Create a sandbox API key with only `transaction.write` and `customer_portal_session.write` permissions:
+
+- `PADDLE_ENVIRONMENT=sandbox`
+- `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN`: sandbox client-side token beginning with `test_`
+- `PADDLE_API_KEY`: sandbox API key (server-side secret only; never paste it into chat or commit it)
+- `PADDLE_WEBHOOK_SECRET`: endpoint secret from the sandbox notification destination (server-side secret only)
+- `PADDLE_PRICE_MONTHLY=pri_01m8a8bs00jpx3744wt0t43165`
+- `PADDLE_PRICE_YEARLY=pri_01m8a8cb47d6zqb5q5svbdzb5n`
+
+The preview's `DATABASE_URL` is already set to the isolated Neon branch. Keep it scoped to this Preview Git branch. Add the sandbox webhook notification destination with endpoint `/api/billing/webhook` on the current Vercel Preview URL and subscribe it to `transaction.completed`, `subscription.created`, `subscription.updated`, `subscription.canceled`, `customer.created` and `customer.updated`. Configure the Paddle sandbox default payment link to the same preview app origin. Do not create a live notification destination or use the live Paddle dashboard.
+
+### Sandbox verification checklist
+
+1. Sign in to the Paddle-configured Preview deployment and open **Plans & billing**.
+2. Confirm Paddle's price preview displays the monthly and yearly totals. These are returned by Paddle.js; the app does not calculate or hard-code the totals.
+3. Test monthly and yearly sandbox checkouts with Paddle's documented test cards. Use `4242 4242 4242 4242` for a successful non-3DS payment, `4000 0038 0000 0446` for a 3DS flow, `4000 0000 0000 0002` for a decline, and `4000 0027 6000 3184` for an initially successful payment followed by decline. Use a future expiry date and the other values requested by the sandbox form.
+4. Verify the sandbox dashboard shows the transactions and that each webhook notification receives 2xx. A declined payment or a forged/modified webhook must never grant Pro. A browser-supplied unknown price or customer/user ID must not be accepted.
+5. Verify the customer portal opens only for the authenticated user's mapped Paddle customer. Cancellation behavior, refunds and chargebacks require owner policy confirmation before live use.
+
+No real payments have been enabled or tested by this branch. A successful Vercel build is not evidence that checkout, webhook delivery or entitlement changes have passed a live browser test.
+
+
+### Vercel Preview webhook protection
+
+Vercel currently protects Preview deployments with SSO. Paddle's notification service cannot complete the webhook request through that login screen. Before adding the Paddle notification destination, create a **Protection Bypass for Automation** secret in the Vercel project under **Settings → Deployment Protection**. Use the Vercel-generated secret only in the Paddle sandbox webhook URL as the `x-vercel-protection-bypass` query parameter:
+
+```text
+https://linkedin-assistant-git-inlinked-padd-72ae08-yassin567s-projects.vercel.app/api/billing/webhook?x-vercel-protection-bypass=YOUR_VERCEL_BYPASS_SECRET
+```
+
+This URL bypass secret is a Vercel project-level deployment-protection credential. Keep it private, avoid pasting it into chat or source control, and revoke it after sandbox testing if it is no longer needed. Keep Paddle's own webhook signing secret separate in `PADDLE_WEBHOOK_SECRET`. The application still verifies Paddle's `Paddle-Signature` before processing any event.
