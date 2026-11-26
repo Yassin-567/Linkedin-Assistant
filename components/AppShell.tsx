@@ -34,7 +34,10 @@ const groups = [
   },
   {
     label: "PREFERENCES",
-    items: [{ label: "Settings", href: "/settings", icon: "settings" }]
+    items: [
+      { label: "Settings", href: "/settings", icon: "settings" },
+      { label: "Plans & billing", href: "/billing", icon: "billing" }
+    ]
   }
 ];
 
@@ -48,6 +51,7 @@ function NavIcon({ name }: { name: string }) {
     case "mail": return <svg {...common}><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>;
     case "chart": return <svg {...common}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>;
     case "import": return <svg {...common}><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v3h16v-3"/></svg>;
+    case "billing": return <svg {...common}><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>;
     default: return <svg {...common}><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.8Z"/></svg>;
   }
 }
@@ -82,7 +86,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
-  if (pathname === "/login") return <>{children}</>;
+  if (pathname === "/login" || pathname === "/terms" || pathname === "/privacy" || pathname === "/refund") return <>{children}</>;
 
   const displayName = account.profile?.name || account.profile?.email || "Workspace account";
   const navigationGroups = account.isAdmin
