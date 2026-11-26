@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
                 ELSE connection_sent_at
               END,
               connected_on = CASE
-                WHEN ${connectedAtProvided} AND ${connectedAt} <> '' THEN to_char(${connectedAt}::timestamptz AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD')
+                WHEN ${connectedAtProvided} AND ${connectedAt} <> '' THEN to_char(NULLIF(${connectedAt}, '')::timestamptz AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD')
                 WHEN ${connectedOnProvided} THEN ${connectedOn}
                 ELSE connected_on
               END,

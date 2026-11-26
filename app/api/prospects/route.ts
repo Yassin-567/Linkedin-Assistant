@@ -283,7 +283,7 @@ export async function POST(request: NextRequest) {
           WHEN ${status} = 'Connected'
             AND ${connectedAt} <> ''
           THEN to_char(
-            ${connectedAt}::timestamptz
+            NULLIF(${connectedAt}, '')::timestamptz
               AT TIME ZONE 'Africa/Cairo',
             'YYYY-MM-DD'
           )
@@ -509,7 +509,7 @@ export async function PATCH(request: NextRequest) {
         connected_on = CASE
           WHEN ${hasConnectedAt} AND ${connectedAt} <> ''
           THEN to_char(
-            ${connectedAt}::timestamptz
+            NULLIF(${connectedAt}, '')::timestamptz
               AT TIME ZONE 'Africa/Cairo',
             'YYYY-MM-DD'
           )
