@@ -826,3 +826,241 @@ footer { color: var(--muted-2); font-size: 12px; }
   color:var(--ink);
   box-shadow:0 1px 3px rgba(38,35,31,.10);
 }
+
+
+/* Palette v2: vivid, accessible accents on the existing warm light foundation */
+:root {
+  --accent-teal: #0f766e;
+  --accent-teal-ink: #115e59;
+  --accent-teal-soft: #e5f4f1;
+  --accent-blue: #1d4ed8;
+  --accent-blue-ink: #1e40af;
+  --accent-blue-soft: #eaf1ff;
+  --accent-violet: #6d28d9;
+  --accent-violet-ink: #5b21b6;
+  --accent-violet-soft: #f1ebff;
+  --accent-amber: #92400e;
+  --accent-amber-ink: #854d0e;
+  --accent-amber-soft: #fff3d6;
+  --accent-rose: #be123c;
+  --accent-rose-ink: #9f1239;
+  --accent-rose-soft: #fce8ee;
+  --accent-green: #166534;
+  --accent-green-ink: #166534;
+  --accent-green-soft: #e8f5ec;
+  --brand: #0f766e;
+  --brand-dark: #115e59;
+  --brand-soft: #e5f4f1;
+  --success: #166534;
+  --warning: #854d0e;
+  --danger: #9f1239;
+}
+
+/* Stronger primary actions and links; white text remains AA compliant. */
+button:not(.secondary):not(.text-button):not(.delete),
+.button:not(.secondary):not(.text-button):not(.delete) {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+}
+button:not(.secondary):not(.text-button):not(.delete):hover:not(:disabled),
+.button:not(.secondary):not(.text-button):not(.delete):hover {
+  background: #115e59;
+  border-color: #115e59;
+}
+.text-link, .lead a, .lead-result-main a, .job-actions a,
+.dashboard-action-link, .billing-plan a {
+  color: #0f766e;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15,118,110,.16);
+}
+button:focus-visible, a:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible {
+  outline-color: rgba(29,78,216,.48);
+}
+
+/* Dashboard and workspace stat cards: six rotating semantic accents. */
+.stats > .stat:nth-child(6n + 1),
+.dashboard-kpis > .stat:nth-child(6n + 1),
+.jobs-stats > .stat:nth-child(6n + 1),
+.leads-stats > .stat:nth-child(6n + 1),
+.admin-stats-grid > .admin-stat:nth-child(6n + 1) {
+  --card-accent: var(--accent-teal);
+  --card-tint: var(--accent-teal-soft);
+}
+.stats > .stat:nth-child(6n + 2),
+.dashboard-kpis > .stat:nth-child(6n + 2),
+.jobs-stats > .stat:nth-child(6n + 2),
+.leads-stats > .stat:nth-child(6n + 2),
+.admin-stats-grid > .admin-stat:nth-child(6n + 2) {
+  --card-accent: var(--accent-blue);
+  --card-tint: var(--accent-blue-soft);
+}
+.stats > .stat:nth-child(6n + 3),
+.dashboard-kpis > .stat:nth-child(6n + 3),
+.jobs-stats > .stat:nth-child(6n + 3),
+.leads-stats > .stat:nth-child(6n + 3),
+.admin-stats-grid > .admin-stat:nth-child(6n + 3) {
+  --card-accent: var(--accent-violet);
+  --card-tint: var(--accent-violet-soft);
+}
+.stats > .stat:nth-child(6n + 4),
+.dashboard-kpis > .stat:nth-child(6n + 4),
+.jobs-stats > .stat:nth-child(6n + 4),
+.leads-stats > .stat:nth-child(6n + 4),
+.admin-stats-grid > .admin-stat:nth-child(6n + 4) {
+  --card-accent: var(--accent-amber-ink);
+  --card-tint: var(--accent-amber-soft);
+}
+.stats > .stat:nth-child(6n + 5),
+.dashboard-kpis > .stat:nth-child(6n + 5),
+.jobs-stats > .stat:nth-child(6n + 5),
+.leads-stats > .stat:nth-child(6n + 5),
+.admin-stats-grid > .admin-stat:nth-child(6n + 5) {
+  --card-accent: var(--accent-rose-ink);
+  --card-tint: var(--accent-rose-soft);
+}
+.stats > .stat:nth-child(6n),
+.dashboard-kpis > .stat:nth-child(6n),
+.jobs-stats > .stat:nth-child(6n),
+.leads-stats > .stat:nth-child(6n),
+.admin-stats-grid > .admin-stat:nth-child(6n) {
+  --card-accent: var(--accent-green);
+  --card-tint: var(--accent-green-soft);
+}
+.stats > .stat, .dashboard-kpis > .stat, .jobs-stats > .stat,
+.leads-stats > .stat, .admin-stats-grid > .admin-stat {
+  border-top: 3px solid var(--card-accent, var(--accent-teal));
+  background: #fff;
+}
+.stats > .stat strong, .dashboard-kpis > .stat strong,
+.jobs-stats > .stat strong, .leads-stats > .stat strong,
+.admin-stats-grid > .admin-stat strong {
+  color: var(--card-accent, var(--ink));
+}
+.stats > .stat span, .dashboard-kpis > .stat span,
+.jobs-stats > .stat small, .leads-stats > .stat small,
+.admin-stats-grid > .admin-stat span {
+  color: var(--card-accent, var(--muted));
+}
+
+/* Dashboard shortcut icons and section markers use distinct accent hues. */
+.dashboard-actions .dashboard-action:nth-child(6n + 1) .dashboard-action-icon {
+  color: var(--accent-teal-ink); background: var(--accent-teal-soft);
+}
+.dashboard-actions .dashboard-action:nth-child(6n + 2) .dashboard-action-icon {
+  color: var(--accent-blue-ink); background: var(--accent-blue-soft);
+}
+.dashboard-actions .dashboard-action:nth-child(6n + 3) .dashboard-action-icon {
+  color: var(--accent-violet-ink); background: var(--accent-violet-soft);
+}
+.dashboard-actions .dashboard-action:nth-child(6n + 4) .dashboard-action-icon {
+  color: var(--accent-amber-ink); background: var(--accent-amber-soft);
+}
+.dashboard-actions .dashboard-action:nth-child(6n + 5) .dashboard-action-icon {
+  color: var(--accent-rose-ink); background: var(--accent-rose-soft);
+}
+.dashboard-actions .dashboard-action:nth-child(6n) .dashboard-action-icon {
+  color: var(--accent-green-ink); background: var(--accent-green-soft);
+}
+.dashboard-section-heading:before {
+  content: "";
+  align-self: stretch;
+  width: 3px;
+  min-height: 22px;
+  margin-right: 9px;
+  border-radius: 3px;
+  background: var(--accent-teal);
+}
+.dashboard-section-heading { align-items: center; }
+.dashboard-section-heading > * { min-width: 0; }
+.dashboard-section-heading > div { flex: 1; }
+.dashboard-section:nth-of-type(6n + 2) .dashboard-section-heading:before { background: var(--accent-blue); }
+.dashboard-section:nth-of-type(6n + 3) .dashboard-section-heading:before { background: var(--accent-violet); }
+.dashboard-section:nth-of-type(6n + 4) .dashboard-section-heading:before { background: var(--accent-amber); }
+.dashboard-section:nth-of-type(6n + 5) .dashboard-section-heading:before { background: var(--accent-rose); }
+.dashboard-section:nth-of-type(6n) .dashboard-section-heading:before { background: var(--accent-green); }
+
+/* Navigation: active states are colorful without using dark blue/navy surfaces. */
+.sidebar-nav-group:nth-child(6n + 1) .nav-link.active {
+  color: var(--accent-teal-ink); background: var(--accent-teal-soft);
+}
+.sidebar-nav-group:nth-child(6n + 2) .nav-link.active {
+  color: var(--accent-blue-ink); background: var(--accent-blue-soft);
+}
+.sidebar-nav-group:nth-child(6n + 3) .nav-link.active {
+  color: var(--accent-violet-ink); background: var(--accent-violet-soft);
+}
+.sidebar-nav-group:nth-child(6n + 4) .nav-link.active {
+  color: var(--accent-amber-ink); background: var(--accent-amber-soft);
+}
+.sidebar-nav-group:nth-child(6n + 5) .nav-link.active {
+  color: var(--accent-rose-ink); background: var(--accent-rose-soft);
+}
+.sidebar-nav-group:nth-child(6n) .nav-link.active {
+  color: var(--accent-green-ink); background: var(--accent-green-soft);
+}
+.nav-link.active:before { background: currentColor; }
+.nav-link:hover { background: #f4f0e9; color: var(--accent-teal-ink); }
+
+/* Statuses, labels, pills and job chips. */
+.status, .status.success, .connected-tag, .connection.connected {
+  color: var(--accent-green-ink);
+  background: var(--accent-green-soft);
+  border-color: #b8dfc3;
+}
+.status.error, .billing-error, .admin-status.banned {
+  color: var(--accent-rose-ink);
+  background: var(--accent-rose-soft);
+  border-color: #f2bdcd;
+}
+.status.warning, .billing-warning, .admin-status.frozen,
+.frozen-readonly-banner {
+  color: var(--accent-amber-ink);
+  background: var(--accent-amber-soft);
+  border-color: #f0d69b;
+}
+.admin-status.active {
+  color: var(--accent-green-ink);
+  background: var(--accent-green-soft);
+}
+.pill { color: var(--accent-violet-ink); background: var(--accent-violet-soft); }
+.connected-tag { color: var(--accent-green-ink); }
+.job-chip { color: var(--accent-blue-ink); background: var(--accent-blue-soft); }
+.job-chip.salary { color: var(--accent-amber-ink); background: var(--accent-amber-soft); }
+.lead-score-row span { color: var(--accent-violet-ink); background: var(--accent-violet-soft); }
+.lead-score-row strong { color: var(--accent-violet-ink); }
+.result-kicker { color: var(--accent-blue-ink); }
+.method-card.active { border-color: var(--accent-violet); box-shadow: 0 0 0 2px var(--accent-violet-soft); }
+.settings-tab[aria-selected="true"] { color: var(--accent-blue-ink); background: var(--accent-blue-soft); border-color: #c6d6ff; }
+.settings-tab:hover:not(:disabled) { color: var(--accent-blue-ink); }
+
+/* Progress tracks and chart marks share the accent system while retaining clear labels. */
+progress, [role="progressbar"] { accent-color: var(--accent-teal); }
+progress::-webkit-progress-bar { background: #f0ece5; border-radius: 999px; }
+progress::-webkit-progress-value { background: var(--accent-teal); border-radius: 999px; }
+progress::-moz-progress-bar { background: var(--accent-teal); border-radius: 999px; }
+.progress-bar, .progress-fill, .chart-bar, .chart-progress {
+  border-radius: 999px;
+}
+.progress-bar { background: #f0ece5; }
+.progress-fill, .chart-progress { background: var(--accent-teal); }
+.chart-bar:nth-child(6n + 1) { background: var(--accent-teal); }
+.chart-bar:nth-child(6n + 2) { background: var(--accent-blue); }
+.chart-bar:nth-child(6n + 3) { background: var(--accent-violet); }
+.chart-bar:nth-child(6n + 4) { background: #d97706; }
+.chart-bar:nth-child(6n + 5) { background: var(--accent-rose); }
+.chart-bar:nth-child(6n) { background: var(--accent-green); }
+svg .chart-series-teal { stroke: var(--accent-teal); fill: var(--accent-teal); }
+svg .chart-series-blue { stroke: var(--accent-blue); fill: var(--accent-blue); }
+svg .chart-series-violet { stroke: var(--accent-violet); fill: var(--accent-violet); }
+svg .chart-series-amber { stroke: #d97706; fill: #d97706; }
+svg .chart-series-rose { stroke: var(--accent-rose); fill: var(--accent-rose); }
+svg .chart-series-green { stroke: var(--accent-green); fill: var(--accent-green); }
+
+/* Preserve the warm canvas, white surfaces and readable near-black copy. */
+body, .app-page, .app-main { color: #26231f; background-color: #faf8f5; }
+.panel, .stat, .admin-stat, .job-card, .dashboard-action,
+.billing-plan, .login-card, .admin-table-wrap { background-color: #fff; }
