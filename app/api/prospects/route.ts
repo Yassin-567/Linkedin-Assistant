@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       ${status}, ${clean(body.followUp, 30)}, ${clean(body.notes, 5000)},
       ${clean(body.recommendedOutreach, 6000)}, ${!!body.connected || status === "Connected"},
       CASE WHEN ${status} = 'Connected' AND ${connectedAt} <> ''
-        THEN to_char(${connectedAt}::timestamptz AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD')
+        THEN to_char(NULLIF(${connectedAt}, '')::timestamptz AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD')
         ELSE ${connectedOn} END,
       NULLIF(${connectedAt}, '')::timestamptz,
       NULLIF(${connectionSentAt}, '')::timestamptz,
@@ -151,7 +151,7 @@ export async function PATCH(request: NextRequest) {
         ELSE connected_at
       END,
       connected_on = CASE
-        WHEN ${hasConnectedAt} AND ${connectedAt} <> '' THEN to_char(${connectedAt}::timestamptz AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD')
+        WHEN ${hasConnectedAt} AND ${connectedAt} <> '' THEN to_char(NULLIF(${connectedAt}, '')::timestamptz AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD')
         WHEN ${hasConnectedOn} THEN ${connectedOn}
         ELSE connected_on
       END,
