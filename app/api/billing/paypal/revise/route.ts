@@ -27,10 +27,14 @@ type PayPalPlan = {
   billing_cycles?: Array<{
     tenure_type?: string;
     frequency?: { interval_unit?: string; interval_count?: number };
+    total_cycles?: number;
     pricing_scheme?: {
       fixed_price?: { value?: string; currency_code?: string };
     };
   }>;
+  payment_preferences?: {
+    setup_fee?: { value?: string; currency_code?: string };
+  };
 };
 
 type PayPalRevision = {
@@ -80,23 +84,44 @@ function hasExpectedRegularPrice(
   interval: "monthly" | "yearly",
   amount: string,
 ): boolean {
-  return (plan.billing_cycles || [])
-    .filter((cycle) => String(cycle.tenure_type || "").toUpperCase() === "REGULAR")
-    .some((cycle) => {
-      const unit = String(cycle.frequency?.interval_unit || "").toUpperCase();
-      const count = Number(cycle.frequency?.interval_count || 0);
-      const value = String(cycle.pricing_scheme?.fixed_price?.value || "");
-      const currency = String(
-        cycle.pricing_scheme?.fixed_price?.currency_code || "",
-      ).toUpperCase();
+  const cycles = plan.billing_cycles || [];
+  const setupFeeValue = Number(
+    plan.payment_preferences?.setup_fee?.value || "0",
+  );
+  const setupFeeCurrency = String(
+    plan.payment_preferences?.setup_fee?.currency_code || "USD",
+  ).toUpperCase();
 
-      return (
-        unit === (interval === "monthly" ? "MONTH" : "YEAR") &&
-        count === 1 &&
-        Number(value).toFixed(2) === amount &&
-        currency === "USD"
-      );
-    });
+  // Inlinked expects one ongoing regular cycle only: no trial phase,
+  // finite plan, or one-time setup fee that could alter the buyer's first charge.
+  if (
+    cycles.length !== 1 ||
+    !Number.isFinite(setupFeeValue) ||
+    setupFeeValue !== 0 ||
+    setupFeeCurrency !== "USD"
+  ) {
+    return false;
+  }
+
+  return cycles.some((cycle) => {
+    const tenure = String(cycle.tenure_type || "").toUpperCase();
+    const unit = String(cycle.frequency?.interval_unit || "").toUpperCase();
+    const count = Number(cycle.frequency?.interval_count || 0);
+    const totalCycles = Number(cycle.total_cycles ?? 0);
+    const value = String(cycle.pricing_scheme?.fixed_price?.value || "");
+    const currency = String(
+      cycle.pricing_scheme?.fixed_price?.currency_code || "",
+    ).toUpperCase();
+
+    return (
+      tenure === "REGULAR" &&
+      unit === (interval === "monthly" ? "MONTH" : "YEAR") &&
+      count === 1 &&
+      totalCycles === 0 &&
+      Number(value).toFixed(2) === amount &&
+      currency === "USD"
+    );
+  });
 }
 
 export async function POST(request: NextRequest) {
