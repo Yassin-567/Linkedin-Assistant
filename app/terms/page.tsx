@@ -20,12 +20,6 @@ export default function Terms() {
       </p>
 
       <p>
-        Seller postal address:{" "}
-        {val(LEGAL.postalAddress)}
-        {" "}(seller's full postal address).
-      </p>
-
-      <p>
         Contact:{" "}
         {val(LEGAL.contactEmail)}
         {" "}(public contact email).

@@ -20,9 +20,7 @@ export default function Privacy() {
       </p>
 
       <p>
-        Postal address:{" "}
         {val(LEGAL.postalAddress)}
-        {" "}(seller's full postal address).
       </p>
 
       <p>
