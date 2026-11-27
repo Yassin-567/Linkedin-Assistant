@@ -138,7 +138,7 @@ type JobPromptOptions = {
   scheduleEndDate?: string;
 };
 
-const JOB_EXAMPLE = `{"researchTool":"AI application name or Unknown","jobs":[{"title":"Job title","company":"Employer","description":"Full description when publicly available","salaryText":"Salary as advertised, if available","salaryMin":null,"salaryMax":null,"salaryCurrency":"GBP","workplaceType":"remote","employmentType":"Full-time","location":"Location","country":"United Kingdom","seniority":"Mid-level","postedAt":null,"postedAtText":"Posted 3 days ago","sourcePlatform":"Company careers page","sourceType":"company_careers","sourceUrl":"https://employer.example/jobs/123","applicationUrl":"https://employer.example/apply/123","matchReason":"Why this matches my preferences","recommendedOutreach":"A concise, tailored application message grounded in the job requirements and my confirmed experience.","evidenceUrls":["https://employer.example/jobs/123"],"sourceMetadata":{}}]}`;
+export const JOB_IMPORT_EXAMPLE = `{"researchTool":"AI application name or Unknown","jobs":[{"title":"Job title","company":"Employer","description":"Full description when publicly available","salaryText":"Salary as advertised, if available","salaryMin":null,"salaryMax":null,"salaryCurrency":"GBP","workplaceType":"remote","employmentType":"Full-time","location":"Location","country":"United Kingdom","seniority":"Mid-level","postedAt":null,"postedAtText":"Posted 3 days ago","sourcePlatform":"Company careers page","sourceType":"company_careers","sourceUrl":"https://employer.example/jobs/123","applicationUrl":"https://employer.example/apply/123","matchReason":"Why this matches my preferences","recommendedOutreach":"A concise, tailored application message grounded in the job requirements and my confirmed experience.","evidenceUrls":["https://employer.example/jobs/123"],"sourceMetadata":{}}]}`;
 
 export function buildJobChatGptPrompt({
   kind, token, origin, jobCount, searchDepth = "standard", deploymentShareToken,
@@ -240,7 +240,7 @@ export function buildJobChatGptPrompt({
     "## Save to Inlinked",
     "Save up to 50 jobs per POST request using the exact endpoint above. Send a JSON body with a top-level researchTool field set to your self-identified AI application name (or Unknown) and a jobs array. Send only jobs that meet the checks. Include all fields supported by the example; omit unknown facts or use null/empty text rather than guessing.",
     "Use the following JSON structure:",
-    JOB_EXAMPLE,
+    JOB_IMPORT_EXAMPLE,
     "Set sourcePlatform to the actual source (examples: LinkedIn, Facebook, X, Reddit, Indeed, Reed, employer career page, recruiter website). Set sourceType to one concise descriptor such as job_board, company_careers, linkedin, social_post, recruiter_post or other.",
     "Use salaryMin/salaryMax only when numeric values and currency are clear; preserve the advertised wording in salaryText. Set workplaceType to remote, hybrid, on-site or unknown. Use an ISO date for postedAt only when a reliable date is known; otherwise use postedAtText and leave postedAt null.",
     "POST all qualified jobs in batches of no more than 50. Inspect the actual HTTP status and JSON response. Report the exact total, saved, duplicates and invalid counts. Do not claim a job was saved unless the endpoint confirms it.",
