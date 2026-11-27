@@ -2,7 +2,11 @@ import { db } from "@/lib/db";
 import { getPaddleAllowedPriceIds } from "@/lib/paddle-config";
 
 export type BillingPlan = "free" | "pro";
-export type BillingPlanSource = "none" | "paddle_subscription" | "manual_grant";
+export type BillingPlanSource =
+  | "none"
+  | "paddle_subscription"
+  | "paypal_subscription"
+  | "manual_grant";
 
 export function isBillingEnforced(): boolean {
   return process.env.BILLING_ENFORCEMENT?.trim().toLowerCase() === "on";
@@ -28,10 +32,13 @@ export const BILLING_ENTITLEMENTS = {
 } as const;
 
 type BillingSubscription = {
+  provider: "paddle" | "paypal";
   status: string;
   currentPeriodEndsAt?: string | null;
   scheduledChange?: unknown;
   priceId?: string;
+  interval?: "monthly" | "yearly" | null;
+  paymentFailedAt?: string | null;
 };
 type ManualGrant = { id: string; startsAt: string; endsAt: string; active: boolean };
 type GrantRow = { id: string | number; startsAt: string; endsAt: string };
@@ -79,47 +86,156 @@ export async function getBillingState(userId: string) {
     };
   }
 
-  let allowedIds: string[];
+  // Keep Paddle and PayPal configuration independent. A missing Paddle
+  // configuration must not prevent a verified PayPal subscription from
+  // being recognized.
+  let paddleAllowedIds: string[] = [];
+  let paddleConfigurationError: unknown = null;
   try {
-    allowedIds = [...getPaddleAllowedPriceIds()];
+    paddleAllowedIds = [...getPaddleAllowedPriceIds()];
   } catch (error) {
-    if (grant) {
-      return {
-        plan: "pro" as const, enforced: true, planSource: "manual_grant" as const,
-        grant, subscription: null, entitlements: BILLING_ENTITLEMENTS.pro,
-      };
-    }
-    throw error;
+    paddleConfigurationError = error;
   }
-  if (allowedIds.length !== 2) throw new Error("The configured Paddle price catalog is invalid.");
 
   const rows = await db()`
-    SELECT
-      EXISTS (
-        SELECT 1 FROM paddle_subscriptions s
-        WHERE s.user_id = ${userId}
-          AND s.status IN ('active', 'trialing')
-          AND s.price_id = ANY(${allowedIds}::text[])
-      ) AS is_pro,
-      (
-        SELECT jsonb_build_object(
-          'status', s.status,
-          'currentPeriodEndsAt', s.current_period_ends_at,
-          'scheduledChange', s.scheduled_change,
-          'priceId', s.price_id
+    WITH all_subscriptions AS (
+      SELECT
+        'paddle'::text AS provider,
+        s.status,
+        s.current_period_ends_at,
+        s.scheduled_change,
+        s.price_id AS plan_id,
+        NULL::text AS interval,
+        s.event_occurred_at,
+        NULL::timestamptz AS payment_failed_at
+      FROM paddle_subscriptions s
+      WHERE s.user_id = ${userId}
+
+      UNION ALL
+
+      SELECT
+        p.provider,
+        p.status,
+        p.current_period_ends_at,
+        NULL::jsonb AS scheduled_change,
+        p.plan_id,
+        p.interval,
+        p.event_occurred_at,
+        p.payment_failed_at
+      FROM paypal_subscriptions p
+      WHERE p.user_id = ${userId}
+        AND p.provider = 'paypal'
+    ),
+    eligible_subscriptions AS (
+      SELECT *
+      FROM all_subscriptions
+      WHERE (
+        provider = 'paddle'
+        AND status IN ('active', 'trialing')
+        AND plan_id = ANY(${paddleAllowedIds}::text[])
+      ) OR (
+        provider = 'paypal'
+        AND (
+          -- APPROVED means the buyer accepted; only ACTIVE grants Pro.
+          status = 'active'
+          OR (
+            status = 'cancelled'
+            AND current_period_ends_at IS NOT NULL
+            AND current_period_ends_at > now()
+          )
         )
+      )
+    )
+    SELECT
+      (SELECT count(*)::int FROM eligible_subscriptions) AS active_count,
+      (SELECT provider FROM eligible_subscriptions
+        ORDER BY event_occurred_at DESC LIMIT 1) AS active_provider,
+      EXISTS (
+        SELECT 1
         FROM paddle_subscriptions s
         WHERE s.user_id = ${userId}
-        ORDER BY s.event_occurred_at DESC LIMIT 1
+          AND s.status IN ('active', 'trialing')
+      ) AS has_active_paddle_records,
+      COALESCE(
+        (
+          SELECT jsonb_build_object(
+            'provider', provider,
+            'status', status,
+            'currentPeriodEndsAt', current_period_ends_at,
+            'scheduledChange', scheduled_change,
+            'priceId', plan_id,
+            'interval', interval,
+            'paymentFailedAt', payment_failed_at
+          )
+          FROM eligible_subscriptions
+          ORDER BY event_occurred_at DESC
+          LIMIT 1
+        ),
+        (
+          SELECT jsonb_build_object(
+            'provider', provider,
+            'status', status,
+            'currentPeriodEndsAt', current_period_ends_at,
+            'scheduledChange', scheduled_change,
+            'priceId', plan_id,
+            'interval', interval,
+            'paymentFailedAt', payment_failed_at
+          )
+          FROM all_subscriptions
+          ORDER BY event_occurred_at DESC
+          LIMIT 1
+        )
       ) AS subscription
-  ` as unknown as { is_pro: boolean; subscription: BillingSubscription | null }[];
+  ` as unknown as {
+    active_count: number;
+    active_provider: "paddle" | "paypal" | null;
+    has_active_paddle_records: boolean;
+    subscription: BillingSubscription | null;
+  }[];
 
-  const paid = Boolean(rows[0]?.is_pro);
-  const planSource: BillingPlanSource = paid ? "paddle_subscription" : grant ? "manual_grant" : "none";
+  const activeCount = Number(rows[0]?.active_count || 0);
+  const hasActivePaddleRecords = Boolean(rows[0]?.has_active_paddle_records);
+  const hasUnverifiedPaddleOverlap =
+    Boolean(paddleConfigurationError) &&
+    hasActivePaddleRecords &&
+    activeCount > 0;
+
+  // If Paddle has active records but its catalog is not configured, do not
+  // silently ignore those records and grant a concurrent PayPal subscription.
+  // When there are no active Paddle records, PayPal remains independent of
+  // Paddle configuration and expired PayPal users can still fall back to Free.
+  if (
+    paddleConfigurationError &&
+    hasActivePaddleRecords &&
+    activeCount === 0 &&
+    !grant
+  ) {
+    throw paddleConfigurationError;
+  }
+
+  const subscriptionConflict =
+    activeCount > 1 || hasUnverifiedPaddleOverlap;
+  const activeProvider =
+    activeCount === 1 && !subscriptionConflict
+      ? rows[0]?.active_provider
+      : null;
+  const planSource: BillingPlanSource =
+    activeProvider === "paddle"
+      ? "paddle_subscription"
+      : activeProvider === "paypal"
+        ? "paypal_subscription"
+        : grant
+          ? "manual_grant"
+          : "none";
   const plan: BillingPlan = planSource === "none" ? "free" : "pro";
+
   return {
-    plan, enforced: true, planSource, grant,
+    plan,
+    enforced: true,
+    planSource,
+    grant,
     subscription: rows[0]?.subscription || null,
+    subscriptionConflict,
     entitlements: plan === "pro" ? BILLING_ENTITLEMENTS.pro : BILLING_ENTITLEMENTS.free,
   };
 }
