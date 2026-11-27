@@ -5,7 +5,7 @@ import { useState } from "react";
 const CV_EXTRACTION_PROMPT = [
   "Analyze the attached CV PDF and extract professional information for my Inlinked preferences.",
   "",
-  "Return exactly one valid JSON object using the schema below. Do not wrap it in Markdown fences and do not add explanations before or after the JSON.",
+  "Return exactly one valid JSON object inside a single fenced code block (```json ... ```) so I can use the copy button, with no text before or after the code block and no splitting across several blocks, never as plain text or a file download.",
   "",
   "Rules:",
   "- Use only information supported by the CV. Do not invent qualifications, tools, employers, dates, achievements, industries, or experience.",
@@ -48,7 +48,7 @@ const CV_EXTRACTION_PROMPT = [
   '  "notes": []',
   "}",
   "",
-  "All list values must be arrays of strings. Notes must contain no more than 30 items. Each list item and each note must be 180 characters or fewer. Use empty arrays or empty strings for unknown information. Return exactly the JSON object and nothing else."
+  "All list values must be arrays of strings. Notes must contain no more than 30 items. Each list item and each note must be 180 characters or fewer. Use empty arrays or empty strings for unknown information. Return only the single fenced JSON code block and nothing else."
 ].join("\n");
 
 type CvImportData = {
@@ -95,11 +95,17 @@ function listValue(value: unknown, label: string, maxItems: number): string[] {
   return Array.from(new Set(value.map(item => (item as string).trim())));
 }
 
+function stripJsonCodeFence(raw: string): string {
+  const trimmed = raw.trim();
+  const match = trimmed.match(/^\\x60{3}json[ \\t]*\\r?\\n?([\\s\\S]*?)\\r?\\n?\\x60{3}$/i);
+  return (match ? match[1] : trimmed).trim();
+}
+
 function parseCvImport(raw: string): CvImportData {
-  const cleaned = raw.trim();
+  const cleaned = stripJsonCodeFence(raw);
   let value: unknown;
   try { value = JSON.parse(cleaned); }
-  catch { throw new Error("That is not valid JSON. Paste the complete JSON returned from the CV analysis without Markdown fences."); }
+  catch { throw new Error("That is not valid JSON. Paste the complete JSON returned from the CV analysis, optionally inside one fenced JSON code block."); }
   const root = asObject(value, "The JSON");
   if (root.schema !== "inlinked.cv-import.v1") throw new Error('The JSON schema must be "inlinked.cv-import.v1". Copy the Inlinked CV prompt and use its exact output format.');
   const candidate = asObject(root.candidate, "candidate");
@@ -252,7 +258,7 @@ export default function CvImportSettings() {
       <label className="wide">
         2. Paste ChatGPT's JSON response
         <textarea rows={12} value={jsonText} onChange={event => { setJsonText(event.target.value); setParsed(null); setMessage(""); }} placeholder={'{\n  "schema": "inlinked.cv-import.v1",\n  "candidate": { ... },\n  "jobPreferences": { ... },\n  "leadPreferences": { ... },\n  "notes": []\n}'} />
-        <small className="muted">Paste the complete JSON object. The prompt asks ChatGPT not to include Markdown code fences.</small>
+        <small className="muted">Paste the complete JSON object from ChatGPT, including its single fenced JSON code block if provided.</small>
       </label>
       <div className="wide row" style={{ justifyContent: "flex-end" }}>
         <button type="button" onClick={validate} disabled={validating || !jsonText.trim()}>{validating ? "Checking..." : "Validate and preview"}</button>
