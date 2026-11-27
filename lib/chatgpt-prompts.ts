@@ -83,6 +83,7 @@ export function buildChatGptPrompt({
     LEAD_EXAMPLE,
     "10. The endpoint accepts up to 50 connection candidates per request, saves recommendedOutreach with each record, and returns each saved record ID. Read the actual POST status and response body. The response uses total, saved, duplicates and invalid. Report these exact returned values accurately. Never claim a candidate or recommendation was saved unless the API confirms it.",
     "11. If context retrieval fails, do not guess the preferences or exclusions. If saving fails, report the actual error and do not claim the prospects were saved.",
+    "If the LinkedIn Connections POST cannot be executed in this chat, return the complete manual-save payload using researchTool and the leads array shown above. Return exactly one valid JSON object inside a single fenced code block (```json ... ```) so I can use the copy button, with no text before or after the code block and no splitting across several blocks, never as plain text or a file download. Never expose the Access Token or private endpoint URLs in that JSON.",
     "13. Stop the Firecrawl browser-interaction session after the final API response has been inspected. If a session fails to initialize, retry once using a completely fresh firecrawl_interact session started directly on the Context endpoint URL; do not use a prior scrapeId.",
     "",
     "## Output",
@@ -243,7 +244,7 @@ export function buildJobChatGptPrompt({
     "Set sourcePlatform to the actual source (examples: LinkedIn, Facebook, X, Reddit, Indeed, Reed, employer career page, recruiter website). Set sourceType to one concise descriptor such as job_board, company_careers, linkedin, social_post, recruiter_post or other.",
     "Use salaryMin/salaryMax only when numeric values and currency are clear; preserve the advertised wording in salaryText. Set workplaceType to remote, hybrid, on-site or unknown. Use an ISO date for postedAt only when a reliable date is known; otherwise use postedAtText and leave postedAt null.",
     "POST all qualified jobs in batches of no more than 50. Inspect the actual HTTP status and JSON response. Report the exact total, saved, duplicates and invalid counts. Do not claim a job was saved unless the endpoint confirms it.",
-    "If the HTTP request tool available in this chat cannot send the POST, do not claim persistence. Instead output a valid JSON object with researchTool and a jobs array so I can paste it into Inlinked → Jobs. Never expose my token in the JSON or report.",
+    "If the HTTP request tool available in this chat cannot send the POST, do not claim persistence. Instead output the complete manual-import payload with researchTool and a jobs array so I can paste it into Inlinked → Jobs. Return exactly one valid JSON object inside a single fenced code block (```json ... ```) so I can use the copy button, with no text before or after the code block and no splitting across several blocks, never as plain text or a file download. Never expose my token in the JSON or report.",
     "",
     "## Report",
     ...(looseSearch ? [
