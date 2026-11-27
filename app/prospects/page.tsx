@@ -1,9 +1,38 @@
 "use client";
 import { useEffect, useState } from "react";
+import JsonImportPanel, { type JsonImportValidation } from "@/components/JsonImportPanel";
 
 type Lead = { id: string; name: string; company: string; url: string; industry?: string; status: string; followUp: string; notes: string; connected?: boolean; connectedOn?: string; connectedAt?: string | null; connectionSentAt?: string | null; discoverySource?: string; savedVia?: string; researchTool?: string; recommendedOutreach?: string };
 const toLocalDateTime = (value?: string) => { if (!value) return ""; const d = new Date(value); return Number.isNaN(d.getTime()) ? "" : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); };
 const statuses = ["To research", "Ready to contact", "Connection Sent", "Connected", "Contacted", "Replied", "Call booked", "Client", "Not a fit"];
+const JSON_FENCE_INSTRUCTION = "Return exactly one JSON object inside a single fenced code block (```json ... ```), with nothing before or after the block, no splitting across multiple blocks, never as plain text or a file download.";
+const prospectsImportPrompt = [
+  "Prepare LinkedIn prospect records for my Inlinked Connections importer. Use only real professionals and public LinkedIn profile URLs; do not invent names, companies or profile links.",
+  "Return one object with researchTool and leads. Each lead uses name, company, linkedin and optional recommendedOutreach. The importer accepts the same lead fields as /api/assistant-save.",
+  'Example shape: {"researchTool":"ChatGPT","leads":[{"name":"Jane Smith","company":"ABC Repairs","linkedin":"https://www.linkedin.com/in/jane-smith","recommendedOutreach":"A short relevant connection note."}]}',
+  "Include 1–50 records. Every record needs name, company and a personal LinkedIn URL under linkedin.com/in/. Put the AI application name in researchTool or use Unknown.",
+  JSON_FENCE_INSTRUCTION,
+].join("\n");
+
+function validateProspectsImport(value: unknown): JsonImportValidation {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return { value, error: "Provide one JSON object with researchTool and a leads array." };
+  const input = value as Record<string, unknown>;
+  if (!Array.isArray(input.leads) || input.leads.length < 1 || input.leads.length > 50) return { value, error: "Provide between 1 and 50 prospects in the leads array." };
+  if (input.researchTool !== undefined && typeof input.researchTool !== "string") return { value, error: "researchTool must be a string." };
+  for (let index = 0; index < input.leads.length; index++) {
+    const lead = input.leads[index];
+    if (!lead || typeof lead !== "object" || Array.isArray(lead)) return { value, error: "Prospect " + (index + 1) + " must be a JSON object." };
+    const record = lead as Record<string, unknown>;
+    const url = typeof record.linkedin === "string" ? record.linkedin : typeof record.url === "string" ? record.url : "";
+    let validProfile = false;
+    try { const parsed = new URL(url); validProfile = /(^|\.)linkedin\.com$/i.test(parsed.hostname) && parsed.pathname.toLowerCase().startsWith("/in/"); } catch {}
+    if (typeof record.name !== "string" || !record.name.trim() || typeof record.company !== "string" || !record.company.trim() || !validProfile) {
+      return { value, error: "Prospect " + (index + 1) + " needs a name, company and a personal LinkedIn profile URL (linkedin.com/in/...)."};
+    }
+  }
+  return { value: input };
+}
+
 
 export default function Home() {
   const [account, setAccount] = useState<{connected:boolean; profile?:{name?:string;email?:string}}>({connected:false});
@@ -92,6 +121,51 @@ export default function Home() {
     if(!bad)setPasted("");
     setPasteBusy(false);
   }
+  async function importJsonProspects(value: unknown): Promise<string> {
+    if (!cloudStorage) throw new Error("Sign in to your Inlinked account before importing LinkedIn prospects.");
+    const input = value as { researchTool?: string; leads: Record<string, unknown>[] };
+    let saved = 0, duplicates = 0, invalid = 0, limitSkipped = 0;
+    const added: Lead[] = [];
+    for (let index = 0; index < input.leads.length; index++) {
+      const item = input.leads[index];
+      const response = await fetch("/api/prospects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: item.name,
+          company: item.company,
+          url: item.linkedin ?? item.url,
+          status: statuses[0],
+          notes: typeof item.notes === "string" ? item.notes : "Imported from ChatGPT JSON.",
+          recommendedOutreach: item.recommendedOutreach,
+          discoverySource: "ChatGPT research",
+          savedVia: "ChatGPT AI Token",
+          researchTool: item.researchTool ?? input.researchTool
+        })
+      });
+      const data = await response.json();
+      if (response.status === 402) {
+        limitSkipped = input.leads.length - index;
+        if (added.length) setLeads(old => [...added, ...old]);
+        const limitMessage = (data.error || "The Free plan limit prevents adding more LinkedIn prospects.") + " " + limitSkipped + " prospect(s) skipped due to the plan limit.";
+        setMessage(limitMessage);
+        throw new Error(limitMessage + " Saved " + saved + " before the limit.");
+      }
+      if (response.status === 409) { duplicates++; continue; }
+      if (!response.ok) {
+        if (response.status === 401) throw new Error(data.error || "Sign in again before importing prospects.");
+        invalid++;
+        continue;
+      }
+      if (data.lead) { added.push(data.lead); saved++; }
+      else invalid++;
+    }
+    if (added.length) setLeads(old => [...added, ...old]);
+    const summary = "JSON import complete: saved " + saved + ", duplicates " + duplicates + ", invalid " + invalid + ".";
+    setMessage(summary);
+    return summary;
+  }
+
   async function updateLead(id:string, changes:Partial<Lead>) {
     const current=leads.find(x=>x.id===id);if(!current)return;const next={...current,...changes};
     if(cloudStorage){const r=await fetch("/api/prospects",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(next)});const d=await r.json();if(!r.ok){setMessage(d.error||"Could not update LinkedIn connection.");return;}setLeads(old=>old.map(x=>x.id===id?d.lead:x));}
@@ -141,7 +215,8 @@ export default function Home() {
       {shown.length ? <><div className="lead-list">{shown.map(x=><article className="lead" key={x.id}><div className="prospect-summary"><strong>{x.name}</strong><div>{x.company}</div><small className="muted">{[x.discoverySource, x.savedVia, x.researchTool && x.researchTool !== "Unknown" ? "Research: " + x.researchTool : ""].filter(Boolean).join(" · ")}</small>{x.connected && <span className="connected-tag">✓ Connected{x.connectedAt ? ` · ${new Date(x.connectedAt).toLocaleString()}` : x.connectedOn ? ` · Legacy date ${x.connectedOn} (time not verified)` : " · date not recorded"}</span>}{x.followUp && <small>Follow up: {x.followUp}</small>}{x.notes && <p>{x.notes}</p>}{x.url && <a href={x.url} target="_blank" rel="noreferrer">Open LinkedIn ↗</a>}</div><aside className="recommended-outreach"><label>Recommended outreach<textarea rows={4} defaultValue={x.recommendedOutreach || ""} onBlur={e=>{const value=e.target.value;if(value!==(x.recommendedOutreach||""))void updateLead(x.id,{recommendedOutreach:value});}} placeholder="A personalized message will appear here after AI research."/></label><button type="button" className="secondary" disabled={!x.recommendedOutreach?.trim()} onClick={()=>void copyRecommended(x.recommendedOutreach||"")}>Copy message</button></aside><div className="lead-controls"><label className="sr-only" htmlFor={"status-"+x.id}>Status for {x.name}</label><select id={"status-"+x.id} value={x.status} onChange={e=>void updateLead(x.id,{status:e.target.value})}>{statuses.map(s=><option key={s}>{s}</option>)}</select>{x.status==="Connection Sent" && <label>Invitation sent at<input aria-label={"Connection request sent date and time for "+x.name} key={x.id + ":" + (x.connectionSentAt || "")} type="datetime-local" defaultValue={toLocalDateTime(x.connectionSentAt || undefined)} onBlur={e=>{const value=e.currentTarget.value ? new Date(e.currentTarget.value).toISOString() : "";if(value!==(x.connectionSentAt || ""))void updateLead(x.id,{connectionSentAt:value});}}/><small className="muted">Enter when you actually sent the invitation. Blank means not known.</small></label>}{x.status==="Connected" && <><label>Connection accepted on (date only)<input aria-label={"Connection accepted date for "+x.name} key={x.id + ":" + (x.connectedOn || "")} type="date" defaultValue={x.connectedOn || ""} onBlur={e=>{const value=e.currentTarget.value;if(value!==(x.connectedOn || ""))void updateLead(x.id,{connectedOn:value});}}/><small className="muted">The actual acceptance date. No time is assumed by this field.</small></label><label>Exact acceptance date and time (optional)<input aria-label={"Exact connection accepted date and time for "+x.name} key={x.id + ":" + (x.connectedAt || "")} type="datetime-local" defaultValue={toLocalDateTime(x.connectedAt || undefined)} onBlur={e=>{const value=e.currentTarget.value ? new Date(e.currentTarget.value).toISOString() : "";if(value!==(x.connectedAt || ""))void updateLead(x.id,{connectedAt:value});}}/><small className="muted">{x.connectedAt ? "Exact acceptance time saved." : "Leave blank when the time is not known. Do not use the date you recorded the connection."}</small></label></>}<button className="delete" onClick={()=>void removeLead(x.id)}>×</button></div></article>)}</div><div className="row" aria-label="Prospect pages"><span className="muted">Showing {(page-1)*pageSize+1}–{Math.min(page*pageSize,filtered.length)} of {filtered.length}</span><button type="button" className="secondary" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Previous</button><span>Page {page} of {pageCount}</span><button type="button" className="secondary" disabled={page>=pageCount} onClick={()=>setPage(p=>p+1)}>Next</button></div></> : <div className="empty"><strong>{leads.length ? "No matching connections" : "Your connection list starts here"}</strong><p>Add a professional or decision-maker from any country or industry to track your next relationship-building step.</p></div>}
       <p className="storage-note">{cloudStorage ? "Synced to your private cloud storage and mirrored in this browser." : "Saved in this browser until you sign in to enable private database sync."} Export CSV regularly for backup.</p>
     </section>
-    {account.connected&&<section className="panel"><h2>Paste from ChatGPT</h2><p className="muted">Ask ChatGPT to list LinkedIn connections one per line as <code>Name | Company | LinkedIn profile URL</code>, then paste them here (up to 50). Duplicates are skipped.</p><textarea rows={5} value={pasted} onChange={e=>setPasted(e.target.value)} placeholder={"Jane Smith | ABC Appliance Repairs | https://www.linkedin.com/in/jane-smith"}/><div className="row"><button onClick={()=>void importPasted()} disabled={pasteBusy||!pasted.trim()}>{pasteBusy?"Importing...":"Import pasted connections"}</button></div></section>}
+    {account.connected&&<><JsonImportPanel title="Import from ChatGPT" description="Import up to 50 LinkedIn prospects using the same leads schema as the assistant save endpoint. The existing line-by-line paste importer remains available below." prompt={prospectsImportPrompt} placeholder={'{"researchTool":"ChatGPT","leads":[{"name":"Jane Smith","company":"ABC Repairs","linkedin":"https://www.linkedin.com/in/jane-smith"}]}'} validate={validateProspectsImport} onImport={importJsonProspects} importLabel="Import prospects" />
+    <section className="panel"><h2>Paste from ChatGPT</h2><p className="muted">Ask ChatGPT to list LinkedIn connections one per line as <code>Name | Company | LinkedIn profile URL</code>, then paste them here (up to 50). Duplicates are skipped.</p><textarea rows={5} value={pasted} onChange={e=>setPasted(e.target.value)} placeholder={"Jane Smith | ABC Appliance Repairs | https://www.linkedin.com/in/jane-smith"}/><div className="row"><button onClick={()=>void importPasted()} disabled={pasteBusy||!pasted.trim()}>{pasteBusy?"Importing...":"Import pasted connections"}</button></div></section></>}
     <section className="panel"><h2>Your account</h2>{account.connected?<><p className="muted">Signed in as <strong>{account.profile?.name || "Google user"}</strong> {account.profile?.email || ""}</p><div className="row"><a className="button secondary" href="/settings">Edit search preferences</a><button className="text-button" onClick={async()=>{await fetch("/api/auth/logout",{method:"POST"});setAccount({connected:false});window.location.href="/login";}}>Sign out</button></div></>:<><p className="muted">Sign in to save LinkedIn connections privately, configure your target markets and connect ChatGPT.</p><a className="button" href="/api/auth/google">Continue with Google</a></>}{message && <p className="status">{message}</p>}</section>
     <footer>Inlinked · LinkedIn Connections</footer>
   </main>;

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import LeadChatGptPrompt from "@/components/LeadChatGptPrompt";
+import JsonImportPanel, { type JsonImportValidation } from "@/components/JsonImportPanel";
 
 type Preferences = {
   services: string[];
@@ -56,6 +57,90 @@ const sources = [
 ];
 const splitLines = (value: string) => value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
 const label = (value: string) => value.replace(/_/g, " ").replace(/\b\w/g, x => x.toUpperCase());
+const JSON_FENCE_INSTRUCTION = "Return exactly one JSON object inside a single fenced code block (```json ... ```), with nothing before or after the block, no splitting across multiple blocks, never as plain text or a file download.";
+
+const isJsonRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object" && !Array.isArray(value));
+function validateCommercialLeadsImport(value: unknown, activeProfileId: string): JsonImportValidation {
+  if (!isJsonRecord(value)) return { value, error: "Provide one JSON object with profileId, researchTool and a leads array." };
+  if (value.profileId !== activeProfileId) return { value, error: "The JSON profileId must match the currently selected Lead Profile. Copy the prompt again after changing profiles." };
+  if (!Array.isArray(value.leads) || value.leads.length < 1 || value.leads.length > 50) return { value, error: "Provide between 1 and 50 commercial leads in the leads array." };
+  if (value.researchTool !== undefined && typeof value.researchTool !== "string") return { value, error: "researchTool must be a string." };
+  const allowedEngines = ["direct_demand", "opportunity_signal", "ideal_customer"];
+  for (let index = 0; index < value.leads.length; index++) {
+    const lead = value.leads[index];
+    if (!isJsonRecord(lead)) return { value, error: "Lead " + (index + 1) + " must be a JSON object." };
+    const title = typeof lead.title === "string" ? lead.title.trim() : "";
+    const company = typeof lead.company === "string" ? lead.company.trim() : "";
+    const engine = typeof lead.discoveryEngine === "string" ? lead.discoveryEngine : "";
+    let validSource = false;
+    try { const url = new URL(typeof lead.sourceUrl === "string" ? lead.sourceUrl : ""); validSource = ["http:", "https:"].includes(url.protocol); } catch {}
+    if ((!title && !company) || !validSource || !allowedEngines.includes(engine)) {
+      return { value, error: "Lead " + (index + 1) + " needs a title or company, a valid public sourceUrl and a recognized discoveryEngine." };
+    }
+  }
+  return { value };
+}
+function validateLeadProfileImport(value: unknown): JsonImportValidation {
+  if (!isJsonRecord(value)) return { value, error: "Provide one profile object with name, description and preferences." };
+  if (typeof value.name !== "string" || !value.name.trim()) return { value, error: "A profile name is required." };
+  if (!isJsonRecord(value.preferences)) return { value, error: "A preferences object is required." };
+  const input = value.preferences;
+  const arrayLimits: Record<string, number> = {
+    services: 40, customerTypes: 30, industries: 40, decisionMakerRoles: 30, countries: 40,
+    locations: 60, buyingSignals: 30, sourceCategories: 20, discoveryEngines: 3, excludedKeywords: 100
+  };
+  const cleanArray = (key: string): string[] => {
+    const fallback = defaultPreferences[key as keyof Preferences];
+    const source = Array.isArray(input[key]) ? input[key] as unknown[] : Array.isArray(fallback) ? fallback : [];
+    return [...new Set(source.filter((item): item is string => typeof item === "string")
+      .map(item => item.trim().slice(0, 120)).filter(Boolean))].slice(0, arrayLimits[key]);
+  };
+  const allowedSources = ["linkedin_public", "reddit", "facebook_public", "x_public", "forums", "business_sites", "project_sites", "other_public"];
+  const allowedEngines = ["direct_demand", "opportunity_signal", "ideal_customer"];
+  const projectType = ["one_time", "recurring", "either"].includes(String(input.projectType)) ? String(input.projectType) : "either";
+  const cleanText = (key: string, max: number, fallback = "") => typeof input[key] === "string" ? (input[key] as string).trim().slice(0, max) : fallback;
+  const preferences = {
+    services: cleanArray("services"),
+    serviceDescription: cleanText("serviceDescription", 3000),
+    idealCustomerDescription: cleanText("idealCustomerDescription", 3000),
+    problemsSolved: cleanText("problemsSolved", 2000),
+    customerTypes: cleanArray("customerTypes"),
+    industries: cleanArray("industries"),
+    decisionMakerRoles: cleanArray("decisionMakerRoles"),
+    countries: cleanArray("countries"),
+    locations: cleanArray("locations"),
+    buyingSignals: cleanArray("buyingSignals"),
+    sourceCategories: cleanArray("sourceCategories").filter(item => allowedSources.includes(item)),
+    discoveryEngines: cleanArray("discoveryEngines").filter(item => allowedEngines.includes(item)),
+    excludedKeywords: cleanArray("excludedKeywords"),
+    projectType,
+    minimumBudget: cleanText("minimumBudget", 40),
+    budgetCurrency: cleanText("budgetCurrency", 12),
+    preferredCustomerValue: cleanText("preferredCustomerValue", 40),
+    language: cleanText("language", 60, "English") || "English"
+  };
+  return { value: { name: value.name.trim().slice(0, 100), description: typeof value.description === "string" ? value.description.trim().slice(0, 500) : "", preferences } };
+}
+const profileImportPrompt = [
+  "Convert only the business and customer information I explicitly provide in this conversation or paste alongside this prompt into one Inlinked Lead Profile JSON object.",
+  "Do not browse the web, research companies, infer facts, invent services or fill gaps with assumptions. Use empty strings and arrays when I have not provided the information.",
+  "Return the top-level keys name, description and preferences. preferences must use exactly these form keys: services, serviceDescription, idealCustomerDescription, problemsSolved, customerTypes, industries, decisionMakerRoles, countries, locations, buyingSignals, sourceCategories, discoveryEngines, excludedKeywords, projectType, minimumBudget, budgetCurrency, preferredCustomerValue, language.",
+  "Limits: name 100 characters; description 500; serviceDescription and idealCustomerDescription 3000 each; problemsSolved 2000; minimumBudget and preferredCustomerValue 40 each; budgetCurrency 12; language 60. Each array has unique strings up to 120 characters: services 40, customerTypes 30, industries 40, decisionMakerRoles 30, countries 40, locations 60, buyingSignals 30, sourceCategories 20, discoveryEngines 3, excludedKeywords 100.",
+  "Allowed projectType values: one_time, recurring, either. Allowed discoveryEngines: direct_demand, opportunity_signal, ideal_customer. Allowed sourceCategories: linkedin_public, reddit, facebook_public, x_public, forums, business_sites, project_sites, other_public.",
+  'Example: {"name":"My profile","description":"Short description","preferences":{"services":[],"serviceDescription":"","idealCustomerDescription":"","problemsSolved":"","customerTypes":[],"industries":[],"decisionMakerRoles":[],"countries":[],"locations":[],"buyingSignals":[],"sourceCategories":[],"discoveryEngines":[],"excludedKeywords":[],"projectType":"either","minimumBudget":"","budgetCurrency":"","preferredCustomerValue":"","language":"English"}}',
+  JSON_FENCE_INSTRUCTION
+].join("\n");
+function buildCommercialLeadImportPrompt(profileId: string): string {
+  return [
+    "Prepare up to 50 verified commercial lead records for my currently active Inlinked Lead Profile.",
+    "Use the same record fields accepted by /api/assistant-leads-save. Do not invent contact details, budgets, source evidence or buying intent. Each lead must include a real public http(s) sourceUrl and discoveryEngine set to direct_demand, opportunity_signal or ideal_customer.",
+    "The required top-level profileId is exactly " + profileId + ". Include researchTool as the AI application name or Unknown.",
+    'Each leads item may contain title, company, contactName, contactRole, website, profileUrl, email, phone, location, country, opportunitySummary, serviceRequested, discoveryEngine, buyingIntent, confidence, projectType, budgetText, estimatedValueMin, estimatedValueMax, valueCurrency, sourcePlatform, sourceType, sourceUrl, publishedAt, evidenceUrls, scores, sourceMetadata and recommendedOutreach.',
+    'Example shape: {"profileId":"' + profileId + '","researchTool":"ChatGPT","leads":[{"title":"Bookkeeping support opportunity","company":"Example Ltd","sourceUrl":"https://example.com/request","discoveryEngine":"direct_demand","recommendedOutreach":"A concise, evidence-based first message."}]}',
+    "Return between 1 and 50 lead objects. Leave unknown optional values blank or null. scores may use serviceMatch, buyingIntent, freshness, commercialPotential, contactability and priority, each from 0 to 100.",
+    JSON_FENCE_INSTRUCTION
+  ].join("\n");
+}
 
 export default function LeadsPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -256,6 +341,36 @@ export default function LeadsPage() {
     </label>;
   };
 
+  function importProfileJson(value: unknown): string {
+    const input = value as { name: string; description: string; preferences: Preferences };
+    setProfileName(input.name);
+    setProfileDescription(input.description);
+    setPreferences(input.preferences);
+    setEngineSelection(input.preferences.discoveryEngines?.length ? input.preferences.discoveryEngines : []);
+    setEditing(true);
+    setProfileMessage("Profile JSON loaded into the form. Review the details and save the profile to apply them.");
+    return "Profile details loaded into the form. Review them and click Create profile or Save profile.";
+  }
+
+  async function importCommercialLeads(value: unknown): Promise<string> {
+    if (!selectedId) throw new Error("Create or select a saved Lead Profile before importing commercial leads.");
+    const input = value as { profileId: string; researchTool?: string; leads: Record<string, unknown>[] };
+    const batch = input.leads.map(lead => ({ ...lead, profileId: selectedId, researchTool: lead.researchTool ?? input.researchTool }));
+    const response = await fetch("/api/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leads: batch, researchTool: input.researchTool })
+    });
+    const data = await response.json();
+    const limitSkipped = Array.isArray(data.results) ? data.results.filter((item: { status?: string }) => item.status === "limit_reached").length : 0;
+    await loadLeads(selectedId);
+    if (response.status === 402 || data.code === "COMMERCIAL_LEAD_LIMIT_REACHED") {
+      throw new Error((data.error || "The Free plan does not include commercial leads.") + " " + limitSkipped + " lead(s) skipped due to the plan limit.");
+    }
+    if (!response.ok) throw new Error(data.error || "Could not import commercial leads.");
+    return "Import complete: " + data.saved + " saved, " + data.duplicates + " duplicates, " + data.invalid + " invalid.";
+  }
+
   return <main className="workspace leads-workspace">
     <header className="topbar">
       <div><div className="eyebrow">CUSTOMER ACQUISITION WORKSPACE</div><h1>Leads</h1><p className="muted">Find demand, identify potential customers and turn commercial opportunities into revenue. This workspace is independent from LinkedIn Connections.</p></div>
@@ -304,6 +419,15 @@ export default function LeadsPage() {
           {textareaField("excludedKeywords", "Excluded keywords", "Competitors, irrelevant sectors, free work, internships…")}
           <div className="wide form-footer"><span className="muted">Profiles are private to your account. Searches use these preferences until you change them.</span><div className="row"><button type="submit" disabled={savingProfile}>{savingProfile ? "Saving…" : selectedId ? "Save profile" : "Create profile"}</button>{selectedId && <button type="button" className="delete" onClick={() => void deleteProfile()}>Delete profile</button>}</div></div>
         </form>}
+        {editing && <JsonImportPanel
+          title="Import profile from JSON"
+          description="Copy the prompt, paste the profile JSON, then validate and preview it. Import loads the values into this form; review and save them to create or update the profile."
+          prompt={profileImportPrompt}
+          placeholder='{"name":"My profile","description":"","preferences":{"services":[],"serviceDescription":"","idealCustomerDescription":"","problemsSolved":""}}'
+          validate={validateLeadProfileImport}
+          onImport={importProfileJson}
+          importLabel="Load profile into form"
+        />}
         {profileMessage && <p className="status" role="status">{profileMessage}</p>}
       </>}
     </section>
@@ -344,6 +468,15 @@ export default function LeadsPage() {
       <p className="footnote">ChatGPT researches public sources, distinguishes direct requests from inferred opportunities and ideal-customer matches, then saves qualified leads with personalized outreach drafts. It does not access private profiles or messages, and it must not invent buying intent, contacts or budgets.</p>
     </section>
 
+    <JsonImportPanel
+      title="Import from ChatGPT"
+      description={selectedId ? "Import up to 50 commercial leads into the active Lead Profile. The saved-lead API enforces duplicates and plan limits." : "Create and save a Lead Profile first to enable commercial-lead import."}
+      prompt={selectedId ? buildCommercialLeadImportPrompt(selectedId) : "Create and save a Lead Profile to generate its import prompt."}
+      placeholder='{"profileId":"ACTIVE_PROFILE_ID","researchTool":"ChatGPT","leads":[{"title":"Example opportunity","company":"Example Ltd","sourceUrl":"https://example.com/request","discoveryEngine":"direct_demand"}]}'
+      validate={value => validateCommercialLeadsImport(value, selectedId)}
+      onImport={importCommercialLeads}
+      importLabel="Import commercial leads"
+    />
     <section className="panel">
       <div className="section-heading"><div><div className="eyebrow">COMMERCIAL PIPELINE</div><h2>Saved opportunities</h2><p className="muted">Track prospects from discovery through qualification, conversations, proposals and revenue.</p></div><button type="button" className="secondary" onClick={() => void loadLeads(selectedId)}>Refresh</button></div>
       <div className="toolbar"><input type="search" value={pipelineSearch} onChange={event => setPipelineSearch(event.target.value)} placeholder="Search company, service, location or evidence…"/><select value={pipelineStatus} onChange={event => setPipelineStatus(event.target.value)}><option>All</option>{statusOptions.map(status => <option key={status}>{status}</option>)}</select></div>

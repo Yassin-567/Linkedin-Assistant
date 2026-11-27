@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import JsonImportPanel, { type JsonImportValidation } from "@/components/JsonImportPanel";
+import { JOB_IMPORT_EXAMPLE } from "@/lib/chatgpt-prompts";
 
 type Job = {
   id: string; title: string; company: string; description: string; salaryText: string;
@@ -11,6 +13,33 @@ type Job = {
   discoveredAt: string; createdAt: string;
 };
 const statuses = ["Saved", "Applied", "Interviewing", "Offer", "Rejected", "Closed", "Not interested"];
+const JSON_FENCE_INSTRUCTION = "Return exactly one JSON object inside a single fenced code block (```json ... ```), with nothing before or after the block, no splitting across multiple blocks, never as plain text or a file download.";
+const jobsImportPrompt = [
+  "Prepare job records for my Inlinked Jobs importer. Use only job information actually researched or provided; never invent details.",
+  "The top-level JSON object must contain researchTool (the AI application name, or Unknown) and jobs (an array of 1–50 job objects).",
+  "Use this exact field structure and field names; unknown values should be empty strings, null or empty arrays as appropriate:",
+  JOB_IMPORT_EXAMPLE,
+  "Every job must have a non-empty title and a valid original sourceUrl using http or https. Use sourceUrl for the original listing and applicationUrl only for the direct application page.",
+  JSON_FENCE_INSTRUCTION,
+].join("\n");
+
+function validateJobsImport(value: unknown): JsonImportValidation {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return { value, error: "Provide one JSON object with researchTool and a jobs array." };
+  const input = value as Record<string, unknown>;
+  if (!Array.isArray(input.jobs) || input.jobs.length < 1 || input.jobs.length > 50) return { value, error: "Provide between 1 and 50 jobs in the jobs array." };
+  if (input.researchTool !== undefined && typeof input.researchTool !== "string") return { value, error: "researchTool must be a string." };
+  for (let index = 0; index < input.jobs.length; index++) {
+    const job = input.jobs[index];
+    if (!job || typeof job !== "object" || Array.isArray(job)) return { value, error: "Job " + (index + 1) + " must be a JSON object." };
+    const record = job as Record<string, unknown>;
+    if (typeof record.title !== "string" || !record.title.trim()) return { value, error: "Job " + (index + 1) + " needs a title." };
+    const source = typeof record.sourceUrl === "string" ? record.sourceUrl : typeof record.url === "string" ? record.url : "";
+    try { const url = new URL(source); if (!["http:", "https:"].includes(url.protocol)) throw new Error(); }
+    catch { return { value, error: "Job " + (index + 1) + " needs a valid http(s) sourceUrl." }; }
+  }
+  return { value: input };
+}
+
 const label = (value: string) => { const cleaned = value.trim(); if (!cleaned || ["unknown", "not specified", "n/a", "none"].includes(cleaned.toLowerCase())) return ""; return cleaned.replace(/[_-]+/g, " ").replace(/\b\w/g, x => x.toUpperCase()); };
 const safeDate = (value?: string | null) => value && !Number.isNaN(Date.parse(value)) ? new Date(value).toLocaleDateString() : "";
 const toLocalDateTime = (value?: string | null) => { if (!value) return ""; const d = new Date(value); return Number.isNaN(d.getTime()) ? "" : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); };
@@ -33,8 +62,6 @@ export default function JobsPage() {
   const [page, setPage] = useState(1);
   const pageSize = 25;
   const [message, setMessage] = useState("");
-  const [importText, setImportText] = useState("");
-  const [importing, setImporting] = useState(false);
   const [expanded, setExpanded] = useState<string[]>([]);
 
   async function reload() {
@@ -93,31 +120,22 @@ export default function JobsPage() {
     } catch (error) { setMessage(error instanceof Error ? error.message : "Remove failed."); }
   }
 
-  async function importJobs() {
-    setMessage("");
-    let parsed: unknown;
-    const trimmedImport = importText.trim();
-    const importLines = trimmedImport.split("\n");
-    const openingLine = importLines[0].replace("\r", "").trim().toLowerCase();
-    const closingLine = importLines[importLines.length - 1].trim();
-    const fence = String.fromCharCode(96).repeat(3);
-    const importBody = openingLine === fence + "json" && closingLine === fence && importLines.length >= 3
-      ? importLines.slice(1, -1).join("\n").trim()
-      : trimmedImport;
-    try { parsed = JSON.parse(importBody); }
-    catch { setMessage("Paste valid JSON containing a jobs array."); return; }
-    const batch = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === "object" && "jobs" in parsed ? (parsed as { jobs: unknown }).jobs : null);
-    if (!Array.isArray(batch) || batch.length < 1 || batch.length > 50) { setMessage("Provide between 1 and 50 jobs in a jobs array."); return; }
-    setImporting(true);
-    try {
-      const response = await fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jobs: batch, researchTool: parsed && typeof parsed === "object" && "researchTool" in parsed ? (parsed as { researchTool?: string }).researchTool : undefined }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Import failed.");
+  async function importJobs(value: unknown): Promise<string> {
+    const input = value as { jobs: Record<string, unknown>[]; researchTool?: string };
+    const response = await fetch("/api/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobs: input.jobs, researchTool: input.researchTool })
+    });
+    const data = await response.json();
+    const limitSkipped = Array.isArray(data.results) ? data.results.filter((item: { status?: string }) => item.status === "limit_reached").length : 0;
+    if (response.status === 402 || data.code === "SAVED_JOB_LIMIT_REACHED") {
       await reload();
-      setImportText("");
-      setMessage("Import complete: " + data.saved + " saved, " + data.duplicates + " duplicates, " + data.invalid + " invalid.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Import failed."); }
-    finally { setImporting(false); }
+      throw new Error((data.error || "The plan limit prevents adding more saved jobs.") + " " + limitSkipped + " job(s) skipped due to the plan limit.");
+    }
+    if (!response.ok) throw new Error(data.error || "Import failed.");
+    await reload();
+    return "Import complete: " + data.saved + " saved, " + data.duplicates + " duplicates, " + data.invalid + " invalid.";
   }
 
   function exportCsv() {
@@ -198,11 +216,14 @@ export default function JobsPage() {
       <div className="row" aria-label="Job pages"><span className="muted">Showing {filtered.length ? (page-1)*pageSize+1 : 0}–{Math.min(page*pageSize,filtered.length)} of {filtered.length}</span><button type="button" className="secondary" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Previous</button><span>Page {page} of {pageCount}</span><button type="button" className="secondary" disabled={page>=pageCount} onClick={()=>setPage(p=>p+1)}>Next</button></div><p className="muted" role="status">{message}</p>
     </section>
 
-    <section className="panel">
-      <div className="section-heading"><div><h2>Import from ChatGPT</h2><p className="muted">Use this when ChatGPT cannot send the save request directly. Paste the JSON object it returns.</p></div></div>
-      <textarea rows={8} value={importText} onChange={e => setImportText(e.target.value)} placeholder={'{"jobs":[{"title":"Example role","company":"Company","sourceUrl":"https://example.com/jobs/123"}]}'} />
-      <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}><button type="button" onClick={() => void importJobs()} disabled={importing || !importText.trim()}>{importing ? "Importing..." : "Import jobs"}</button></div>
-      <p className="footnote">Import accepts 1–50 jobs per batch. A valid title and original source URL are required. Duplicate source URLs are ignored.</p>
-    </section>
+    <JsonImportPanel
+      title="Import from ChatGPT"
+      description="Copy the prompt, ask ChatGPT to prepare up to 50 jobs, then validate and preview the JSON before importing. Duplicate source URLs are ignored."
+      prompt={jobsImportPrompt}
+      placeholder='{"researchTool":"ChatGPT","jobs":[{"title":"Example role","sourceUrl":"https://example.com/jobs/123"}]}'
+      validate={validateJobsImport}
+      onImport={importJobs}
+      importLabel="Import jobs"
+    />
   </main>;
 }

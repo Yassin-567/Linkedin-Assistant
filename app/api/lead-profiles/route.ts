@@ -12,6 +12,7 @@ const array = (value: unknown, max = 40): string[] => Array.isArray(value)
 const defaults = {
   services: [] as string[],
   serviceDescription: "",
+  idealCustomerDescription: "",
   problemsSolved: "",
   customerTypes: [] as string[],
   industries: [] as string[],
