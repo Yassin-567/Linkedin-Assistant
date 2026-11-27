@@ -6,7 +6,7 @@ export const LEGAL = {
   legalName: "Yassin Alaa Aly",
   tradingName: "Inlinked",
 
-  postalAddress: "Elobour, second district, 174, post code 11828, Egypt" as string | null,
+  postalAddress: "Yassin Alaa Aly, El Obour City, Egypt (postal address available on request at yassinalaa3310@gmail.com)." as string | null,
   contactEmail: "yassinalaa3310@gmail.com" as string | null,
   effectiveDate: null as string | null,
 
