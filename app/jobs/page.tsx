@@ -97,8 +97,14 @@ export default function JobsPage() {
     setMessage("");
     let parsed: unknown;
     const trimmedImport = importText.trim();
-    const fencedImport = trimmedImport.match(/^\\x60{3}json[ \\t]*\\r?\\n?([\\s\\S]*?)\\r?\\n?\\x60{3}$/i);
-    try { parsed = JSON.parse((fencedImport ? fencedImport[1] : trimmedImport).trim()); }
+    const newlineIndex = trimmedImport.indexOf("\\n");
+    const openingLine = newlineIndex >= 0
+      ? trimmedImport.slice(0, newlineIndex).replace(/\\r$/, "").trim().toLowerCase()
+      : "";
+    const importBody = openingLine === "```json" && trimmedImport.endsWith("```")
+      ? trimmedImport.slice(newlineIndex + 1, -3).trim()
+      : trimmedImport;
+    try { parsed = JSON.parse(importBody); }
     catch { setMessage("Paste valid JSON containing a jobs array."); return; }
     const batch = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === "object" && "jobs" in parsed ? (parsed as { jobs: unknown }).jobs : null);
     if (!Array.isArray(batch) || batch.length < 1 || batch.length > 50) { setMessage("Provide between 1 and 50 jobs in a jobs array."); return; }
