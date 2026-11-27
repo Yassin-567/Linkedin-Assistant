@@ -79,7 +79,7 @@ export default function JobPreferencesSettings() {
 
   return <section className="panel">
     <div className="section-heading">
-      <div><div className="eyebrow">JOB DISCOVERY</div><h2>Job-search preferences</h2>
+      <div><div className="eyebrow">JOB DISCOVERY</div><h2>Job preferences</h2>
         <p className="muted">These are independent from your lead preferences. Leave fields empty to keep that dimension broad.</p>
       </div>
     </div>
@@ -99,7 +99,7 @@ export default function JobPreferencesSettings() {
       <label>Minimum salary<input type="number" min="0" step="any" value={p.minimumSalary ?? ""} onChange={e => setP(old => ({ ...old, minimumSalary: e.target.value === "" ? null : Number(e.target.value) }))} placeholder="Any salary" /></label>
       <label>Salary currency<input value={p.salaryCurrency} onChange={e => setP(old => ({ ...old, salaryCurrency: e.target.value.toUpperCase() }))} placeholder="GBP, USD, EGP..." /></label>
       <label>Preferred language<input value={p.language} onChange={e => setP(old => ({ ...old, language: e.target.value }))} /></label>
-      <p className="wide muted">Your result count is configured separately in Settings → ChatGPT connection. ChatGPT will never invent or pad results to meet a target.</p>
+      <label>Jobs to target per research run<input type="number" min={1} max={50} step={1} value={p.targetCount} onChange={e => { const count = Number(e.target.value); if (Number.isInteger(count) && count >= 1 && count <= 50) setP(old => ({ ...old, targetCount: count })); }} /><small className="muted">Choose 1–50. This target is saved with your job preferences and used in generated ChatGPT prompt links. ChatGPT will never invent or pad results to meet it.</small></label>
       <div className="wide job-source-options">
         <strong>Where should ChatGPT search?</strong>
         <label><input type="checkbox" checked={p.includeJobBoards} onChange={e => setP(old => ({ ...old, includeJobBoards: e.target.checked }))} /> Job boards and recruitment websites</label>

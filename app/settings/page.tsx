@@ -20,9 +20,7 @@ const profileLabels: Record<keyof ProfileFields, string> = {
 function lines(value: string) { return value.split("\n"); }
 function cleanLines(values: string[]) { return values.map(value => value.trim()).filter(Boolean); }
 function sourceLabel(value?: string) {
-  if (value === "public_linkedin_index") return "Legacy public-index context";
-  if (value === "user_entered_or_edited") return "Entered or edited by you";
-  return "Not found";
+  return value === "user_entered_or_edited" ? "Entered by you" : "";
 }
 
 export default function SettingsPage() {
@@ -108,7 +106,7 @@ export default function SettingsPage() {
       <div className="section-heading"><div><div className="eyebrow">CHATGPT INTEGRATION</div><h2>ChatGPT connection and prompt builder</h2><p className="muted">Manage one Access Token and generate job-discovery and LinkedIn connection-research prompts. The commercial Leads workspace has its own ChatGPT research prompt and save workflow.</p></div></div>
 
 
-      <ChatGptSettings prospectCount={prospectCount} onProspectCountChange={setProspectCount} />
+      <ChatGptSettings prospectCount={prospectCount} />
     </section>
 
     <section className="panel">
@@ -119,7 +117,15 @@ export default function SettingsPage() {
 
     {activeTab === "jobs" && <JobPreferencesSettings />}
 
-    {activeTab === "cv" && <><CvImportSettings /><JsonPreferencesImport /></>}
+    {activeTab === "cv" && <>
+      <section className="panel">
+        <div className="section-heading"><div><div className="eyebrow">AI IMPORTS</div><h2>Import your information</h2>
+          <p className="muted">Use either option below: import structured details from your CV, or ask ChatGPT to prepare preferences from information you have provided and paste the JSON response.</p>
+        </div></div>
+      </section>
+      <CvImportSettings />
+      <JsonPreferencesImport />
+    </>}
 
     {activeTab === "preferences" && <>
     <section className="panel"><form className="lead-form" onSubmit={save}>
@@ -131,14 +137,13 @@ export default function SettingsPage() {
       {field("excludedKeywords", "Exclude keywords", "Profiles or companies containing these terms will be filtered out where possible.")}
       <label className="wide">LinkedIn connections to target per research run<input type="number" min={1} max={50} step={1} value={prospectCount} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) { setProspectCount(n); } }} /><small className="muted">Choose 1–50. ChatGPT may return fewer when fewer qualified connection candidates are available. This target count is saved to your Inlinked account and loaded by the prompt gateway.</small></label>
       <label className="wide">Preferred language<input value={p.language} onChange={e => setP(old => ({ ...old, language: e.target.value }))} /></label>
-      <label className="wide">About me / additional interests<textarea rows={5} value={p.profileSummary} onChange={e => setP(old => ({ ...old, profileSummary: e.target.value }))} placeholder="Add a short description of your background, skills, interests or the people you want to meet." /><small className="muted">This is your editable context for LinkedIn connection matching. Confirmed profile details below can update this summary.</small></label>
       <div className="wide form-footer"><span className="muted">{busy ? "Loading settings..." : message}</span><button disabled={busy || saving}>{saving ? "Saving..." : "Save preferences"}</button></div>
     </form></section>
 
     <section className="panel">
-      <div className="section-heading"><div><div className="eyebrow">YOUR PROFESSIONAL CONTEXT</div><h2>Background for personalized outreach</h2><p className="muted">Enter or correct your professional background manually. External AI research prompts use this context to recommend relevant connection messages, commercial outreach and job application notes.</p></div></div>
+      <div className="section-heading"><div><div className="eyebrow">YOUR PROFESSIONAL BACKGROUND</div><h2>Your professional background</h2><p className="muted">Review and update these seven details. Your professional summary is the single About field used by your AI prompts for personalized research and outreach.</p></div></div>
       <div className="lead-form">
-        {(Object.keys(profileLabels) as (keyof ProfileFields)[]).map(key => <label key={key}>{profileLabels[key]}<textarea rows={key === "about" || key === "experience" ? 4 : 2} value={profile[key]} onChange={e => setProfile(old => ({ ...old, [key]: e.target.value }))} placeholder={sources[key] === "not_found" ? "Not found. You can enter this manually." : "Review and correct this information."} /><small className="muted">Source: {sourceLabel(sources[key])}</small></label>)}
+        {(Object.keys(profileLabels) as (keyof ProfileFields)[]).map(key => <label key={key}>{profileLabels[key]}<textarea rows={key === "about" || key === "experience" ? 4 : 2} value={profile[key]} onChange={e => setProfile(old => ({ ...old, [key]: e.target.value }))} placeholder="Add or update this detail." />{sourceLabel(sources[key]) && <small className="muted">{sourceLabel(sources[key])}</small>}</label>)}
       </div>
       <div className="form-footer"><span className="muted">{profileMessage}{verifiedAt ? " · Last saved: " + new Date(verifiedAt).toLocaleString() : ""}</span><button type="button" onClick={() => void saveProfileContext()} disabled={confirming}>{confirming ? "Saving professional context..." : "Save professional context"}</button></div>
       <p className="footnote">These details are supplied by you and are not independently verified by Inlinked. Keep them accurate; AI assistants must not claim experience or qualifications you have not confirmed.</p>
