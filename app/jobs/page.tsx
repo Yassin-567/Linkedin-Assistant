@@ -96,7 +96,15 @@ export default function JobsPage() {
   async function importJobs() {
     setMessage("");
     let parsed: unknown;
-    try { parsed = JSON.parse(importText); }
+    const trimmedImport = importText.trim();
+    const importLines = trimmedImport.split("\n");
+    const openingLine = importLines[0].replace("\r", "").trim().toLowerCase();
+    const closingLine = importLines[importLines.length - 1].trim();
+    const fence = String.fromCharCode(96).repeat(3);
+    const importBody = openingLine === fence + "json" && closingLine === fence && importLines.length >= 3
+      ? importLines.slice(1, -1).join("\n").trim()
+      : trimmedImport;
+    try { parsed = JSON.parse(importBody); }
     catch { setMessage("Paste valid JSON containing a jobs array."); return; }
     const batch = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === "object" && "jobs" in parsed ? (parsed as { jobs: unknown }).jobs : null);
     if (!Array.isArray(batch) || batch.length < 1 || batch.length > 50) { setMessage("Provide between 1 and 50 jobs in a jobs array."); return; }
