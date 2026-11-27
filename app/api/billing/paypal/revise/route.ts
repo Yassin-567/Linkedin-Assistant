@@ -122,7 +122,14 @@ export async function POST(request: NextRequest) {
       FROM paypal_subscriptions
       WHERE provider = 'paypal'
         AND user_id = ${user.userId}
-        AND status = 'active'
+        AND (
+          status IN ('active', 'approved')
+          OR (
+            status = 'cancelled'
+            AND current_period_ends_at IS NOT NULL
+            AND current_period_ends_at > now()
+          )
+        )
       ORDER BY event_occurred_at DESC
       LIMIT 2
     ` as unknown as Array<{
@@ -143,6 +150,7 @@ export async function POST(request: NextRequest) {
 
     const current = subscriptions[0];
     if (
+      current.status !== "active" ||
       current.interval !== "monthly" ||
       current.plan_id !== config.monthlyPlanId
     ) {
@@ -216,28 +224,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const returnUrl = new URL(
-      "/billing/paypal-revise/return",
-      request.nextUrl.origin,
-    ).toString();
-    const cancelUrl = new URL(
-      "/billing?paypal_revise=cancelled",
-      request.nextUrl.origin,
-    ).toString();
-
     const revised = await paypalApiRequest<PayPalRevision>(
       `/v1/billing/subscriptions/${encodeURIComponent(current.paypal_subscription_id)}/revise`,
       {
         method: "POST",
         body: {
           plan_id: config.yearlyPlanId,
-          application_context: {
-            brand_name: "Inlinked",
-            locale: "en-US",
-            user_action: "SUBSCRIBE_NOW",
-            return_url: returnUrl,
-            cancel_url: cancelUrl,
-          },
         },
       },
     );
