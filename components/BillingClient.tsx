@@ -10,19 +10,23 @@ import {
 import type { Paddle } from "@paddle/paddle-js";
 
 import { getPaddleClientConfig } from "@/lib/paddle-client-config";
+import PayPalSubscriptionButtons from "@/components/PayPalSubscriptionButtons";
 
 type BillingStatus = {
   plan: "free" | "pro";
   enforced: boolean;
-  planSource?: "none" | "paddle_subscription" | "manual_grant";
+  planSource?: "none" | "paddle_subscription" | "paypal_subscription" | "manual_grant";
   grant?: { id: string; startsAt: string; endsAt: string; active: boolean } | null;
   subscription:
     | null
     | {
+        provider?: "paddle" | "paypal";
         status: string;
         currentPeriodEndsAt?: string | null;
         scheduledChange?: unknown;
         priceId?: string;
+        interval?: "monthly" | "yearly" | null;
+        paymentFailedAt?: string | null;
       };
   entitlements: {
     prospects: number | null;
@@ -67,6 +71,10 @@ export default function BillingClient() {
   const [interval, setInterval] =
     useState<"monthly" | "yearly">("monthly");
 
+  // Keep the existing Paddle experience as the default provider.
+  const [provider, setProvider] =
+    useState<"paddle" | "paypal">("paddle");
+
   const [busy, setBusy] = useState<
     "monthly" | "yearly" | "portal" | "refresh" | ""
   >("");
@@ -107,6 +115,15 @@ export default function BillingClient() {
 
     return billingStatus;
   }, []);
+
+  const handlePayPalVerified = useCallback(async () => {
+    const refreshed = await refreshStatus();
+    setNotice(
+      refreshed.plan === "pro"
+        ? "PayPal subscription verified. Inlinked Pro is active."
+        : "PayPal approval was verified. Pro will activate after PayPal confirms the subscription is active.",
+    );
+  }, [refreshStatus]);
 
   useEffect(() => {
     let cancelled = false;
@@ -443,7 +460,9 @@ export default function BillingClient() {
             {status?.plan === "pro"
               ? status.planSource === "manual_grant" && status.grant?.endsAt
                 ? "Pro until " + new Date(status.grant.endsAt).toLocaleDateString() + " (granted)."
-                : "Your Pro access is active according to the latest verified Paddle subscription event."
+                : status.subscription?.provider === "paypal"
+                  ? "Your Pro access is active according to Inlinked’s verified PayPal subscription record."
+                  : "Your Pro access is active according to the latest verified Paddle subscription event."
               : "Your account is currently on the Free plan."}
           </p>
 
@@ -451,6 +470,26 @@ export default function BillingClient() {
             <p className="muted">
               Latest subscription status:{" "}
               {status.subscription.status}
+            </p>
+          )}
+
+          {status?.subscription?.provider === "paypal" &&
+            status.subscription.status === "approved" &&
+            status.plan !== "pro" && (
+              <p className="muted">
+                PayPal has approved the subscription. Pro access starts only after PayPal confirms that it is active.
+              </p>
+            )}
+
+          {status?.subscription?.paymentFailedAt && (
+            <p className="billing-warning" role="status">
+              PayPal reported a failed subscription payment. Pro access has not been downgraded.
+            </p>
+          )}
+
+          {status?.subscription?.provider === "paypal" && (
+            <p className="muted">
+              Manage or cancel this subscription from your PayPal automatic payments settings.
             </p>
           )}
 
@@ -475,7 +514,7 @@ export default function BillingClient() {
               : "Refresh status"}
           </button>
 
-          {status?.subscription && (
+          {status?.subscription?.provider === "paddle" && (
             <button
               className="button secondary"
               onClick={() => void openPortal()}
@@ -498,13 +537,14 @@ export default function BillingClient() {
         </p>
       )}
 
-      {!billingDormant && error && (
+      {!billingDormant && provider === "paddle" && error && (
         <p className="billing-error" role="alert">
           {error}
         </p>
       )}
 
       {!billingDormant &&
+        provider === "paddle" &&
         paddleUnavailable &&
         !error && (
           <p className="billing-warning" role="status">
@@ -569,6 +609,31 @@ export default function BillingClient() {
             <li>Advanced filtering and CSV export</li>
           </ul>
 
+          {!billingDormant && (
+            <div
+              className="billing-interval-switch billing-provider-choice"
+              role="group"
+              aria-label="Payment provider"
+            >
+              <button
+                type="button"
+                className={provider === "paddle" ? "active" : ""}
+                aria-pressed={provider === "paddle"}
+                onClick={() => setProvider("paddle")}
+              >
+                Paddle
+              </button>
+              <button
+                type="button"
+                className={provider === "paypal" ? "active" : ""}
+                aria-pressed={provider === "paypal"}
+                onClick={() => setProvider("paypal")}
+              >
+                PayPal
+              </button>
+            </div>
+          )}
+
           <div
             className="billing-interval-switch"
             role="group"
@@ -599,55 +664,72 @@ export default function BillingClient() {
             </button>
           </div>
 
-          <div className="billing-price-row">
-            <div>
-              <strong>
-                {interval === "monthly"
-                  ? prices.monthly || "—"
-                  : prices.yearly || "—"}
-              </strong>
+          {!billingDormant && provider === "paddle" && (
+            <>
+              <div className="billing-price-row">
+                <div>
+                  <strong>
+                    {interval === "monthly"
+                      ? prices.monthly || "—"
+                      : prices.yearly || "—"}
+                  </strong>
+                  <span className="muted">
+                    {" "}/{" "}
+                    {interval === "monthly" ? "month" : "year"}
+                  </span>
+                </div>
+                <button
+                  className="button"
+                  onClick={() => void startCheckout(interval)}
+                  disabled={
+                    billingDormant ||
+                    !paddleConfig?.ok ||
+                    paddleUnavailable ||
+                    !(interval === "monthly" ? prices.monthly : prices.yearly) ||
+                    busy !== "" ||
+                    status?.plan === "pro"
+                  }
+                >
+                  {busy === interval
+                    ? "Opening..."
+                    : "Choose " + interval}
+                </button>
+              </div>
 
-              <span className="muted">
-                {" "}/{" "}
-                {interval === "monthly"
-                  ? "month"
-                  : "year"}
-              </span>
-            </div>
+              {paddleConfig?.ok && (
+                <p className="footnote">
+                  {paddleConfig.environment === "sandbox"
+                    ? "Prices are displayed from Paddle's sandbox price preview."
+                    : "Prices are displayed from Paddle's price preview."}
+                </p>
+              )}
+            </>
+          )}
 
-            <button
-              className="button"
-              onClick={() =>
-                void startCheckout(interval)
-              }
-              disabled={
-                billingDormant ||
-                !paddleConfig?.ok ||
-                paddleUnavailable ||
-                !(interval === "monthly"
-                  ? prices.monthly
-                  : prices.yearly) ||
-                busy !== "" ||
-                status?.plan === "pro"
-              }
-            >
-              {busy === interval
-                ? "Opening..."
-                : "Choose " + interval}
-            </button>
-          </div>
+          {!billingDormant && provider === "paypal" && (
+            <>
+              <div className="billing-price-row">
+                <div>
+                  <strong>{interval === "monthly" ? "$8.00" : "$79.00"}</strong>
+                  <span className="muted">
+                    {" "}USD / {interval === "monthly" ? "month" : "year"}
+                  </span>
+                </div>
+                <span className="muted">PayPal subscription</span>
+              </div>
+              {status?.plan !== "pro" && (
+                <PayPalSubscriptionButtons
+                  interval={interval}
+                  onVerified={handlePayPalVerified}
+                />
+              )}
+            </>
+          )}
 
-          {!billingDormant &&
-            paddleConfig?.ok && (
-              <p className="footnote">
-                {paddleConfig.environment === "sandbox"
-                  ? "Prices are displayed from Paddle's sandbox price preview."
-                  : "Prices are displayed from Paddle's price preview."}
-              </p>
-            )}
         </article>
       </section>
 
+      {provider === "paddle" && (
       <section className="panel billing-legal-placeholder">
         <h3>Subscription terms</h3>
 
@@ -659,6 +741,7 @@ export default function BillingClient() {
           <a href="/refund">Refund Policy</a>.
         </p>
       </section>
+      )}
     </main>
   );
 }
