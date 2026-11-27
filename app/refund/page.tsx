@@ -9,12 +9,12 @@ export default function Refund() {
   return (
     <LegalPage title="Refund Policy">
       <p>
-        Effective date:{" "}November 26, 2026.
+        Effective date:{" "}November 27, 2026.
       </p>
 
       <p>
-        Our order process is conducted by our online reseller Paddle.com.
-        Paddle.com is the Merchant of Record for all our orders.
+        For Paddle orders, our order process is conducted by our online reseller Paddle.com.
+        Paddle.com is the Merchant of Record for Paddle orders.
       </p>
 
       <h2>1. Refund policy</h2>
@@ -75,6 +75,43 @@ export default function Refund() {
         by Paddle. Active and trialing subscriptions receive
         Pro access. A scheduled cancellation remains active
         until the current subscription period ends.
+      </p>
+
+      <h2>4. PayPal subscriptions</h2>
+
+      <p>
+        If you choose PayPal at checkout, PayPal processes the
+        recurring subscription payment. These payments are
+        separate from Paddle orders.
+      </p>
+
+      <p>
+        To stop future PayPal renewals, open your PayPal account,
+        go to Settings, then Payments, then Subscriptions and saved
+        businesses or Automatic Payments. Select Inlinked and cancel
+        the automatic payment. Menu wording can vary by account.
+      </p>
+
+      <p>
+        Inlinked updates the subscription after PayPal reports the
+        cancellation. Where a current paid-through date is available,
+        Pro access continues until that date. If no paid-through date
+        is available, access may end when the cancellation is processed.
+        Cancelling stops future renewals; it does not itself refund a
+        payment that has already been completed.
+      </p>
+
+      <p>
+        To ask about a refund for a completed PayPal payment, contact
+        us at{" "}
+        <a href={LEGAL.contactEmail ? `mailto:${LEGAL.contactEmail}` : undefined}>
+          {val(LEGAL.contactEmail)}
+        </a>
+        . Include the email address for your Inlinked account and the
+        relevant PayPal transaction details. PayPal refunds are not
+        automatic, and this policy does not promise a refund or a
+        particular processing time. Mandatory consumer rights remain
+        unaffected.
       </p>
     </LegalPage>
   );
