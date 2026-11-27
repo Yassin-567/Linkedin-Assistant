@@ -1064,3 +1064,10 @@ svg .chart-series-green { stroke: var(--accent-green); fill: var(--accent-green)
 body, .app-page, .app-main { color: #26231f; background-color: #faf8f5; }
 .panel, .stat, .admin-stat, .job-card, .dashboard-action,
 .billing-plan, .login-card, .admin-table-wrap { background-color: #fff; }
+
+/* Commercial Leads Free-plan UI lock: content remains visible but controls are inert. */
+.commercial-leads-fieldset { border: 0; min-width: 0; margin: 0; padding: 0; }
+.commercial-leads-fieldset:disabled { opacity: .56; pointer-events: none; }
+.commercial-leads-banner { display: flex; align-items: center; justify-content: space-between; gap: 18px; border-color: var(--line); background: var(--surface-soft); }
+.commercial-leads-banner p { margin: 6px 0 0; color: var(--muted); }
+@media (max-width: 640px) { .commercial-leads-banner { align-items: flex-start; flex-direction: column; } }

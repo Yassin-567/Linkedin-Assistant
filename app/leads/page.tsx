@@ -3,29 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import LeadChatGptPrompt from "@/components/LeadChatGptPrompt";
 import JsonImportPanel, { type JsonImportValidation } from "@/components/JsonImportPanel";
+import LeadProfileSettings, { defaultPreferences, engines, sources, type Preferences, type Profile } from "@/components/LeadProfileSettings";
 
-type Preferences = {
-  services: string[];
-  serviceDescription: string;
-  idealCustomerDescription: string;
-  problemsSolved: string;
-  customerTypes: string[];
-  industries: string[];
-  decisionMakerRoles: string[];
-  countries: string[];
-  locations: string[];
-  buyingSignals: string[];
-  sourceCategories: string[];
-  discoveryEngines: string[];
-  excludedKeywords: string[];
-  projectType: string;
-  minimumBudget: string;
-  budgetCurrency: string;
-  preferredCustomerValue: string;
-  language: string;
-};
-
-type Profile = { id: string; name: string; description: string; preferences: Preferences; isActive: boolean };
 type Scores = { serviceMatch?: number; buyingIntent?: number; freshness?: number; commercialPotential?: number; contactability?: number; priority?: number };
 type Lead = {
   id: string; profileId: string | null; title: string; company: string; contactName: string; contactRole: string;
@@ -34,27 +13,7 @@ type Lead = {
   publishedAt: string | null; evidence: string[]; scores: Scores; status: string; notes: string;
   nextFollowUp: string | null; wonValue: number | null; wonCurrency: string;
 };
-const defaultPreferences: Preferences = {
-  services: [], serviceDescription: "", idealCustomerDescription: "", problemsSolved: "", customerTypes: [], industries: [],
-  decisionMakerRoles: [], countries: [], locations: [],
-  buyingSignals: ["explicit_request", "recommendation", "outsourcing"],
-  sourceCategories: ["linkedin_public", "reddit", "facebook_public", "x_public", "forums", "business_sites", "project_sites"],
-  discoveryEngines: ["direct_demand", "opportunity_signal", "ideal_customer"],
-  excludedKeywords: [], projectType: "either", minimumBudget: "", budgetCurrency: "",
-  preferredCustomerValue: "", language: "English"
-};
 const statusOptions = ["New", "Qualified", "Contacted", "In discussion", "Proposal", "Won", "Lost", "Not relevant"];
-const engines = [
-  { id: "direct_demand", label: "Direct demand", hint: "People openly asking for a provider or service" },
-  { id: "opportunity_signal", label: "Opportunity signals", hint: "Businesses showing problems, growth or outsourcing signals" },
-  { id: "ideal_customer", label: "Ideal customers", hint: "Businesses matching your target customer profile" }
-];
-const sources = [
-  { id: "linkedin_public", label: "Public LinkedIn posts" }, { id: "reddit", label: "Reddit" },
-  { id: "facebook_public", label: "Public Facebook posts" }, { id: "x_public", label: "Public X/Twitter posts" },
-  { id: "forums", label: "Forums and communities" }, { id: "business_sites", label: "Business websites" },
-  { id: "project_sites", label: "Project websites" }, { id: "other_public", label: "Other public sources" }
-];
 const splitLines = (value: string) => value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
 const label = (value: string) => value.replace(/_/g, " ").replace(/\b\w/g, x => x.toUpperCase());
 const JSON_FENCE_INSTRUCTION = "Return exactly one JSON object inside a single fenced code block (```json ... ```), with nothing before or after the block, no splitting across multiple blocks, never as plain text or a file download.";
@@ -80,56 +39,6 @@ function validateCommercialLeadsImport(value: unknown, activeProfileId: string):
   }
   return { value };
 }
-function validateLeadProfileImport(value: unknown): JsonImportValidation {
-  if (!isJsonRecord(value)) return { value, error: "Provide one profile object with name, description and preferences." };
-  if (typeof value.name !== "string" || !value.name.trim()) return { value, error: "A profile name is required." };
-  if (!isJsonRecord(value.preferences)) return { value, error: "A preferences object is required." };
-  const input = value.preferences;
-  const arrayLimits: Record<string, number> = {
-    services: 40, customerTypes: 30, industries: 40, decisionMakerRoles: 30, countries: 40,
-    locations: 60, buyingSignals: 30, sourceCategories: 20, discoveryEngines: 3, excludedKeywords: 100
-  };
-  const cleanArray = (key: string): string[] => {
-    const fallback = defaultPreferences[key as keyof Preferences];
-    const source = Array.isArray(input[key]) ? input[key] as unknown[] : Array.isArray(fallback) ? fallback : [];
-    return [...new Set(source.filter((item): item is string => typeof item === "string")
-      .map(item => item.trim().slice(0, 120)).filter(Boolean))].slice(0, arrayLimits[key]);
-  };
-  const allowedSources = ["linkedin_public", "reddit", "facebook_public", "x_public", "forums", "business_sites", "project_sites", "other_public"];
-  const allowedEngines = ["direct_demand", "opportunity_signal", "ideal_customer"];
-  const projectType = ["one_time", "recurring", "either"].includes(String(input.projectType)) ? String(input.projectType) : "either";
-  const cleanText = (key: string, max: number, fallback = "") => typeof input[key] === "string" ? (input[key] as string).trim().slice(0, max) : fallback;
-  const preferences = {
-    services: cleanArray("services"),
-    serviceDescription: cleanText("serviceDescription", 3000),
-    idealCustomerDescription: cleanText("idealCustomerDescription", 3000),
-    problemsSolved: cleanText("problemsSolved", 2000),
-    customerTypes: cleanArray("customerTypes"),
-    industries: cleanArray("industries"),
-    decisionMakerRoles: cleanArray("decisionMakerRoles"),
-    countries: cleanArray("countries"),
-    locations: cleanArray("locations"),
-    buyingSignals: cleanArray("buyingSignals"),
-    sourceCategories: cleanArray("sourceCategories").filter(item => allowedSources.includes(item)),
-    discoveryEngines: cleanArray("discoveryEngines").filter(item => allowedEngines.includes(item)),
-    excludedKeywords: cleanArray("excludedKeywords"),
-    projectType,
-    minimumBudget: cleanText("minimumBudget", 40),
-    budgetCurrency: cleanText("budgetCurrency", 12),
-    preferredCustomerValue: cleanText("preferredCustomerValue", 40),
-    language: cleanText("language", 60, "English") || "English"
-  };
-  return { value: { name: value.name.trim().slice(0, 100), description: typeof value.description === "string" ? value.description.trim().slice(0, 500) : "", preferences } };
-}
-const profileImportPrompt = [
-  "Convert only the business and customer information I explicitly provide in this conversation or paste alongside this prompt into one Inlinked Lead Profile JSON object.",
-  "Do not browse the web, research companies, infer facts, invent services or fill gaps with assumptions. Use empty strings and arrays when I have not provided the information.",
-  "Return the top-level keys name, description and preferences. preferences must use exactly these form keys: services, serviceDescription, idealCustomerDescription, problemsSolved, customerTypes, industries, decisionMakerRoles, countries, locations, buyingSignals, sourceCategories, discoveryEngines, excludedKeywords, projectType, minimumBudget, budgetCurrency, preferredCustomerValue, language.",
-  "Limits: name 100 characters; description 500; serviceDescription and idealCustomerDescription 3000 each; problemsSolved 2000; minimumBudget and preferredCustomerValue 40 each; budgetCurrency 12; language 60. Each array has unique strings up to 120 characters: services 40, customerTypes 30, industries 40, decisionMakerRoles 30, countries 40, locations 60, buyingSignals 30, sourceCategories 20, discoveryEngines 3, excludedKeywords 100.",
-  "Allowed projectType values: one_time, recurring, either. Allowed discoveryEngines: direct_demand, opportunity_signal, ideal_customer. Allowed sourceCategories: linkedin_public, reddit, facebook_public, x_public, forums, business_sites, project_sites, other_public.",
-  'Example: {"name":"My profile","description":"Short description","preferences":{"services":[],"serviceDescription":"","idealCustomerDescription":"","problemsSolved":"","customerTypes":[],"industries":[],"decisionMakerRoles":[],"countries":[],"locations":[],"buyingSignals":[],"sourceCategories":[],"discoveryEngines":[],"excludedKeywords":[],"projectType":"either","minimumBudget":"","budgetCurrency":"","preferredCustomerValue":"","language":"English"}}',
-  JSON_FENCE_INSTRUCTION
-].join("\n");
 function buildCommercialLeadImportPrompt(profileId: string): string {
   return [
     "Prepare up to 50 verified commercial lead records for my currently active Inlinked Lead Profile.",
@@ -161,6 +70,17 @@ export default function LeadsPage() {
   const [pipelineSearch, setPipelineSearch] = useState("");
   const [pipelineStatus, setPipelineStatus] = useState("All");
   const [expandedLead, setExpandedLead] = useState("");
+  const [commercialLeadsLocked, setCommercialLeadsLocked] = useState(false);
+  const [billingStatusLoaded, setBillingStatusLoaded] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/billing/status", { cache: "no-store" }).then(async response => {
+      if (!response.ok) return;
+      const status = await response.json();
+      if (!cancelled) setCommercialLeadsLocked(status.enforced === true && status.plan === "free");
+    }).catch(() => undefined).finally(() => { if (!cancelled) setBillingStatusLoaded(true); });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -243,11 +163,8 @@ export default function LeadsPage() {
   function updateList(key: keyof Preferences, value: string) {
     setPreferences(old => {
       const next = { ...old };
-      if (key === "serviceDescription" || key === "idealCustomerDescription" || key === "problemsSolved") {
-        (next as any)[key] = value;
-      } else {
-        (next as any)[key] = splitLines(value);
-      }
+      if (["serviceDescription", "idealCustomerDescription", "problemsSolved", "projectType", "minimumBudget", "budgetCurrency", "preferredCustomerValue", "language"].includes(key)) (next as any)[key] = value;
+      else (next as any)[key] = splitLines(value);
       return next;
     });
   }
@@ -332,23 +249,11 @@ export default function LeadsPage() {
     return (pipelineStatus === "All" || lead.status === pipelineStatus) && text.includes(pipelineSearch.toLowerCase());
   }), [leads, pipelineStatus, pipelineSearch]);
 
-  const textareaField = (key: keyof Preferences, heading: string, hint: string) => {
-    const value = preferences[key];
-    return <label className="wide" key={key}>{heading}
-      <textarea rows={2} value={Array.isArray(value) ? value.join("\n") : String(value || "")}
-        onChange={event => updateList(key, event.target.value)} placeholder={hint} />
-      <small className="muted">{hint}</small>
-    </label>;
-  };
-
   function importProfileJson(value: unknown): string {
     const input = value as { name: string; description: string; preferences: Preferences };
-    setProfileName(input.name);
-    setProfileDescription(input.description);
-    setPreferences(input.preferences);
+    setProfileName(input.name); setProfileDescription(input.description); setPreferences(input.preferences);
     setEngineSelection(input.preferences.discoveryEngines?.length ? input.preferences.discoveryEngines : []);
-    setEditing(true);
-    setProfileMessage("Profile JSON loaded into the form. Review the details and save the profile to apply them.");
+    setEditing(true); setProfileMessage("Profile JSON loaded into the form. Review the details and save the profile to apply them.");
     return "Profile details loaded into the form. Review them and click Create profile or Save profile.";
   }
 
@@ -374,9 +279,11 @@ export default function LeadsPage() {
   return <main className="workspace leads-workspace">
     <header className="topbar">
       <div><div className="eyebrow">CUSTOMER ACQUISITION WORKSPACE</div><h1>Leads</h1><p className="muted">Find demand, identify potential customers and turn commercial opportunities into revenue. This workspace is independent from LinkedIn Connections.</p></div>
-      <div className="row"><a className="button secondary" href="/prospects">LinkedIn Connections</a><button type="button" className="secondary" onClick={() => void loadLeads(selectedId)}>Refresh pipeline</button></div>
+      <div className="row"><a className="button secondary" href="/prospects">LinkedIn Connections</a><button type="button" className="secondary" onClick={() => void loadLeads(selectedId)} disabled={!billingStatusLoaded || commercialLeadsLocked}>Refresh pipeline</button></div>
     </header>
 
+    {commercialLeadsLocked && <section className="panel commercial-leads-banner" role="status"><div><strong>Commercial leads are available in the Pro plan.</strong><p>Upgrade to create profiles, import leads and use the commercial lead prompt.</p></div><a className="button" href="/billing">Upgrade to Pro</a></section>}
+    <fieldset disabled={!billingStatusLoaded || commercialLeadsLocked} aria-disabled={!billingStatusLoaded || commercialLeadsLocked} className="commercial-leads-fieldset">
     <section className="stats leads-stats">
       <div className="stat"><span>Saved opportunities</span><strong>{leads.length}</strong></div>
       <div className="stat"><span>Qualified</span><strong>{leads.filter(x => x.status === "Qualified").length}</strong></div>
@@ -384,53 +291,9 @@ export default function LeadsPage() {
       <div className="stat"><span>Won customers</span><strong>{leads.filter(x => x.status === "Won").length}</strong></div>
     </section>
 
-    <section className="panel">
-      <div className="section-heading"><div><div className="eyebrow">YOUR OFFERINGS AND TARGET CUSTOMERS</div><h2>Lead profiles</h2><p className="muted">Create separate profiles for each business, service, market or customer segment.</p></div><button type="button" onClick={newProfile}>+ New profile</button></div>
-      {loading ? <div className="empty">Loading your lead profiles…</div> : <>
-        <div className="lead-profile-toolbar">
-          <label>Active profile<select value={selectedId} onChange={event => chooseProfile(event.target.value)}><option value="">New profile</option>{profiles.map(profile => <option value={profile.id} key={profile.id}>{profile.name}{profile.isActive ? " · Active" : ""}</option>)}</select></label>
-          {selectedId && <span className="profile-count">{profiles.length} saved profile{profiles.length === 1 ? "" : "s"}</span>}
-          <button type="button" className="secondary" onClick={() => setEditing(old => !old)}>{editing ? "Hide preferences" : "Edit preferences"}</button>
-        </div>
-        {editing && <form className="lead-form leads-profile-form" onSubmit={saveProfile}>
-          <div className="form-section-title wide"><strong>Business and offering</strong><small>Tell Inlinked what you sell and what problems it solves.</small></div>
-          <label>Profile name<input required value={profileName} onChange={event => setProfileName(event.target.value)} placeholder="e.g. UK Bookkeeping Services"/></label>
-          <label>Short profile description<input value={profileDescription} onChange={event => setProfileDescription(event.target.value)} placeholder="e.g. Remote bookkeeping for small UK service businesses"/></label>
-          {textareaField("services", "Services and products", "Monthly bookkeeping, website redesign, maintenance contracts…")}
-          {textareaField("serviceDescription", "What do you offer?", "Describe your services, strengths and the value customers receive.")}
-          {textareaField("problemsSolved", "Problems you solve", "Manual invoicing, poor scheduling, outdated websites, admin backlog…")}
-          <div className="form-section-title wide"><strong>Ideal customer profile</strong><small>Describe who is most likely to buy.</small></div>
-          {textareaField("idealCustomerDescription", "Describe your ideal customer", "Describe the type of organisation or person most likely to buy, including size, needs and circumstances.")}
-          {textareaField("customerTypes", "Customer types", "Small businesses, property managers, restaurants…")}
-          {textareaField("industries", "Target industries", "Appliance repair, hospitality, property maintenance…")}
-          {textareaField("decisionMakerRoles", "Decision-maker roles", "Owner, Founder, Operations Manager, Finance Director…")}
-          {textareaField("countries", "Target countries", "United Kingdom, United States…")}
-          {textareaField("locations", "Cities and regions", "London, Manchester, Birmingham…")}
-          <div className="form-section-title wide"><strong>Commercial preferences</strong><small>Use these as filters and ranking signals, not assumptions about a lead's budget.</small></div>
-          <label>Preferred project type<select value={preferences.projectType} onChange={event => setPreferences(old => ({ ...old, projectType: event.target.value }))}><option value="either">One-time or recurring</option><option value="one_time">One-time projects</option><option value="recurring">Recurring / ongoing services</option></select></label>
-          <label>Minimum published budget<input value={preferences.minimumBudget} onChange={event => setPreferences(old => ({ ...old, minimumBudget: event.target.value }))} placeholder="Optional, e.g. 500"/></label>
-          <label>Budget currency<input value={preferences.budgetCurrency} onChange={event => setPreferences(old => ({ ...old, budgetCurrency: event.target.value.toUpperCase().slice(0,12) }))} placeholder="e.g. GBP, USD, EUR"/></label>
-          <label>Preferred customer value<input value={preferences.preferredCustomerValue} onChange={event => setPreferences(old => ({ ...old, preferredCustomerValue: event.target.value }))} placeholder="Optional target or range"/></label>
-          <label>Search language<input value={preferences.language} onChange={event => setPreferences(old => ({ ...old, language: event.target.value }))} placeholder="English"/></label>
-          <div className="form-section-title wide"><strong>Discovery configuration</strong><small>Choose the types of opportunities and public sources to search.</small></div>
-          {textareaField("buyingSignals", "Buying signals", "explicit_request, recommendation, outsourcing, provider_replacement, project_planning…")}
-          <div className="wide"><strong className="small-heading">Discovery engines</strong><div className="option-grid">{engines.map(engine => <label className="option-card" key={engine.id}><input type="checkbox" checked={preferences.discoveryEngines.includes(engine.id)} onChange={() => togglePreference("discoveryEngines", engine.id)}/><span><strong>{engine.label}</strong><small>{engine.hint}</small></span></label>)}</div></div>
-          <div className="wide"><strong className="small-heading">Public source categories</strong><div className="option-grid">{sources.map(source => <label className="option-card" key={source.id}><input type="checkbox" checked={preferences.sourceCategories.includes(source.id)} onChange={() => togglePreference("sourceCategories", source.id)}/><span><strong>{source.label}</strong></span></label>)}</div></div>
-          {textareaField("excludedKeywords", "Excluded keywords", "Competitors, irrelevant sectors, free work, internships…")}
-          <div className="wide form-footer"><span className="muted">Profiles are private to your account. Searches use these preferences until you change them.</span><div className="row"><button type="submit" disabled={savingProfile}>{savingProfile ? "Saving…" : selectedId ? "Save profile" : "Create profile"}</button>{selectedId && <button type="button" className="delete" onClick={() => void deleteProfile()}>Delete profile</button>}</div></div>
-        </form>}
-        {editing && <JsonImportPanel
-          title="Import profile from JSON"
-          description="Copy the prompt, paste the profile JSON, then validate and preview it. Import loads the values into this form; review and save them to create or update the profile."
-          prompt={profileImportPrompt}
-          placeholder='{"name":"My profile","description":"","preferences":{"services":[],"serviceDescription":"","idealCustomerDescription":"","problemsSolved":""}}'
-          validate={validateLeadProfileImport}
-          onImport={importProfileJson}
-          importLabel="Load profile into form"
-        />}
-        {profileMessage && <p className="status" role="status">{profileMessage}</p>}
-      </>}
-    </section>
+    <LeadProfileSettings profiles={profiles} selectedId={selectedId} profileName={profileName} profileDescription={profileDescription} preferences={preferences} editing={editing} loading={loading} saving={savingProfile} message={profileMessage}
+      onSelect={id=>void chooseProfile(id)} onNew={newProfile} onToggleEditing={()=>setEditing(old=>!old)} onNameChange={setProfileName} onDescriptionChange={setProfileDescription}
+      onUpdateList={updateList} onTogglePreference={togglePreference} onSave={saveProfile} onDelete={()=>void deleteProfile()} onImportProfile={importProfileJson}/>
 
     <section className="panel">
       <div className="section-heading">
@@ -499,5 +362,6 @@ export default function LeadsPage() {
       </div> : <div className="empty"><strong>{leads.length ? "No leads match these filters" : "Your opportunity pipeline is ready"}</strong><p>{leads.length ? "Try another search term or pipeline status." : "Create a Lead Profile, generate a ChatGPT research prompt and let ChatGPT save verified opportunities here."}</p></div>}
     </section>
     <footer>Inlinked Leads · Find demand, qualify opportunities and grow revenue.</footer>
+    </fieldset>
   </main>;
 }
