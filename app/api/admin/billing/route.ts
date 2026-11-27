@@ -98,7 +98,7 @@ export async function DELETE(request: NextRequest) {
   const admin = await currentAdmin();
   if (!admin) return fail("Admin access is restricted.", 403);
   const grantId = request.nextUrl.searchParams.get("grantId") || "";
-  if (!/^\\d+$/.test(grantId)) return fail("A valid grant ID is required.", 400);
+  if (!/^[0-9]+$/.test(grantId)) return fail("A valid grant ID is required.", 400);
   try {
     const rows: any = await db()`
       WITH revoked AS (
