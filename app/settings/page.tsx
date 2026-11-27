@@ -4,6 +4,7 @@ import ChatGptSettings from "@/components/ChatGptSettings";
 import JobPreferencesSettings from "@/components/JobPreferencesSettings";
 import CvImportSettings from "@/components/CvImportSettings";
 import JsonPreferencesImport from "@/components/JsonPreferencesImport";
+import LeadProfileSettings, { defaultPreferences, type Preferences as LeadPreferences, type Profile as LeadProfile } from "@/components/LeadProfileSettings";
 
 type Prefs = {
   linkedinProfileUrl: string; countries: string[]; industries: string[]; keywords: string[];
@@ -33,18 +34,47 @@ export default function SettingsPage() {
   const [message, setMessage] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
   const [verifiedAt, setVerifiedAt] = useState("");
-  const [activeTab, setActiveTab] = useState<"preferences" | "jobs" | "cv" | "chatgpt">("preferences");
+  const [activeTab, setActiveTab] = useState<"preferences" | "jobs" | "cv" | "chatgpt" | "leads">("preferences");
   const [prospectCount, setProspectCount] = useState(50);
   const [isFrozen, setIsFrozen] = useState(false);
+  const [commercialLeadsLocked, setCommercialLeadsLocked] = useState(false);
+  const [billingStatusLoaded, setBillingStatusLoaded] = useState(false);
+  const [leadProfiles, setLeadProfiles] = useState<LeadProfile[]>([]);
+  const [leadProfileId, setLeadProfileId] = useState("");
+  const [leadProfileName, setLeadProfileName] = useState("My first business profile");
+  const [leadProfileDescription, setLeadProfileDescription] = useState("");
+  const [leadProfilePreferences, setLeadProfilePreferences] = useState<LeadPreferences>(defaultPreferences);
+  const [leadProfileEditing, setLeadProfileEditing] = useState(true);
+  const [leadProfilesLoading, setLeadProfilesLoading] = useState(true);
+  const [leadProfileSaving, setLeadProfileSaving] = useState(false);
+  const [leadProfileMessage, setLeadProfileMessage] = useState("");
 
   useEffect(() => {
     Promise.all([
       fetch("/api/preferences", { cache: "no-store" }),
       fetch("/api/profile-verification", { cache: "no-store" }),
-      fetch("/api/auth/me", { cache: "no-store" })
-    ]).then(async ([preferencesResponse, profileResponse, accountResponse]) => {
+      fetch("/api/auth/me", { cache: "no-store" }),
+      fetch("/api/lead-profiles", { cache: "no-store" }),
+      fetch("/api/billing/status", { cache: "no-store" })
+    ]).then(async ([preferencesResponse, profileResponse, accountResponse, leadProfilesResponse, billingResponse]) => {
       const accountData = await accountResponse.json();
       setIsFrozen(accountData.accountStatus === "frozen");
+      if (billingResponse.ok) {
+        const billing = await billingResponse.json();
+        setCommercialLeadsLocked(billing.enforced === true && billing.plan === "free");
+      }
+      setBillingStatusLoaded(true);
+      if (leadProfilesResponse.status === 401) { location.href = "/login"; return; }
+      const leadProfilesData = await leadProfilesResponse.json();
+      if (leadProfilesResponse.ok) {
+        const rows: LeadProfile[] = Array.isArray(leadProfilesData.profiles) ? leadProfilesData.profiles : [];
+        setLeadProfiles(rows);
+        if (rows.length) {
+          const active = rows.find(item => item.isActive) || rows[0];
+          setLeadProfileId(active.id); setLeadProfileName(active.name); setLeadProfileDescription(active.description || "");
+          setLeadProfilePreferences({ ...defaultPreferences, ...active.preferences }); setLeadProfileEditing(false);
+        }
+      } else setLeadProfileMessage(leadProfilesData.error || "Could not load lead profiles.");
       if (preferencesResponse.status === 401 || profileResponse.status === 401) { location.href = "/login"; return; }
       const [preferencesData, profileData] = await Promise.all([preferencesResponse.json(), profileResponse.json()]);
       if (preferencesResponse.ok) { setP({ ...defaults, ...preferencesData.preferences }); const target = Number(preferencesData.preferences?.connectionTargetCount || 50); if (Number.isInteger(target) && target >= 1 && target <= 50) setProspectCount(target); }
@@ -54,7 +84,7 @@ export default function SettingsPage() {
         setSources(profileData.fieldSources || {});
         setVerifiedAt(profileData.savedAt || "");
       } else setProfileMessage(profileData.error || "Could not load profile verification.");
-    }).catch(() => setMessage("Could not load settings.")).finally(() => setBusy(false));
+    }).catch(() => setMessage("Could not load settings.")).finally(() => { setBusy(false); setLeadProfilesLoading(false); setBillingStatusLoaded(true); });
   }, []);
 
   function field(key: "countries" | "industries" | "keywords" | "jobTitles" | "excludedKeywords", label: string, hint: string) {
@@ -93,12 +123,61 @@ export default function SettingsPage() {
 
 
 
+  async function chooseLeadProfile(id: string) {
+    let profile = leadProfiles.find(item => item.id === id); if (!profile) return;
+    if (!profile.isActive) {
+      try {
+        const response = await fetch("/api/lead-profiles", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: profile.id, name: profile.name, description: profile.description, preferences: profile.preferences, isActive: true }) });
+        const data = await response.json(); if (!response.ok) throw new Error(data.error || "Could not activate this profile.");
+        profile = data.profile as LeadProfile; setLeadProfiles(old => old.map(item => item.id === profile!.id ? profile! : { ...item, isActive: false }));
+      } catch (error) { setLeadProfileMessage(error instanceof Error ? error.message : "Could not activate this profile."); return; }
+    }
+    setLeadProfileId(profile.id); setLeadProfileName(profile.name); setLeadProfileDescription(profile.description || "");
+    setLeadProfilePreferences({ ...defaultPreferences, ...profile.preferences }); setLeadProfileEditing(false); setLeadProfileMessage("");
+  }
+  function newLeadProfile() { setLeadProfileId(""); setLeadProfileName(""); setLeadProfileDescription(""); setLeadProfilePreferences(defaultPreferences); setLeadProfileEditing(true); setLeadProfileMessage("Create a profile for one business, service or customer segment."); }
+  function updateLeadProfileList(key: keyof LeadPreferences, value: string) {
+    setLeadProfilePreferences(old => { const next = { ...old }; if (["serviceDescription","idealCustomerDescription","problemsSolved","projectType","minimumBudget","budgetCurrency","preferredCustomerValue","language"].includes(key)) (next as any)[key] = value; else (next as any)[key] = value.split(/\r?\n/).map(item => item.trim()).filter(Boolean); return next; });
+  }
+  function toggleLeadProfilePreference(key: "discoveryEngines" | "sourceCategories", value: string) { setLeadProfilePreferences(old => ({ ...old, [key]: old[key].includes(value) ? old[key].filter(item => item !== value) : [...old[key], value] })); }
+  function importLeadProfile(value: unknown): string {
+    const input = value as { name: string; description: string; preferences: LeadPreferences };
+    setLeadProfileName(input.name); setLeadProfileDescription(input.description); setLeadProfilePreferences(input.preferences); setLeadProfileEditing(true);
+    setLeadProfileMessage("Profile JSON loaded into the form. Review the details and save the profile to apply them.");
+    return "Profile details loaded into the form. Review them and click Create profile or Save profile.";
+  }
+  async function saveLeadProfile(event: React.FormEvent) {
+    event.preventDefault(); if (!leadProfileName.trim()) { setLeadProfileMessage("Give this profile a name."); return; }
+    setLeadProfileSaving(true); setLeadProfileMessage("");
+    try {
+      const payload = { name: leadProfileName.trim(), description: leadProfileDescription, preferences: leadProfilePreferences, isActive: true };
+      const response = await fetch("/api/lead-profiles", { method: leadProfileId ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(leadProfileId ? { ...payload, id: leadProfileId } : payload) });
+      const data = await response.json(); if (!response.ok) throw new Error(data.error || "Could not save profile.");
+      const saved: LeadProfile = data.profile;
+      setLeadProfiles(old => { const next = old.some(item => item.id === saved.id) ? old.map(item => item.id === saved.id ? saved : { ...item, isActive: false }) : [...old.map(item => ({ ...item, isActive: false })), saved]; return next.sort((a,b)=>Number(b.isActive)-Number(a.isActive)); });
+      setLeadProfileId(saved.id); setLeadProfilePreferences({ ...defaultPreferences, ...saved.preferences }); setLeadProfileEditing(false);
+      setLeadProfileMessage("Profile saved. Your preferences are shared with the Commercial Leads workspace.");
+    } catch (error) { setLeadProfileMessage(error instanceof Error ? error.message : "Could not save profile."); }
+    finally { setLeadProfileSaving(false); }
+  }
+  async function deleteLeadProfile() {
+    if (!leadProfileId || !window.confirm("Delete this profile? Saved leads will be kept without a profile assignment.")) return;
+    try {
+      const response = await fetch("/api/lead-profiles?id=" + encodeURIComponent(leadProfileId), { method: "DELETE" }); const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not delete profile.");
+      const remaining = leadProfiles.filter(item => item.id !== leadProfileId); setLeadProfiles(remaining);
+      if (remaining.length) void chooseLeadProfile(remaining[0].id); else newLeadProfile();
+      setLeadProfileMessage("Profile deleted. Existing leads were preserved.");
+    } catch (error) { setLeadProfileMessage(error instanceof Error ? error.message : "Could not delete profile."); }
+  }
+
   return <main className={isFrozen ? "workspace frozen-readonly" : "workspace"}>
     <header className="topbar"><div><div className="eyebrow">WORKSPACE CONFIGURATION</div><h1>Settings</h1><p className="muted">Manage research preferences, professional background and your AI prompt connection.</p></div><div className="row"><a className="button secondary" href="/">Back to workspace</a></div></header>
     <nav className="settings-tabs" aria-label="Settings sections">
       <button className="settings-tab" type="button" onClick={() => setActiveTab("preferences")} aria-selected={activeTab === "preferences"}>LinkedIn preferences</button>
       <button className="settings-tab" type="button" onClick={() => setActiveTab("jobs")} aria-selected={activeTab === "jobs"}>Job preferences</button>
       <button className="settings-tab" type="button" onClick={() => setActiveTab("cv")} aria-selected={activeTab === "cv"}>AI imports</button>
+      <button className="settings-tab" type="button" onClick={() => setActiveTab("leads")} aria-selected={activeTab === "leads"}>Commercial leads</button>
       {!isFrozen && <button className="settings-tab" type="button" onClick={() => setActiveTab("chatgpt")} aria-selected={activeTab === "chatgpt"}>ChatGPT connection</button>}
     </nav>
     {!isFrozen && activeTab === "chatgpt" && <>
@@ -116,6 +195,16 @@ export default function SettingsPage() {
     </>}
 
     {activeTab === "jobs" && <JobPreferencesSettings />}
+    {activeTab === "leads" && <>
+      {commercialLeadsLocked && <section className="panel commercial-leads-banner" role="status"><div><strong>Commercial leads are available in the Pro plan.</strong><p>Upgrade to create profiles, import leads and use the commercial lead prompt.</p></div><a className="button" href="/billing">Upgrade to Pro</a></section>}
+      <fieldset disabled={!billingStatusLoaded || commercialLeadsLocked} aria-disabled={!billingStatusLoaded || commercialLeadsLocked} className="commercial-leads-fieldset">
+        <LeadProfileSettings profiles={leadProfiles} selectedId={leadProfileId} profileName={leadProfileName} profileDescription={leadProfileDescription} preferences={leadProfilePreferences}
+          editing={leadProfileEditing} loading={leadProfilesLoading} saving={leadProfileSaving} message={leadProfileMessage}
+          onSelect={id=>void chooseLeadProfile(id)} onNew={newLeadProfile} onToggleEditing={()=>setLeadProfileEditing(old=>!old)}
+          onNameChange={setLeadProfileName} onDescriptionChange={setLeadProfileDescription} onUpdateList={updateLeadProfileList}
+          onTogglePreference={toggleLeadProfilePreference} onSave={saveLeadProfile} onDelete={()=>void deleteLeadProfile()} onImportProfile={importLeadProfile}/>
+      </fieldset>
+    </>}
 
     {activeTab === "cv" && <>
       <section className="panel">
