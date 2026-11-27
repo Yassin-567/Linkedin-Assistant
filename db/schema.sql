@@ -249,12 +249,31 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
   id bigserial PRIMARY KEY,
   admin_email text NOT NULL,
   target_user_id text NOT NULL REFERENCES app_users(id),
-  action text NOT NULL CHECK (action IN ('freeze', 'unfreeze', 'ban', 'unban', 'logout')),
+  action text NOT NULL CHECK (action IN ('freeze', 'unfreeze', 'ban', 'unban', 'logout', 'grant_pro', 'revoke_pro_grant')),
   details jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS admin_audit_log_created_idx ON admin_audit_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS admin_audit_log_target_created_idx ON admin_audit_log(target_user_id, created_at DESC);
+
+-- Phase 17: manual Pro grant history.
+CREATE TABLE IF NOT EXISTS manual_pro_grants (
+  id bigserial PRIMARY KEY,
+  user_id text NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+  granted_by_email text NOT NULL,
+  revoked_by_email text,
+  starts_at timestamptz NOT NULL DEFAULT now(),
+  ends_at timestamptz NOT NULL,
+  revoked_at timestamptz,
+  note text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT manual_pro_grants_valid_period_check CHECK (ends_at > starts_at)
+);
+CREATE INDEX IF NOT EXISTS manual_pro_grants_active_user_idx
+  ON manual_pro_grants(user_id, ends_at DESC)
+  WHERE revoked_at IS NULL;
+CREATE INDEX IF NOT EXISTS manual_pro_grants_user_created_idx
+  ON manual_pro_grants(user_id, created_at DESC);
 
 
 -- Phase 16: Paddle Billing sandbox integration.

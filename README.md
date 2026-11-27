@@ -207,3 +207,14 @@ https://linkedin-assistant-git-inlinked-padd-72ae08-yassin567s-projects.vercel.a
 ```
 
 This URL bypass secret is a Vercel project-level deployment-protection credential. Keep it private, avoid pasting it into chat or source control, and revoke it after sandbox testing if it is no longer needed. Keep Paddle's own webhook signing secret separate in `PADDLE_WEBHOOK_SECRET`. The application still verifies Paddle's `Paddle-Signature` before processing any event.
+
+
+## Phase 17: manual Pro grants and owner billing controls
+
+- The owner-only `/admin` panel displays each user's Free/Paid/manual-grant plan source, time-limited Pro grants, Paddle subscribers and read-only Paddle prices.
+- Manual grants are stored as history in `manual_pro_grants`; active access requires `starts_at <= now()`, `ends_at > now()` and `revoked_at IS NULL`. Expired grants remain in history and automatically stop authorizing Pro. Revoking a grant records the administrator and timestamp.
+- A supported active/trialing Paddle subscription takes precedence as the displayed plan source when a user also has a manual grant. Either entitlement grants Pro when billing enforcement is enabled.
+- Server-side Pro checks return HTTP 402 with `code: PRO_REQUIRED` and `upgradeUrl: /billing` for Free users when `BILLING_ENFORCEMENT=on`. Read-only GET endpoints remain available. With enforcement off, existing access remains unchanged.
+- Grant and revocation events are recorded in `admin_audit_log` as `grant_pro` and `revoke_pro_grant`.
+- Paddle prices are fetched server-side and displayed read-only; no price editing is provided.
+- **Existing database upgrade:** `db/phase_17_manual_pro_grants.sql`. Production applied this migration on 2026-11-27. Do not run it again as part of application deployment. Fresh installations use the corresponding table and seven-action audit constraint in `db/schema.sql`.

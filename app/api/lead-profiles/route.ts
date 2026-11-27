@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/app-auth";
 import { db } from "@/lib/db";
+import { getBillingState, isBillingEnforced, proRequiredResponse } from "@/lib/billing";
 
 export const runtime = "nodejs";
 const fail = (error: string, status: number) => NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store" } });
+async function requirePro(userId: string) {
+  if (!isBillingEnforced()) return null;
+  try {
+    const billing = await getBillingState(userId);
+    return billing.enforced && billing.plan === "free"
+      ? NextResponse.json(proRequiredResponse(), { status: 402, headers: { "Cache-Control": "no-store" } })
+      : null;
+  } catch (error) {
+    console.error("Lead profile entitlement check failed", error);
+    return fail("Could not verify Pro access. Please try again.", 503);
+  }
+}
 const clean = (value: unknown, max = 160) => typeof value === "string" ? value.trim().slice(0, max) : "";
 const array = (value: unknown, max = 40): string[] => Array.isArray(value)
   ? [...new Set(value.filter((item): item is string => typeof item === "string").map(item => item.trim().slice(0, 120)).filter(Boolean))].slice(0, max)
@@ -90,6 +103,8 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const user = await currentUser();
   if (!user) return fail("Sign in required.", 401);
+  const blocked = await requirePro(user.userId);
+  if (blocked) return blocked;
   const body = await request.json().catch(() => null);
   const name = clean(body?.name, 100);
   if (!name) return fail("Give this lead profile a name.", 400);
@@ -114,6 +129,8 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const user = await currentUser();
   if (!user) return fail("Sign in required.", 401);
+  const blocked = await requirePro(user.userId);
+  if (blocked) return blocked;
   const body = await request.json().catch(() => null);
   const id = typeof body?.id === "string" ? body.id : "";
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) return fail("A valid profile ID is required.", 400);
@@ -142,6 +159,8 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const user = await currentUser();
   if (!user) return fail("Sign in required.", 401);
+  const blocked = await requirePro(user.userId);
+  if (blocked) return blocked;
   const id = request.nextUrl.searchParams.get("id") || "";
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) return fail("A valid profile ID is required.", 400);
   try {
