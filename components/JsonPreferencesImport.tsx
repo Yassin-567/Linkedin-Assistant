@@ -78,8 +78,12 @@ function asObject(value: unknown, label: string): Record<string, unknown> {
 
 function stripJsonCodeFence(raw: string): string {
   const trimmed = raw.trim();
-  const match = trimmed.match(/^\\x60{3}json[ \\t]*\\r?\\n?([\\s\\S]*?)\\r?\\n?\\x60{3}$/i);
-  return (match ? match[1] : trimmed).trim();
+  const newlineIndex = trimmed.indexOf("\\n");
+  const openingLine = newlineIndex >= 0
+    ? trimmed.slice(0, newlineIndex).replace(/\\r$/, "").trim().toLowerCase()
+    : "";
+  if (openingLine !== "```json" || !trimmed.endsWith("```")) return trimmed;
+  return trimmed.slice(newlineIndex + 1, -3).trim();
 }
 
 function parseRoot(raw: string, expectedSchema: string): Record<string, unknown> {
