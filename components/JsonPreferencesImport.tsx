@@ -10,7 +10,7 @@ const MAX_ITEM_LENGTH = 180;
 const JOB_PROMPT = [
   "Create an Inlinked Job Preferences JSON import from information I have explicitly provided in this conversation.",
   "",
-  "Return exactly one valid JSON object. Do not use Markdown fences or add explanations.",
+  "Return exactly one valid JSON object inside a single fenced code block (```json ... ```) so I can use the copy button, with no text before or after the code block and no splitting across several blocks, never as plain text or a file download.",
   "Do not invent preferences. Use only clear statements I have made about the roles, location, work arrangements, salary, seniority, employment type, exclusions and search sources I want.",
   "For anything I have not specified, use an empty array, empty string or null as appropriate. Do not infer a salary, location, employment type or work mode from my CV.",
   "Use concise list items. Every list item must be non-empty and no longer than 180 characters.",
@@ -37,13 +37,13 @@ const JOB_PROMPT = [
   "}",
   "",
   "List limits: targetRoles 80 items; keywords 100; countries 40; locations 100; workModes 3; employmentTypes 30; seniorityLevels 30; excludedKeywords 100.",
-  "Return JSON only. Keep unspecified fields at the defaults shown; Inlinked will merge non-empty values into the saved preferences."
+  "Return only the single fenced JSON code block. Keep unspecified fields at the defaults shown; Inlinked will merge non-empty values into the saved preferences."
 ].join("\n");
 
 const LINKEDIN_PROMPT = [
   "Create an Inlinked LinkedIn Search Preferences JSON import from information I have explicitly provided in this conversation.",
   "",
-  "Return exactly one valid JSON object. Do not use Markdown fences or add explanations.",
+  "Return exactly one valid JSON object inside a single fenced code block (```json ... ```) so I can use the copy button, with no text before or after the code block and no splitting across several blocks, never as plain text or a file download.",
   "Extract preferences for finding other professionals and decision-makers, not my own previous job titles.",
   "Use only target countries, industries, keywords, decision-maker job titles, exclusions and language that I have clearly stated. Do not invent target markets or assume that my work history is a target market.",
   "Every list item must be non-empty and no longer than 180 characters. Keep items concise and remove duplicates.",
@@ -76,12 +76,18 @@ function asObject(value: unknown, label: string): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function stripJsonCodeFence(raw: string): string {
+  const trimmed = raw.trim();
+  const match = trimmed.match(/^\\x60{3}json[ \\t]*\\r?\\n?([\\s\\S]*?)\\r?\\n?\\x60{3}$/i);
+  return (match ? match[1] : trimmed).trim();
+}
+
 function parseRoot(raw: string, expectedSchema: string): Record<string, unknown> {
   let value: unknown;
   try {
-    value = JSON.parse(raw.trim());
+    value = JSON.parse(stripJsonCodeFence(raw));
   } catch {
-    throw new Error("That is not valid JSON. Paste the complete JSON object without Markdown fences.");
+    throw new Error("That is not valid JSON. Paste the complete JSON object, optionally inside one fenced JSON code block.");
   }
   const root = asObject(value, "The JSON");
   if (root.schema !== expectedSchema) {
@@ -318,7 +324,7 @@ export default function JsonPreferencesImport() {
       <label className="wide">2. Paste ChatGPT's JSON response
         <textarea rows={10} value={jsonText} onChange={event => { setJsonText(event.target.value); setParsed(null); setMessage(""); }}
           placeholder={'{\n  "schema": "inlinked.' + (kind === "jobs" ? "job-preferences" : "linkedin-preferences") + '.v1",\n  "preferences": { ... }\n}'} />
-        <small className="muted">Paste the full JSON object. Lists are limited to 180 characters per item and validated before import.</small>
+        <small className="muted">Paste the complete JSON object from ChatGPT, including its single fenced JSON code block if provided. Lists are limited to 180 characters per item and validated before import.</small>
       </label>
       <div className="wide row" style={{ justifyContent: "flex-end" }}>
         <button type="button" onClick={validate} disabled={!jsonText.trim()}>Validate and preview</button>
