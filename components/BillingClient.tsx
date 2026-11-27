@@ -15,6 +15,7 @@ import PayPalSubscriptionButtons from "@/components/PayPalSubscriptionButtons";
 type BillingStatus = {
   plan: "free" | "pro";
   enforced: boolean;
+  paddleConfigured?: boolean;
   planSource?: "none" | "paddle_subscription" | "paypal_subscription" | "manual_grant";
   grant?: { id: string; startsAt: string; endsAt: string; active: boolean } | null;
   subscription:
@@ -71,9 +72,9 @@ export default function BillingClient() {
   const [interval, setInterval] =
     useState<"monthly" | "yearly">("monthly");
 
-  // Keep the existing Paddle experience as the default provider.
+  // Prefer PayPal. Paddle is offered only when its full configuration is valid.
   const [provider, setProvider] =
-    useState<"paddle" | "paypal">("paddle");
+    useState<"paddle" | "paypal">("paypal");
 
   const [busy, setBusy] = useState<
     "monthly" | "yearly" | "portal" | "refresh" | ""
@@ -94,6 +95,15 @@ export default function BillingClient() {
     useState(false);
 
   const billingDormant = status?.enforced === false;
+  const paddleConfigured =
+    status?.paddleConfigured === true && paddleConfig?.ok === true;
+  // Preserve the pre-existing dormant-page layout while forcing PayPal as
+  // the active provider whenever paid billing is enabled but Paddle is absent.
+  const activeProvider = billingDormant
+    ? "paddle"
+    : paddleConfigured && provider === "paddle"
+      ? "paddle"
+      : "paypal";
 
   const refreshStatus = useCallback(async (): Promise<BillingStatus> => {
     const response = await fetch(
@@ -466,6 +476,12 @@ export default function BillingClient() {
               : "Your account is currently on the Free plan."}
           </p>
 
+          {status?.plan === "pro" && (
+            <p className="muted" role="status">
+              <strong>You already have Pro.</strong> You do not need to purchase another subscription.
+            </p>
+          )}
+
           {status?.subscription?.status && (
             <p className="muted">
               Latest subscription status:{" "}
@@ -537,14 +553,15 @@ export default function BillingClient() {
         </p>
       )}
 
-      {!billingDormant && provider === "paddle" && error && (
+      {!billingDormant && paddleConfigured && activeProvider === "paddle" && error && (
         <p className="billing-error" role="alert">
           {error}
         </p>
       )}
 
       {!billingDormant &&
-        provider === "paddle" &&
+        paddleConfigured &&
+        activeProvider === "paddle" &&
         paddleUnavailable &&
         !error && (
           <p className="billing-warning" role="status">
@@ -609,24 +626,26 @@ export default function BillingClient() {
             <li>Advanced filtering and CSV export</li>
           </ul>
 
-          {!billingDormant && (
+          {status?.enforced === true && (
             <div
               className="billing-interval-switch billing-provider-choice"
               role="group"
               aria-label="Payment provider"
             >
+              {paddleConfigured && (
+                <button
+                  type="button"
+                  className={activeProvider === "paddle" ? "active" : ""}
+                  aria-pressed={activeProvider === "paddle"}
+                  onClick={() => setProvider("paddle")}
+                >
+                  Paddle
+                </button>
+              )}
               <button
                 type="button"
-                className={provider === "paddle" ? "active" : ""}
-                aria-pressed={provider === "paddle"}
-                onClick={() => setProvider("paddle")}
-              >
-                Paddle
-              </button>
-              <button
-                type="button"
-                className={provider === "paypal" ? "active" : ""}
-                aria-pressed={provider === "paypal"}
+                className={activeProvider === "paypal" ? "active" : ""}
+                aria-pressed={activeProvider === "paypal"}
                 onClick={() => setProvider("paypal")}
               >
                 PayPal
@@ -664,7 +683,7 @@ export default function BillingClient() {
             </button>
           </div>
 
-          {!billingDormant && provider === "paddle" && (
+          {status?.enforced === true && activeProvider === "paddle" && (
             <>
               <div className="billing-price-row">
                 <div>
@@ -706,7 +725,7 @@ export default function BillingClient() {
             </>
           )}
 
-          {!billingDormant && provider === "paypal" && (
+          {status?.enforced === true && activeProvider === "paypal" && (
             <>
               <div className="billing-price-row">
                 <div>
@@ -729,7 +748,7 @@ export default function BillingClient() {
         </article>
       </section>
 
-      {provider === "paddle" && (
+      {(billingDormant || activeProvider === "paddle") && (
       <section className="panel billing-legal-placeholder">
         <h3>Subscription terms</h3>
 
