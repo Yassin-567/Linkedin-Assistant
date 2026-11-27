@@ -97,12 +97,12 @@ export default function JobsPage() {
     setMessage("");
     let parsed: unknown;
     const trimmedImport = importText.trim();
-    const newlineIndex = trimmedImport.indexOf("\\n");
-    const openingLine = newlineIndex >= 0
-      ? trimmedImport.slice(0, newlineIndex).replace(/\\r$/, "").trim().toLowerCase()
-      : "";
-    const importBody = openingLine === "```json" && trimmedImport.endsWith("```")
-      ? trimmedImport.slice(newlineIndex + 1, -3).trim()
+    const importLines = trimmedImport.split("\n");
+    const openingLine = importLines[0].replace("\r", "").trim().toLowerCase();
+    const closingLine = importLines[importLines.length - 1].trim();
+    const fence = String.fromCharCode(96).repeat(3);
+    const importBody = openingLine === fence + "json" && closingLine === fence && importLines.length >= 3
+      ? importLines.slice(1, -1).join("\n").trim()
       : trimmedImport;
     try { parsed = JSON.parse(importBody); }
     catch { setMessage("Paste valid JSON containing a jobs array."); return; }
