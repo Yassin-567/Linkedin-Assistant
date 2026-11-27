@@ -76,7 +76,7 @@ export default function BillingClient() {
     useState<"paddle" | "paypal">("paddle");
 
   const [busy, setBusy] = useState<
-    "monthly" | "yearly" | "portal" | "refresh" | ""
+    "monthly" | "yearly" | "portal" | "refresh" | "revise" | ""
   >("");
 
   const [notice, setNotice] = useState("");
@@ -346,6 +346,60 @@ export default function BillingClient() {
     }
   }
 
+  async function switchPayPalToYearly() {
+    if (
+      status?.planSource !== "paypal_subscription" ||
+      status.subscription?.provider !== "paypal" ||
+      status.subscription.status !== "active" ||
+      status.subscription.interval !== "monthly"
+    ) {
+      return;
+    }
+
+    setBusy("revise");
+    setError("");
+    setNotice("");
+
+    let redirected = false;
+    try {
+      const response = await fetch(
+        "/api/billing/paypal/revise",
+        { method: "POST" },
+      );
+      const data = await response.json() as {
+        approvalUrl?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !data.approvalUrl) {
+        throw new Error(
+          data.error || "Could not prepare the PayPal plan change.",
+        );
+      }
+
+      const approvalUrl = new URL(data.approvalUrl);
+      if (
+        approvalUrl.protocol !== "https:" ||
+        !["www.paypal.com", "www.sandbox.paypal.com"].includes(
+          approvalUrl.hostname.toLowerCase(),
+        )
+      ) {
+        throw new Error("PayPal returned an unexpected approval address.");
+      }
+
+      redirected = true;
+      window.location.assign(approvalUrl.toString());
+    } catch (e: unknown) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Could not open PayPal plan approval.",
+      );
+    } finally {
+      if (!redirected) setBusy("");
+    }
+  }
+
   async function openPortal() {
     if (status?.enforced === false) {
       return;
@@ -501,6 +555,29 @@ export default function BillingClient() {
               ).toLocaleDateString()}
             </p>
           )}
+
+          {status?.plan === "pro" &&
+            status.planSource === "paypal_subscription" &&
+            status.subscription?.provider === "paypal" &&
+            status.subscription.status === "active" &&
+            status.subscription.interval === "monthly" && (
+              <div className="billing-plan-switch">
+                <p className="muted">
+                  Switch to Yearly for $79.00 USD per year. PayPal will ask you to
+                  approve the revised terms. Your monthly plan remains in place
+                  unless you approve; the yearly price starts on the next scheduled
+                  billing date, not when you approve.
+                </p>
+                <button
+                  className="button"
+                  type="button"
+                  onClick={() => void switchPayPalToYearly()}
+                  disabled={busy !== ""}
+                >
+                  {busy === "revise" ? "Opening PayPal..." : "Switch to Yearly"}
+                </button>
+              </div>
+            )}
         </div>
 
         <div className="billing-current-actions">
@@ -537,11 +614,13 @@ export default function BillingClient() {
         </p>
       )}
 
-      {!billingDormant && provider === "paddle" && error && (
-        <p className="billing-error" role="alert">
-          {error}
-        </p>
-      )}
+      {!billingDormant &&
+        error &&
+        (provider === "paddle" || status?.subscription?.provider === "paypal") && (
+          <p className="billing-error" role="alert">
+            {error}
+          </p>
+        )}
 
       {!billingDormant &&
         provider === "paddle" &&
