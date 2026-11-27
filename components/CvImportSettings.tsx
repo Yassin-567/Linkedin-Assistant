@@ -17,10 +17,12 @@ const CV_EXTRACTION_PROMPT = [
   "- leadPreferences.industries should contain industries in which the CV shows real experience. Do not present them as my confirmed target markets.",
   "- leadPreferences.keywords should contain professional skills, tools, services, and capabilities that could help describe the work I can offer to businesses.",
   "- leadPreferences.profileSummary should be a concise, accurate professional summary suitable as context for matching relevant business prospects.",
+  "- candidate.education should list education details supported by the CV; use an empty array if none are shown.",
+  "- Extract skills, experienceTitles and education so Inlinked can fill only currently empty professional background fields. Never replace existing saved details.",
   "- Do not put my previous job titles into a lead decision-maker field. In Inlinked, lead job titles are the titles of people I want to find (for example Founder or Managing Director), not my own titles.",
   "- Do not infer target countries, cities, remote/hybrid/on-site preference, salary, employment type, exclusions, or prospect decision-maker titles from the CV. These settings should remain unchanged.",
   "- If something is unclear or absent, use an empty string or empty array. Do not guess.",
-  "- Follow the exact item-count limits in the validator: experienceTitles 50, skills 100, tools 100, industries 50, certifications 50, languages 30, job targetRoles 80, job keywords 100, seniorityLevels 30, lead industries 50, lead keywords 100, and notes 30.",
+  "- Follow the exact item-count limits in the validator: experienceTitles 50, skills 100, tools 100, industries 50, certifications 50, languages 30, education 30, job targetRoles 80, job keywords 100, seniorityLevels 30, lead industries 50, lead keywords 100, and notes 30.",
   "- Every list item, including every note, must be a non-empty string of no more than 180 characters. Do not output longer items; shorten them without losing their meaning.",
   "",
   "Exact JSON schema:",
@@ -33,7 +35,8 @@ const CV_EXTRACTION_PROMPT = [
   '    "tools": [],',
   '    "industries": [],',
   '    "certifications": [],',
-  '    "languages": []',
+  '    "languages": [],',
+  '    "education": []',
   "  },",
   '  "jobPreferences": {',
   '    "targetRoles": [],',
@@ -60,6 +63,7 @@ type CvImportData = {
     industries: string[];
     certifications: string[];
     languages: string[];
+    education?: string[];
   };
   jobPreferences: {
     targetRoles: string[];
@@ -123,7 +127,8 @@ function parseCvImport(raw: string): CvImportData {
       tools: listValue(candidate.tools, "candidate.tools", 100),
       industries: listValue(candidate.industries, "candidate.industries", 50),
       certifications: listValue(candidate.certifications, "candidate.certifications", 50),
-      languages: listValue(candidate.languages, "candidate.languages", 30)
+      languages: listValue(candidate.languages, "candidate.languages", 30),
+      education: listValue(candidate.education, "candidate.education", 30)
     },
     jobPreferences: {
       targetRoles: listValue(job.targetRoles, "jobPreferences.targetRoles", 80),
@@ -139,7 +144,9 @@ function parseCvImport(raw: string): CvImportData {
   };
   const hasImportable = result.jobPreferences.targetRoles.length || result.jobPreferences.keywords.length ||
     result.jobPreferences.seniorityLevels.length || result.leadPreferences.industries.length ||
-    result.leadPreferences.keywords.length || result.leadPreferences.profileSummary;
+    result.leadPreferences.keywords.length || result.leadPreferences.profileSummary ||
+    result.candidate.professionalSummary || result.candidate.experienceTitles.length ||
+    result.candidate.skills.length || result.candidate.tools.length || (result.candidate.education || []).length;
   if (!hasImportable) throw new Error("The JSON contains no Inlinked preference fields to import. Check the CV and try again.");
   return result;
 }
@@ -218,11 +225,22 @@ export default function CvImportSettings() {
         keywords: mergeLists(currentJob.keywords, [...parsed.jobPreferences.keywords, ...candidateKeywords], 100),
         seniorityLevels: mergeLists(currentJob.seniorityLevels, parsed.jobPreferences.seniorityLevels, 30)
       };
+      const currentProfile = leadData.profile?.fields || {};
+      const cvAbout = parsed.leadPreferences.profileSummary || parsed.candidate.professionalSummary;
+      const nextProfile = {
+        name: currentProfile.name || "",
+        headline: currentProfile.headline || "",
+        company: currentProfile.company || "",
+        about: currentProfile.about?.trim() || currentLead.profileSummary || cvAbout,
+        skills: currentProfile.skills?.trim() || [...parsed.candidate.skills, ...parsed.candidate.tools].join("\n"),
+        experience: currentProfile.experience?.trim() || parsed.candidate.experienceTitles.join("\n"),
+        education: currentProfile.education?.trim() || (parsed.candidate.education || []).join("\n")
+      };
       const leadPayload = {
         ...currentLead,
         industries: mergeLists(currentLead.industries, [...parsed.leadPreferences.industries, ...parsed.candidate.industries], 50),
         keywords: mergeLists(currentLead.keywords, [...parsed.leadPreferences.keywords, ...candidateKeywords], 100),
-        profileSummary: appendSummary(currentLead.profileSummary, parsed.leadPreferences.profileSummary || parsed.candidate.professionalSummary)
+        profile: nextProfile
       };
 
       const [jobSaveResponse, leadSaveResponse] = await Promise.all([
@@ -234,7 +252,7 @@ export default function CvImportSettings() {
         const errors = [jobSaveData.error, leadSaveData.error].filter(Boolean);
         throw new Error(errors.length ? errors.join(" ") : "One or more preference sections could not be saved. Please check both preference tabs.");
       }
-      setMessage("CV information imported successfully. Existing preferences were kept; extracted roles, skills, tools and industries were added. Review both preference tabs when convenient.");
+      setMessage("CV information imported successfully. Existing details were kept; professional background fields were filled only where they were empty.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Import failed. Your existing preferences have not been intentionally cleared.");
     } finally {
@@ -277,6 +295,7 @@ export default function CvImportSettings() {
       <p><strong>Lead industries:</strong> {showList([...new Set([...parsed.leadPreferences.industries, ...parsed.candidate.industries])])}</p>
       <p><strong>Lead keywords:</strong> {showList([...new Set([...parsed.leadPreferences.keywords, ...parsed.candidate.skills, ...parsed.candidate.tools])])}</p>
       <p><strong>CV summary:</strong> {parsed.leadPreferences.profileSummary || parsed.candidate.professionalSummary || "None extracted"}</p>
+      <p><strong>Education:</strong> {showList(parsed.candidate.education || [])}</p>
       <p><strong>Certifications:</strong> {showList(parsed.candidate.certifications)}</p>
       <p><strong>Languages:</strong> {showList(parsed.candidate.languages)}</p>
       {parsed.notes.length > 0 && <div><strong>Notes from extraction</strong><ul>{parsed.notes.map((note, index) => <li key={index}>{note}</li>)}</ul></div>}

@@ -48,7 +48,9 @@ const LINKEDIN_PROMPT = [
   "Use only target countries, industries, keywords, decision-maker job titles, exclusions and language that I have clearly stated. Do not invent target markets or assume that my work history is a target market.",
   "Every list item must be non-empty and no longer than 180 characters. Keep items concise and remove duplicates.",
   "Only include linkedinProfileUrl if I have explicitly supplied my own public LinkedIn personal profile URL. Do not guess it.",
-  "profileSummary may briefly describe my professional background when that information is supported by the conversation. Do not add private contact details.",
+  "Include a profile object with professional background details I have explicitly provided. Use about as the single professional summary. Do not add private contact details.",
+  "Use profile.about for my summary (maximum 3000 characters); name, headline, company, skills, experience and education are each limited to 2000 characters.",
+  "For backward compatibility, profileSummary is also accepted and maps to profile.about when profile.about is empty.",
   "",
   "Exact JSON shape:",
   "{",
@@ -61,7 +63,8 @@ const LINKEDIN_PROMPT = [
   '    "jobTitles": [],',
   '    "excludedKeywords": [],',
   '    "language": "",',
-  '    "profileSummary": ""',
+  '    "profileSummary": "",',
+  '    "profile": { "name": "", "headline": "", "company": "", "about": "", "skills": "", "experience": "", "education": "" }',
   "  }",
   "}",
   "",
@@ -181,11 +184,20 @@ function parseImport(raw: string, kind: ImportKind): Parsed {
     }
   }
   const language = optionalText(input.language, "language", 60);
-  const profileSummary = optionalText(input.profileSummary, "profileSummary", 4000);
+  const profileSummary = optionalText(input.profileSummary, "profileSummary", 3000);
+  const rawProfile = input.profile === undefined ? {} : asObject(input.profile, "profile");
+  const profile: Record<string, string> = {};
+  for (const key of ["name", "headline", "company", "about", "skills", "experience", "education"]) {
+    const value = optionalText(rawProfile[key], "profile." + key, key === "about" ? 3000 : 2000);
+    if (value !== undefined) profile[key] = value;
+  }
+  if (!profile.about && profileSummary) profile.about = profileSummary;
   if (language !== undefined && language) result.language = language;
+  if (Object.keys(profile).length) result.profile = profile;
   if (profileSummary !== undefined) result.profileSummary = profileSummary;
   if (!Object.entries(result).some(([key, value]) =>
     ((key === "profileSummary" || key === "linkedinProfileUrl") && typeof value === "string" && value.trim().length > 0) ||
+    (key === "profile" && value && typeof value === "object" && Object.values(value as Record<string,string>).some(text => text.trim().length > 0)) ||
     (Array.isArray(value) && value.length > 0)
   )) {
     throw new Error("The JSON contains no LinkedIn preference values to import.");
@@ -199,11 +211,21 @@ function mergeLists(current: unknown, incoming: unknown, maxItems: number): stri
   return Array.from(new Set([...existing, ...next].map(item => item.trim()).filter(Boolean))).slice(0, maxItems);
 }
 
-function appendSummary(current: unknown, incoming: unknown): string {
+function appendSummary(current: unknown, incoming: unknown, max = 3000): string {
   const existing = typeof current === "string" ? current.trim() : "";
   const addition = typeof incoming === "string" ? incoming.trim() : "";
-  if (!addition || existing.includes(addition)) return existing.slice(0, 4000);
-  return (existing + (existing ? "\n\n" : "") + addition).slice(0, 4000);
+  if (!addition || existing.includes(addition)) return existing.slice(0, max);
+  const separator = existing ? "\n\n" : "";
+  const available = Math.max(0, max - existing.length - separator.length);
+  return (existing + separator + addition.slice(0, available)).slice(0, max);
+}
+function mergeText(current: unknown, incoming: unknown, max: number): string {
+  const existing = typeof current === "string" ? current.trim() : "";
+  const addition = typeof incoming === "string" ? incoming.trim() : "";
+  if (!addition || existing.includes(addition)) return existing.slice(0, max);
+  if (!existing) return addition.slice(0, max);
+  const separator = "\n";
+  return (existing + separator + addition.slice(0, Math.max(0, max - existing.length - separator.length))).slice(0, max);
 }
 
 export default function JsonPreferencesImport() {
@@ -273,7 +295,7 @@ export default function JsonPreferencesImport() {
         if (!response.ok) throw new Error(data.error || "Could not load LinkedIn preferences.");
         const current = data.preferences || {};
         const incoming = parsed.preferences;
-        const payload = {
+        const payload: Record<string, unknown> = {
           ...current,
           countries: mergeLists(current.countries, incoming.countries, 30),
           industries: mergeLists(current.industries, incoming.industries, 50),
@@ -282,7 +304,18 @@ export default function JsonPreferencesImport() {
           excludedKeywords: mergeLists(current.excludedKeywords, incoming.excludedKeywords, 100),
           linkedinProfileUrl: incoming.linkedinProfileUrl || current.linkedinProfileUrl || "",
           language: incoming.language || current.language || "English",
-          profileSummary: appendSummary(current.profileSummary, incoming.profileSummary)
+          profileSummary: appendSummary(current.profileSummary, (incoming.profile as Record<string,string> | undefined)?.about || incoming.profileSummary, 3000)
+        };
+        const currentProfile = data.profile?.fields || {};
+        const incomingProfile = (incoming.profile || {}) as Record<string,string>;
+        payload.profile = {
+          name: mergeText(currentProfile.name, incomingProfile.name, 2000),
+          headline: mergeText(currentProfile.headline, incomingProfile.headline, 2000),
+          company: mergeText(currentProfile.company, incomingProfile.company, 2000),
+          about: appendSummary(currentProfile.about || current.profileSummary, incomingProfile.about || incoming.profileSummary, 3000),
+          skills: mergeText(currentProfile.skills, incomingProfile.skills, 2000),
+          experience: mergeText(currentProfile.experience, incomingProfile.experience, 2000),
+          education: mergeText(currentProfile.education, incomingProfile.education, 2000)
         };
         const save = await fetch("/api/preferences", {
           method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
@@ -292,7 +325,7 @@ export default function JsonPreferencesImport() {
       }
       setJsonText("");
       setParsed(null);
-      setMessage("Import successful. Existing preferences were kept and the new values were added.");
+      setMessage("Import successful. Existing preferences and background details were kept; new text was merged without replacing saved content.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Import failed.");
     } finally {
