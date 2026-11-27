@@ -19,7 +19,14 @@ export async function GET() {
       (SELECT linkedin_profile_verified_at FROM app_users WHERE id = ${user.userId}) AS saved_at`;
     const row = rows[0] || {};
     const saved = row.profile_data && typeof row.profile_data === "object" ? row.profile_data : {};
-    return NextResponse.json({ fields: saved.fields || emptyFields, fieldSources: saved.fieldSources || {}, summary: row.profile_summary || "", savedAt: row.saved_at || saved.confirmedAt || null }, { headers });
+    const savedFields = saved.fields && typeof saved.fields === "object" ? saved.fields : {};
+    const summary = row.profile_summary || savedFields.about || "";
+    return NextResponse.json({
+      fields: { ...emptyFields, ...savedFields, about: summary },
+      fieldSources: saved.fieldSources || {},
+      summary,
+      savedAt: row.saved_at || saved.confirmedAt || null
+    }, { headers });
   } catch (error) {
     console.error("Professional context read failed", error);
     return NextResponse.json({ error: "Could not load your professional context." }, { status: 503 });
@@ -36,10 +43,14 @@ export async function POST(request: NextRequest) {
   if (!fieldNames.some(name => fields[name])) return NextResponse.json({ error: "Enter at least one professional detail before saving." }, { status: 400 });
   const fieldSources: Record<string, string> = {};
   for (const name of fieldNames) fieldSources[name] = fields[name] ? "user_entered_or_edited" : "not_found";
-  const summary = [fields.name && `Name: ${fields.name}`, fields.headline && `Headline: ${fields.headline}`, fields.company && `Company: ${fields.company}`, fields.about && `About: ${fields.about}`, fields.skills && `Skills: ${fields.skills}`, fields.experience && `Experience: ${fields.experience}`, fields.education && `Education: ${fields.education}`].filter(Boolean).join("\n").slice(0, 4000);
   const profileData = { fields, fieldSources, confirmedAt: new Date().toISOString() };
   try {
     const sql = db();
+    const existingRows: any = await sql`SELECT profile_summary, linkedin_profile_data FROM app_users WHERE id = ${user.userId} LIMIT 1`;
+    const existing = existingRows[0] || {};
+    const existingData = existing.linkedin_profile_data && typeof existing.linkedin_profile_data === "object" ? existing.linkedin_profile_data : {};
+    const existingFields = existingData.fields && typeof existingData.fields === "object" ? existingData.fields : {};
+    const summary = fields.about || existing.profile_summary || existingFields.about || "";
     await sql`UPDATE app_users SET linkedin_profile_data = ${JSON.stringify(profileData)}::jsonb, linkedin_profile_source = ${"user_confirmed"}, linkedin_profile_verified_at = now(), profile_summary = ${summary}, updated_at = now() WHERE id = ${user.userId}`;
     return NextResponse.json({ ok: true, fields, fieldSources, summary, savedAt: profileData.confirmedAt }, { headers });
   } catch (error) {

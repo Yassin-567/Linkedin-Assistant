@@ -11,7 +11,6 @@ type Status = { enabled: boolean; createdAt: string };
 
 type Props = {
   prospectCount: number;
-  onProspectCountChange: (value: number) => void;
 };
 
 const localDateValue = (date = new Date()) => {
@@ -21,7 +20,7 @@ const localDateValue = (date = new Date()) => {
   return year + "-" + month + "-" + day;
 };
 
-export default function ChatGptSettings({ prospectCount, onProspectCountChange }: Props) {
+export default function ChatGptSettings({ prospectCount }: Props) {
   const [workflow, setWorkflow] = useState<Workflow>("jobs");
   const [jobMode, setJobMode] = useState<JobMode>("standard");
   const [kind, setKind] = useState<PromptKind>("research");
@@ -31,7 +30,6 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
   const [tokenDraft, setTokenDraft] = useState("");
   const [origin, setOrigin] = useState("");
   const [busy, setBusy] = useState("");
-  const [savingCount, setSavingCount] = useState("");
   const [message, setMessage] = useState("");
   const [scheduleFrequency, setScheduleFrequency] = useState<ScheduleFrequency>("daily");
   const [scheduleTimeChoice, setScheduleTimeChoice] = useState<ScheduleTimeChoice>("morning");
@@ -196,42 +194,6 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
     }
   }
 
-  async function saveConnectionCount() {
-    setSavingCount("connections");
-    try {
-      const response = await fetch("/api/preferences", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connectionTargetCount: prospectCount })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Could not save the LinkedIn connection target.");
-      setMessage("LinkedIn connection target saved.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not save the LinkedIn connection target.");
-    } finally {
-      setSavingCount("");
-    }
-  }
-
-  async function saveJobCount() {
-    setSavingCount("jobs");
-    try {
-      const response = await fetch("/api/job-preferences", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetCount: jobCount })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Could not save the job target.");
-      setMessage("Job target saved.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not save the job target.");
-    } finally {
-      setSavingCount("");
-    }
-  }
-
   async function copyUltimateLink() {
     if (!ultimateLink) return;
     try {
@@ -307,24 +269,7 @@ export default function ChatGptSettings({ prospectCount, onProspectCountChange }
       </div>}
     </section>
 
-    {workflow !== "record_update" && <section className="panel">
-      <h2>2. Search target</h2>
-      {workflow === "connections"
-        ? <label className="wide">LinkedIn connections to target per research run
-            <input type="number" min={1} max={50} step={1} value={prospectCount}
-              onChange={event => { const n = Number(event.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) onProspectCountChange(n); }}
-              onBlur={() => void saveConnectionCount()} />
-            <small className="muted">Choose 1–50. The selected target is saved to your account. The assistant may return fewer only when fewer qualified candidates can be verified.</small>
-            {savingCount === "connections" && <small className="muted">Saving target…</small>}
-          </label>
-        : <label className="wide">Jobs to target per research run
-            <input type="number" min={1} max={50} step={1} value={jobCount}
-              onChange={event => { const n = Number(event.target.value); if (Number.isInteger(n) && n >= 1 && n <= 50) setJobCount(n); }}
-              onBlur={() => void saveJobCount()} />
-            <small className="muted">Choose 1–50. Your job target is saved with your job-search preferences.</small>
-            {savingCount === "jobs" && <small className="muted">Saving target…</small>}
-          </label>}
-    </section>}
+
 
     {kind === "scheduled" && scheduledAvailable && <section className="panel">
       <h2>3. Recurring schedule</h2>
