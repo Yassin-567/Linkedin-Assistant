@@ -70,6 +70,7 @@ async function loadPayPalSdk(clientId: string): Promise<PayPalNamespace> {
       vault: "true",
       intent: "subscription",
       components: "buttons",
+      "disable-funding": "card",
       currency: "USD",
     });
     script.src = `https://www.paypal.com/sdk/js?${params.toString()}`;
