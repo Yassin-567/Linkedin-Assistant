@@ -14,6 +14,8 @@ import { getPaddleClientConfig } from "@/lib/paddle-client-config";
 type BillingStatus = {
   plan: "free" | "pro";
   enforced: boolean;
+  planSource?: "none" | "paddle_subscription" | "manual_grant";
+  grant?: { id: string; startsAt: string; endsAt: string; active: boolean } | null;
   subscription:
     | null
     | {
@@ -439,7 +441,9 @@ export default function BillingClient() {
 
           <p className="muted">
             {status?.plan === "pro"
-              ? "Your Pro access is active according to the latest verified Paddle subscription event."
+              ? status.planSource === "manual_grant" && status.grant?.endsAt
+                ? "Pro until " + new Date(status.grant.endsAt).toLocaleDateString() + " (granted)."
+                : "Your Pro access is active according to the latest verified Paddle subscription event."
               : "Your account is currently on the Free plan."}
           </p>
 

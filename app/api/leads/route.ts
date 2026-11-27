@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/app-auth";
 import { db } from "@/lib/db";
-import { getBillingState, isBillingEnforced } from "@/lib/billing";
+import { getBillingState, isBillingEnforced, proRequiredResponse } from "@/lib/billing";
 
 export const runtime = "nodejs";
 const statuses = ["New", "Qualified", "Contacted", "In discussion", "Proposal", "Won", "Lost", "Not relevant"];
@@ -10,6 +10,18 @@ const clean = (value: unknown, max = 1000) => typeof value === "string" ? value.
 const validId = (value: unknown) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 const object = (value: unknown) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 const list = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").slice(0, 30) : [];
+async function requirePro(userId: string) {
+  if (!isBillingEnforced()) return null;
+  try {
+    const billing = await getBillingState(userId);
+    return billing.enforced && billing.plan === "free"
+      ? NextResponse.json(proRequiredResponse(), { status: 402, headers: { "Cache-Control": "no-store" } })
+      : null;
+  } catch (error) {
+    console.error("Business lead entitlement check failed", error);
+    return fail("Could not verify Pro access. Please try again.", 503);
+  }
+}
 
 function sourceUrl(value: unknown): { raw: string; normalized: string } {
   const raw = clean(value, 2000);
@@ -194,6 +206,8 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const user = await currentUser();
   if (!user) return fail("Sign in required.", 401);
+  const blocked = await requirePro(user.userId);
+  if (blocked) return blocked;
   const body = await request.json().catch(() => null);
   if (!validId(body?.id)) return fail("A valid lead ID is required.", 400);
   const status = statuses.includes(body.status) ? body.status : "New";
@@ -220,6 +234,8 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const user = await currentUser();
   if (!user) return fail("Sign in required.", 401);
+  const blocked = await requirePro(user.userId);
+  if (blocked) return blocked;
   const id = request.nextUrl.searchParams.get("id") || "";
   if (!validId(id)) return fail("A valid lead ID is required.", 400);
   try {

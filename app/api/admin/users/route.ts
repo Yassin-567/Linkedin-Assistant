@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentAdmin, ADMIN_EMAIL } from "@/lib/admin";
 import { db } from "@/lib/db";
+import { getBillingState } from "@/lib/billing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,7 +67,16 @@ export async function GET() {
       LIMIT 30`
     ]);
 
-    return NextResponse.json({ users, auditLog }, { headers: noStore });
+    const usersWithBilling = await Promise.all(users.map(async (user: any) => {
+      try {
+        const billing = await getBillingState(String(user.id));
+        return { ...user, plan: billing.plan, planSource: billing.planSource, grant: billing.grant };
+      } catch (billingError) {
+        console.error("Admin user billing summary failed", billingError);
+        return { ...user, plan: "free", planSource: "none", grant: null };
+      }
+    }));
+    return NextResponse.json({ users: usersWithBilling, auditLog }, { headers: noStore });
   } catch (error) {
     console.error("Admin dashboard read failed", error);
     return fail("Could not load the admin dashboard. Check the Phase 13 admin migration.", 503);
