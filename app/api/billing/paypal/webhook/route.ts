@@ -28,8 +28,14 @@ type PayPalSubscription = {
 };
 
 function validDate(value: unknown): string | null {
-  if (typeof value !== "string" || !value) return null;
-  const parsed = new Date(value);
+  if (!value) return null;
+  const parsed =
+    value instanceof Date
+      ? value
+      : typeof value === "string"
+        ? new Date(value)
+        : null;
+  if (!parsed) return null;
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
@@ -194,7 +200,7 @@ export async function POST(request: NextRequest) {
         plan_id: string;
         status: string;
         interval: string;
-        current_period_ends_at: string | null;
+        current_period_ends_at: string | Date | null;
       }[];
 
       if (!rows.length) {
