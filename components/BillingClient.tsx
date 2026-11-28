@@ -478,7 +478,16 @@ export default function BillingClient() {
 
           {status?.plan === "pro" && (
             <p className="muted" role="status">
-              <strong>You already have Pro.</strong> You do not need to purchase another subscription.
+              {status.planSource === "manual_grant" && status.grant?.endsAt ? (
+                <>
+                  Your free Pro grant runs until{" "}
+                  {new Date(status.grant.endsAt).toLocaleDateString()}. You can subscribe now; your first PayPal charge will start when the grant ends.
+                </>
+              ) : (
+                <>
+                  <strong>You already have Pro.</strong> You do not need to purchase another subscription.
+                </>
+              )}
             </p>
           )}
 
@@ -736,7 +745,7 @@ export default function BillingClient() {
                 </div>
                 <span className="muted">PayPal subscription</span>
               </div>
-              {status?.plan !== "pro" && (
+              {(status?.plan !== "pro" || status.planSource === "manual_grant") && (
                 <PayPalSubscriptionButtons
                   interval={interval}
                   onVerified={handlePayPalVerified}

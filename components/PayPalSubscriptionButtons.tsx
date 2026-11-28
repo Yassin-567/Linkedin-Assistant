@@ -9,6 +9,7 @@ type PayPalClientConfig = {
   monthlyPlanId: string;
   yearlyPlanId: string;
   accountReference: string;
+  startTime?: string;
 };
 
 type PayPalActions = {
@@ -16,6 +17,7 @@ type PayPalActions = {
     create: (input: {
       plan_id: string;
       custom_id: string;
+      start_time?: string;
     }) => Promise<string>;
   };
 };
@@ -143,11 +145,22 @@ export default function PayPalSubscriptionButtons({
             : config.yearlyPlanId;
 
         const buttons = paypal.Buttons({
-          createSubscription: (_data, actions) =>
-            actions.subscription.create({
+          createSubscription: (_data, actions) => {
+            const startTimeMs = config.startTime
+              ? Date.parse(config.startTime)
+              : Number.NaN;
+            const startTime =
+              Number.isFinite(startTimeMs) &&
+              startTimeMs > Date.now() + 5 * 60 * 1000
+                ? config.startTime
+                : undefined;
+
+            return actions.subscription.create({
               plan_id: planId,
               custom_id: config.accountReference,
-            }),
+              ...(startTime ? { start_time: startTime } : {}),
+            });
+          },
           onApprove: async (data) => {
             const subscriptionID = String(data.subscriptionID || "");
             if (!subscriptionID) {
