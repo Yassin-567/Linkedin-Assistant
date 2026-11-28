@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {
   getPayPalWebhookId,
+  getPayPalPublicConfig,
   paypalApiRequest,
   PayPalConfigurationError,
 } from "@/lib/paypal-config";
@@ -20,15 +21,27 @@ type PayPalSubscription = {
   id?: string;
   status?: string;
   plan_id?: string;
+  custom_id?: string;
   billing_info?: {
     next_billing_time?: string;
   };
 };
 
 function validDate(value: unknown): string | null {
-  if (typeof value !== "string" || !value) return null;
-  const parsed = new Date(value);
+  if (!value) return null;
+  const parsed =
+    value instanceof Date
+      ? value
+      : typeof value === "string"
+        ? new Date(value)
+        : null;
+  if (!parsed) return null;
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function sameBillingInstant(first: string | null, second: string | null) {
+  if (!first || !second) return false;
+  return Math.abs(Date.parse(first) - Date.parse(second)) <= 60_000;
 }
 
 function subscriptionIdForEvent(
@@ -138,6 +151,7 @@ export async function POST(request: NextRequest) {
 
   const handledTypes = new Set([
     "BILLING.SUBSCRIPTION.ACTIVATED",
+    "BILLING.SUBSCRIPTION.UPDATED",
     "PAYMENT.SALE.COMPLETED",
     "BILLING.SUBSCRIPTION.CANCELLED",
     "BILLING.SUBSCRIPTION.EXPIRED",
@@ -176,7 +190,7 @@ export async function POST(request: NextRequest) {
       }
 
       const rows = await sql`
-        SELECT user_id, plan_id, status, current_period_ends_at
+        SELECT user_id, plan_id, status, interval, current_period_ends_at
         FROM paypal_subscriptions
         WHERE provider = 'paypal'
           AND paypal_subscription_id = ${subscriptionId}
@@ -185,7 +199,8 @@ export async function POST(request: NextRequest) {
         user_id: string;
         plan_id: string;
         status: string;
-        current_period_ends_at: string | null;
+        interval: string;
+        current_period_ends_at: string | Date | null;
       }[];
 
       if (!rows.length) {
@@ -199,6 +214,108 @@ export async function POST(request: NextRequest) {
       }
 
       const subscription = rows[0];
+
+      if (eventType === "BILLING.SUBSCRIPTION.UPDATED") {
+        const config = getPayPalPublicConfig();
+        const verified = await paypalApiRequest<PayPalSubscription>(
+          `/v1/billing/subscriptions/${encodeURIComponent(subscriptionId)}`,
+          { method: "GET" },
+        );
+
+        if (
+          verified.id !== subscriptionId ||
+          String(verified.status || "").toUpperCase() !== "ACTIVE" ||
+          String(verified.custom_id || "") !== subscription.user_id
+        ) {
+          return NextResponse.json(
+            { error: "PayPal subscription details do not match the verified Inlinked record." },
+            { status: 400 },
+          );
+        }
+
+        const verifiedPlanId = String(verified.plan_id || "");
+        if (verifiedPlanId === subscription.plan_id) {
+          // PayPal also emits UPDATED for non-plan changes. Keep the row
+          // unchanged when the verified plan has not changed.
+        } else if (
+          subscription.plan_id === config.monthlyPlanId &&
+          subscription.interval === "monthly" &&
+          verifiedPlanId === config.yearlyPlanId
+        ) {
+          const savedNextBilling = validDate(subscription.current_period_ends_at);
+          const verifiedNextBilling = validDate(
+            verified.billing_info?.next_billing_time,
+          );
+
+          if (!sameBillingInstant(savedNextBilling, verifiedNextBilling)) {
+            return NextResponse.json(
+              { error: "PayPal changed the next billing date during the plan revision; the Inlinked plan record was not updated." },
+              { status: 409 },
+            );
+          }
+
+          const conflicts = await sql`
+            SELECT (
+              EXISTS (
+                SELECT 1
+                FROM paddle_subscriptions
+                WHERE user_id = ${subscription.user_id}
+                  AND status IN ('active', 'trialing')
+              )
+              OR EXISTS (
+                SELECT 1
+                FROM paypal_subscriptions
+                WHERE user_id = ${subscription.user_id}
+                  AND provider = 'paypal'
+                  AND paypal_subscription_id <> ${subscriptionId}
+                  AND (
+                    status IN ('approved', 'active')
+                    OR (
+                      status = 'cancelled'
+                      AND current_period_ends_at IS NOT NULL
+                      AND current_period_ends_at > now()
+                    )
+                  )
+              )
+            ) AS has_other_current_subscription
+          ` as unknown as { has_other_current_subscription: boolean }[];
+
+          if (conflicts[0]?.has_other_current_subscription) {
+            return NextResponse.json(
+              { error: "Another current subscription exists; the Yearly revision was not applied to Inlinked." },
+              { status: 409 },
+            );
+          }
+
+          const updated = await sql`
+            UPDATE paypal_subscriptions
+            SET plan_id = ${config.yearlyPlanId},
+                interval = 'yearly',
+                event_occurred_at = ${occurredAt}::timestamptz,
+                updated_at = now()
+            WHERE provider = 'paypal'
+              AND paypal_subscription_id = ${subscriptionId}
+              AND user_id = ${subscription.user_id}
+              AND status = 'active'
+              AND plan_id = ${config.monthlyPlanId}
+              AND interval = 'monthly'
+              AND event_occurred_at <= ${occurredAt}::timestamptz
+            RETURNING paypal_subscription_id
+          ` as unknown as { paypal_subscription_id: string }[];
+
+          if (!updated.length) {
+            return NextResponse.json(
+              { error: "The Monthly subscription row changed before the verified Yearly event could be applied." },
+              { status: 409 },
+            );
+          }
+        } else {
+          return NextResponse.json(
+            { error: "PayPal reported an unsupported subscription plan transition." },
+            { status: 409 },
+          );
+        }
+      }
 
       if (eventType === "BILLING.SUBSCRIPTION.ACTIVATED") {
         const verified = await paypalApiRequest<PayPalSubscription>(
