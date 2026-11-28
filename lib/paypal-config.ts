@@ -118,6 +118,7 @@ export async function paypalApiRequest<T>(
     method: "GET" | "POST";
     body?: Record<string, unknown>;
     rawBody?: string;
+    prefer?: "return=representation";
   },
 ): Promise<T> {
   if (!path.startsWith("/") || path.startsWith("//")) {
@@ -142,6 +143,7 @@ export async function paypalApiRequest<T>(
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/json",
+      ...(init.prefer ? { Prefer: init.prefer } : {}),
       ...(requestBody !== undefined ? { "Content-Type": "application/json" } : {}),
     },
     ...(requestBody !== undefined ? { body: requestBody } : {}),

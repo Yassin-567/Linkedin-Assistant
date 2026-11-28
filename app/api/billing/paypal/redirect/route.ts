@@ -139,6 +139,7 @@ export async function POST(request: NextRequest) {
         "/v1/billing/subscriptions",
         {
           method: "POST",
+          prefer: "return=representation",
           body: {
             plan_id: planId,
             custom_id: user.userId,
