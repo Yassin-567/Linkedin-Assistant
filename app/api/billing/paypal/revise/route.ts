@@ -230,7 +230,9 @@ export async function POST(request: NextRequest) {
         ? Date.parse(remoteNextBillingRaw)
         : Number.NaN;
       const savedTimeMs = savedPeriodEndRaw
-        ? Date.parse(savedPeriodEndRaw)
+        ? savedPeriodEndRaw instanceof Date
+          ? savedPeriodEndRaw.getTime()
+          : Date.parse(savedPeriodEndRaw)
         : Number.NaN;
 
       console.error(JSON.stringify({
