@@ -216,6 +216,33 @@ export async function POST(request: NextRequest) {
       String(remote.custom_id || "") !== user.userId ||
       !sameBillingInstant(remoteNextBilling, savedNextBilling)
     ) {
+      const remoteNextBillingRaw =
+        remote.billing_info?.next_billing_time ?? null;
+      const savedPeriodEndRaw =
+        current.current_period_ends_at ?? null;
+      const remoteTimeMs = remoteNextBillingRaw
+        ? Date.parse(remoteNextBillingRaw)
+        : Number.NaN;
+      const savedTimeMs = savedPeriodEndRaw
+        ? Date.parse(savedPeriodEndRaw)
+        : Number.NaN;
+
+      console.error(JSON.stringify({
+        event: "paypal_revision_verification_mismatch",
+        id_match: remote.id === current.paypal_subscription_id,
+        status_value: remote.status ?? null,
+        status_match:
+          String(remote.status || "").toUpperCase() === "ACTIVE",
+        plan_id_match: remote.plan_id === config.monthlyPlanId,
+        custom_id_match: String(remote.custom_id || "") === user.userId,
+        remote_next_billing_time: remoteNextBillingRaw,
+        saved_period_end: savedPeriodEndRaw,
+        difference_seconds:
+          Number.isFinite(remoteTimeMs) && Number.isFinite(savedTimeMs)
+            ? (remoteTimeMs - savedTimeMs) / 1000
+            : null,
+      }));
+
       return errorResponse(
         "The PayPal subscription no longer matches Inlinked's verified Monthly record. Refresh billing status before retrying.",
         409,
